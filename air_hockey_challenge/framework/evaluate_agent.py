@@ -1,4 +1,4 @@
-from air_hockey_challenge.framework.air_hockey_challenge_wrapper import AirHockeyChallengeWrapper
+from air_hockey_challenge.framework.custom_environment_wrapper import CustomEnvironmentWrapper
 from air_hockey_challenge.framework.challenge_core import ChallengeCore
 
 from mushroom_rl.core import Logger
@@ -198,10 +198,14 @@ def _evaluate(log_dir, env, agent_builder, init_states, quiet, render, episode_o
 
     eval_params = {"quiet": quiet, "render": render, "initial_states": init_states}
 
-    mdp = AirHockeyChallengeWrapper(env)
+    mdp = CustomEnvironmentWrapper(env)
 
     agent = agent_builder(mdp.env_info, **kwargs)
-    core = ChallengeCore(agent, mdp)
+
+    #create ChallengeCore with parameter action_idx in order to match the dimension of the action variable for the CustomEnvironmentWrapper
+    n_joints = mdp.env_info['robot']['n_joints']
+
+    core = ChallengeCore(agent, mdp, action_idx=[i for i in range(n_joints)])
 
     dataset, success, penalty_sum, constraints_dict, jerk, computation_time, violations = compute_metrics(core, eval_params, episode_offset)
 
@@ -281,7 +285,7 @@ def convert(o):
 
 
 def generate_init_states(env, n_episodes, n_parallel_cores):
-    mdp = AirHockeyChallengeWrapper(env)
+    mdp = CustomEnvironmentWrapper(env)
     init_states = []
     chunk_lens = [n_episodes // n_parallel_cores + int(x < n_episodes % n_parallel_cores) for x in
                   range(n_parallel_cores)]
