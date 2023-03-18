@@ -23,22 +23,29 @@ class DummyAgent(AgentBase):
         self.new_start = True
         self.hold_position = None
 
-        if kwargs['goal'] is not None:
-            self.goal = np.array(kwargs['goal'])
-        else:
-            self.goal = np.array([2,0,0])
+        self.path = kwargs['path'] if 'path' in kwargs else [[-0.8, 0, 0]]
+
+        self.steps_per_action = kwargs['steps_per_action'] if 'steps_per_action' in kwargs else 50
+
+        self.step = 0
+        self.path_idx = 0
 
     def reset(self):
         self.new_start = True
         self.hold_position = None
 
     def draw_action(self, observation):
-        if self.new_start:
+        if self.new_start == True:
+            self.path_idx = 0
             self.new_start = False
-            self.joint_position = self.get_joint_pos(observation)
+        else:
+            self.path_idx = (self.path_idx + 1) % len(self.path) \
+                if self.step % self.steps_per_action == 0 else self.path_idx  #updates path_idx every steps_per_action steps
+        
+        action = self.path[self.path_idx]        
 
-        action = self.goal
-        #print(f'Joints Position: {self.hold_position}')
-        #print(f'Action: {action}')
+        print(f'Step: {self.step}\t\tAction: {action}')
 
-        return action
+        self.step += 1
+
+        return np.array(action)
