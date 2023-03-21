@@ -29,7 +29,7 @@ class DummyAgent(AgentBase):
         
         action = self.path[self.path_idx]        
 
-        print(f'Step: {self.step} \t\t Observation: {observation}')
+        #print(f'Step: {self.step} \t\t Observation: {observation}')
 
         self.step += 1
 

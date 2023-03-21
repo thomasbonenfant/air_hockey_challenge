@@ -13,5 +13,6 @@ generate_score: "phase-1" # Generate the score for the leaderboard ranking, set 
 
 # Agent Parameters
 # You can specify your own parameters here, they will be passed to the init of your Agent
+agent: 'dummy-agent'
 path: [[-0.8,0,0],[-0.8,0.4,0],[-0.8,-0.4,0], [-0.8,0,0]]
 steps_per_action: 50
