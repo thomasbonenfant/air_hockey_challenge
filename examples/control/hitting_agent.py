@@ -70,8 +70,8 @@ class HittingAgent(AgentBase):
             self.plan_thread.start()
 
         if len(self.joint_trajectory) > 0:
-            joint_pos_des, joint_vel_des = self.joint_trajectory[0]
-            self.joint_trajectory = self.joint_trajectory[1:]
+            joint_pos_des, joint_vel_des = self.joint_trajectory[0] # prende il primo step
+            self.joint_trajectory = self.joint_trajectory[1:] # rimuove il primo step appena usato
             self.last_cmd[1] = joint_vel_des
             self.last_cmd[0] = joint_pos_des
         else:
@@ -91,13 +91,15 @@ class HittingAgent(AgentBase):
             self.joint_trajectory = np.array([])
 
     def plan_ee_trajectory(self, puck_pos, ee_pos):
-        goal_pos = np.array([0.98, 0.0, 0.0])
+        goal_pos = np.array([0.98, 0.0, 0.0]) # posizione della goal area
         goal_pos_robot = world_to_robot(self.env_info["robot"]["base_frame"][0], goal_pos)
         goal_pos_2d = goal_pos_robot[0][:2]
 
+        # calcolo del versore
         hit_dir_2d = goal_pos_2d - puck_pos[:2]
         hit_dir_2d = hit_dir_2d / np.linalg.norm(hit_dir_2d)
 
+        # posizione in cui piazzare il mullet per colpire il puck
         hit_pos_2d = puck_pos[:2] - hit_dir_2d * (
                 self.env_info['puck']['radius'] + self.env_info['mallet']['radius'])
 
@@ -108,7 +110,8 @@ class HittingAgent(AgentBase):
         success, q_anchor = self.optimizer.solve_hit_config_ik_null(hit_pos_3d, hit_dir_3d, self.joint_anchor_pos)
         if not success:
             q_anchor = self.joint_anchor_pos
-
+        
+        # calcola la traiettoria punto per punto
         hit_vel = 1.0
         self.bezier_planner.compute_control_point(start_pos_2d, np.zeros(2), hit_pos_2d, hit_dir_2d * hit_vel)
 
