@@ -22,10 +22,10 @@ class CustomEnvironmentWrapper(AirHockeyChallengeWrapper):
 
         position_robot_frame, rotation = world_to_robot(self.world2robot_transf, action)
 
-        success, action_joints = inverse_kinematics(mj_model, mj_data, position_robot_frame) #inverse_kinematics uses robot's frame for coordinates
+        success, action_joints = inverse_kinematics(mj_model, mj_data, position_robot_frame) # inverse_kinematics uses robot's frame for coordinates
 
-        joint_velocities = np.zeros((1,self.env_info['robot']['n_joints'])) #for now sets joint velocities as 0
+        joint_velocities = np.zeros((1,self.env_info['robot']['n_joints'])) # for now sets joint velocities as 0
 
         action = np.vstack([action_joints, joint_velocities])
 
-        return super().step(action) #calls original step function
+        return super().step(action) # calls original step function

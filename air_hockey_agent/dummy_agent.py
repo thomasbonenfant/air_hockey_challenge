@@ -25,7 +25,7 @@ class DummyAgent(AgentBase):
         else:
             self.path_idx = (self.path_idx + 1) \
                 if self.step % self.steps_per_action == 0 and self.path_idx < len(self.path) - 1 \
-                     else self.path_idx  #updates path_idx every steps_per_action steps
+                     else self.path_idx  # updates path_idx every steps_per_action steps
         
         action = self.path[self.path_idx]        
 
