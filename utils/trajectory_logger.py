@@ -20,7 +20,7 @@ class TrajectoryLogger():
         self.puck_trajectory.append(puck_position)
         self.action_position.append(action)
 
-    def visualize(self):
+    def visualize(self, env_info):
         fig = plt.figure(figsize=(10,10))
 
         ee_traj_x = [pos[0] for pos in self.ee_trajectory]
@@ -39,6 +39,15 @@ class TrajectoryLogger():
         plt.plot(ee_traj_x, ee_traj_y, label='End Effector')
         plt.plot(puck_traj_x, puck_traj_y, label="Puck")
         plt.plot(action_traj_x, action_traj_y, label="Action")
+
+        # Plot table borders
+        half_table_length = env_info['table']['length']/2
+        half_table_width = env_info['table']['width']/2
+        puck_radius = env_info['puck']['radius']
+
+        [plt.vlines(x , -1 ,1, colors='r', linestyles='dashed') for x in (-half_table_length + puck_radius, half_table_length - puck_radius)]
+        [plt.hlines(y, -1,1, colors='r', linestyles='dashed') for y in (-half_table_width + puck_radius, half_table_width - puck_radius)]
+
         plt.legend()
 
         plt.show()
@@ -54,9 +63,10 @@ from air_hockey_agent.agents.dummy_agent import DummyAgent
 from air_hockey_agent.agents.defend_agent import SimpleDefendingAgent
 
 if __name__ == '__main__':
+
     env = CustomEnvironmentWrapper(env="3dof-defend")
 
-    agent = SimpleDefendingAgent(env.base_env.env_info,steps_per_action=60)
+    agent = SimpleDefendingAgent(env.base_env.env_info,steps_per_action=50)
 
     logger = TrajectoryLogger()
 
@@ -83,9 +93,9 @@ if __name__ == '__main__':
 
         logger.append2trajectory(ee_pos, puck_pos, action)
 
-
+        
         if done or step > env.info.horizon / 2:
-            break
+          break
 
 
-    logger.visualize()
+    logger.visualize(env.env_info)
