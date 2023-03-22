@@ -13,8 +13,8 @@ from baseline.baseline_agent import BezierPlanner, TrajectoryOptimizer, PuckTrac
 
 class SimpleDefendingAgent(AgentBase):
 
-    def __init__(self, env_info, agent_id=1, **kwargs):
-        super(SimpleDefendingAgent, self).__init__(env_info, agent_id, **kwargs)
+    def __init__(self, env_info, **kwargs):
+        super().__init__(env_info, **kwargs)
         self.has_to_plan = True
         self.action = None
         

@@ -1,4 +1,4 @@
-from air_hockey_agent.dummy_agent import DummyAgent
+from air_hockey_agent.agents import DummyAgent, SimpleDefendingAgent
 
 
 def build_agent(env_info, **kwargs):
@@ -18,6 +18,8 @@ def build_agent(env_info, **kwargs):
     if 'agent' in kwargs:
         if kwargs['agent'] == 'dummy-agent':
             agent = DummyAgent(env_info, **kwargs)
+        elif kwargs['agent'] == 'defend-agent':
+            agent = SimpleDefendingAgent(env_info, **kwargs)
 
 
     return agent
