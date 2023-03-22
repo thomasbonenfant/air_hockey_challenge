@@ -50,14 +50,13 @@ from air_hockey_challenge.framework.custom_environment_wrapper import CustomEnvi
 from air_hockey_challenge.utils.kinematics import forward_kinematics
 from air_hockey_challenge.utils.transformations import robot_to_world
 from utils.trajectory_logger import TrajectoryLogger
-from air_hockey_agent.dummy_agent import DummyAgent
+from air_hockey_agent.agents.dummy_agent import DummyAgent
+from air_hockey_agent.agents.defend_agent import SimpleDefendingAgent
 
 if __name__ == '__main__':
-    env = CustomEnvironmentWrapper(env="3dof-hit")
+    env = CustomEnvironmentWrapper(env="3dof-defend")
 
-    path = [[-0.4,0.2,0],[-0.2,0.3,0],[-0.8,-0.4,0]]
-
-    agent = DummyAgent(env.base_env.env_info, path=path, steps_per_action=60)
+    agent = SimpleDefendingAgent(env.base_env.env_info,steps_per_action=60)
 
     logger = TrajectoryLogger()
 
