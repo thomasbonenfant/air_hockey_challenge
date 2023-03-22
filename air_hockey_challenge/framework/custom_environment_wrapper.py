@@ -5,7 +5,12 @@ from air_hockey_challenge.utils.transformations import robot_to_world, world_to_
 import numpy as np
 
 class CustomEnvironmentWrapper(AirHockeyChallengeWrapper):
-    #
+    ''' This wrapper extends the original AirHockeyChallengeWrapper in order to use the end effector position
+    in the world's frame as action.
+
+    It needs to be instanciated in air_hockey_challenge/framework/evaluate_agent.py in place of AirHockeyChallenge
+    '''
+
     def __init__(self, env):
         super().__init__(env)
 

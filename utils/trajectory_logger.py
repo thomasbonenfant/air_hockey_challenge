@@ -11,7 +11,7 @@ class TrajectoryLogger():
     def append2trajectory(self, ee_position, puck_position, action):
         '''
         Saves new position data
-        args:
+        Arguments:
             -   ee_position: np.ndarray of size (2,)
             -   puck_position: np.ndarray of size(2,)
             -   action: np.ndarray of size(2,)  
@@ -29,12 +29,16 @@ class TrajectoryLogger():
         puck_traj_x = [pos[0] for pos in self.puck_trajectory]
         puck_traj_y = [pos[1] for pos in self.puck_trajectory]
 
+        action_traj_x = [pos[0] for pos in self.action_position]
+        action_traj_y = [pos[1] for pos in self.action_position]
+
         plt.xlim([-1.2, 1.2])
         plt.ylim([-0.6,0.6])
         plt.gca().set_aspect('equal', adjustable='box')
         
         plt.plot(ee_traj_x, ee_traj_y, label='End Effector')
         plt.plot(puck_traj_x, puck_traj_y, label="Puck")
+        plt.plot(action_traj_x, action_traj_y, label="Action")
         plt.legend()
 
         plt.show()
@@ -49,11 +53,11 @@ from utils.trajectory_logger import TrajectoryLogger
 from air_hockey_agent.dummy_agent import DummyAgent
 
 if __name__ == '__main__':
-    env = CustomEnvironmentWrapper(env="3dof-defend")
+    env = CustomEnvironmentWrapper(env="3dof-hit")
 
-    path = [[-0.8,0,0],[-0.1,0,0]]
+    path = [[-0.4,0.2,0],[-0.2,0.3,0],[-0.8,-0.4,0]]
 
-    agent = DummyAgent(env.base_env.env_info, path=path, steps_per_action=50)
+    agent = DummyAgent(env.base_env.env_info, path=path, steps_per_action=60)
 
     logger = TrajectoryLogger()
 
@@ -77,8 +81,6 @@ if __name__ == '__main__':
 
         ee_pos = robot_to_world(env.base_env.env_info['robot']['base_frame'][0], ee_pos)[0][:2]
         puck_pos = robot_to_world(env.base_env.env_info['robot']['base_frame'][0], puck_pos)[0][:2]
-        #print(f'EE:{ee_pos}\n\nPUCK:{puck_pos}')
-
 
         logger.append2trajectory(ee_pos, puck_pos, action)
 
