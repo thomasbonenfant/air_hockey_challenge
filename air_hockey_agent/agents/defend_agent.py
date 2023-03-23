@@ -42,7 +42,7 @@ class SimpleDefendingAgent(AgentBase):
         Find the intersection point of the puck's trajectory with the defend line
         '''
 
-        defend_line = -0.85
+        defend_line = -0.85 # in the evaluation is hardcoded to -0.8 so the success might be distorted
 
         # get puck pos from the environment and convert it to world coordinates
         puck_pos = robot_to_world(self.env_info['robot']['base_frame'][0], self.get_puck_pos(obs))[0][:2]
