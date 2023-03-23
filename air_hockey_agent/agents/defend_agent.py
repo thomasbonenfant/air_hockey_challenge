@@ -47,14 +47,14 @@ class SimpleDefendingAgent(AgentBase):
         # get puck pos from the environment and convert it to world coordinates
         puck_pos = robot_to_world(self.env_info['robot']['base_frame'][0], self.get_puck_pos(obs))[0][:2]
 
-        print('\npuck_pos: ', puck_pos)
+        #print('\npuck_pos: ', puck_pos)
 
         puck_velocities = self.get_puck_vel(obs)[:2]
-        print('\npuck_velocities: ', puck_velocities)
+        #print('\npuck_velocities: ', puck_velocities)
 
         # compute versor of the puck's velocity
         defend_dir_2d = puck_velocities / np.linalg.norm(puck_velocities)
-        print('\ndefend_dir_2d',defend_dir_2d)
+        #print('\ndefend_dir_2d',defend_dir_2d)
         
         # compute intersection point
         lam = (defend_line - puck_pos[0]) / defend_dir_2d[0]
@@ -71,7 +71,7 @@ class SimpleDefendingAgent(AgentBase):
         elif ee_pos_y < lower_bound:
             ee_pos_y = lower_bound + (lower_bound - ee_pos_y)
                     
-        print('\nee_pos_y', ee_pos_y)
+        #print('\nee_pos_y', ee_pos_y)
 
         ee_pos_x = defend_line        
         

@@ -78,7 +78,7 @@ if __name__ == '__main__':
         step +=1 
         action = agent.draw_action(obs)
         obs, reward, done, info = env.step(action)
-        env.render()
+        #env.render()
 
         puck_pos = obs[env.base_env.env_info['puck_pos_ids']][:2]
         joint_pos = obs[env.base_env.env_info['joint_pos_ids']]
