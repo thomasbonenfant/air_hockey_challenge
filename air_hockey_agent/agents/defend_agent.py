@@ -5,7 +5,7 @@ from scipy.interpolate import CubicSpline
 from air_hockey_challenge.framework.agent_base import AgentBase
 from air_hockey_challenge.framework.custom_environment_wrapper import CustomEnvironmentWrapper
 from air_hockey_challenge.utils.transformations import robot_to_world, world_to_robot
-from baseline.baseline_agent import BezierPlanner, TrajectoryOptimizer, PuckTracker
+from utils.trajectory_planner import plan_minimum_jerk_trajectory
 
 ''' Example of a custom defending agent to analyze insights from the 'step' function
  try to give always the same goal point to the agent, even if it does not defend porperly
@@ -16,27 +16,44 @@ class SimpleDefendingAgent(AgentBase):
     def __init__(self, env_info, **kwargs):
         super().__init__(env_info, **kwargs)
         self.has_to_plan = True
-        self.action = None
         
-
+        self.trajectory = []
+        
     def reset(self):
         self.has_to_plan = True
     
+    def _get_ee_pose_world_frame(self, obs):
+        pose = self.get_ee_pose(obs)[0]
+        return robot_to_world(self.env_info['robot']['base_frame'][0], pose)[0]
 
     def draw_action(self, obs):
         if self.has_to_plan:
-            self.action = self. plan_trajectory(obs)
+            step = 0
+            final_pos = self.plan_defend_point(obs)[:2]
+
+            initial_pos = self._get_ee_pose_world_frame(obs)[:2]
+            
+            self.trajectory = plan_minimum_jerk_trajectory(initial_pos, final_pos, 2, self.env_info['dt'])
+
+
             
         self.has_to_plan = False
+        action = None
 
+        if len(self.trajectory) > 0:
+            action = self.trajectory[0]
 
-        return self.action # returns always the same position, computed in the reset
+            if len(self.trajectory) > 1:
+                self.trajectory = self.trajectory[1:]
+        
+        
+        return action
         
         # Uncomment to let the robot try to follow the puck
         #return self.plan_trajectory(obs)
 
 
-    def plan_trajectory(self, obs):
+    def plan_defend_point(self, obs):
 
         '''
         Find the intersection point of the puck's trajectory with the defend line
@@ -78,49 +95,3 @@ class SimpleDefendingAgent(AgentBase):
         ee_pos = [ee_pos_x, ee_pos_y, 0]
 
         return np.array(ee_pos)
-
-
-
-def main():
-    from air_hockey_challenge.framework.air_hockey_challenge_wrapper import AirHockeyChallengeWrapper
-    import matplotlib.pyplot as plt
-    import matplotlib
-    matplotlib.use("tkAgg")
-
-    env = CustomEnvironmentWrapper(env="3dof-defend")
-
-    agent = SimpleDefendingAgent(env.base_env.env_info, steps_per_action=50)
-
-    obs = env.reset()
-    agent.reset()
-
-    steps = 0
-    while True:
-        steps += 1
-        action = agent.draw_action(obs)
-        obs, reward, done, info = env.step(action)
-        env.render()
-
-        if done or steps > env.info.horizon / 2:
-            nq = env.base_env.env_info['robot']['n_joints']
-            if env.base_env.debug:
-                trajectory_record = np.array(env.base_env.controller_record)
-                fig, axes = plt.subplots(5, nq)
-                nq_total = nq * env.base_env.n_agents
-                for j in range(nq):
-                    axes[0, j].plot(trajectory_record[:, j])
-                    axes[0, j].plot(trajectory_record[:, j + nq_total])
-                    axes[1, j].plot(trajectory_record[:, j + 2 * nq_total])
-                    axes[1, j].plot(trajectory_record[:, j + 3 * nq_total])
-                    axes[2, j].plot(trajectory_record[:, j + 4 * nq_total])
-                    axes[3, j].plot(trajectory_record[:, j + 5 * nq_total])
-                    axes[4, j].plot(trajectory_record[:, j + nq_total] - trajectory_record[:, j])
-                plt.show()
-
-            steps = 0
-            obs = env.reset()
-            agent.reset()
-
-
-if __name__ == '__main__':
-    main()

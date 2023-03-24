@@ -1,4 +1,5 @@
-from air_hockey_agent.agents import DummyAgent, SimpleDefendingAgent
+from air_hockey_agent.agents.defend_agent import SimpleDefendingAgent
+from air_hockey_agent.agents.dummy_agent import DummyAgent
 
 
 def build_agent(env_info, **kwargs):
