@@ -52,3 +52,16 @@ class TrajectoryLogger():
 
         plt.show()
 
+    def plot_coordinate_traj(self):
+        fig, ax = plt.subplots(2,1, figsize=(4,4))
+
+        ee_traj_x = [pos[0] for pos in self.ee_trajectory]
+        ee_traj_y = [pos[1] for pos in self.ee_trajectory]
+
+        tt = np.linspace(1, len(ee_traj_x), len(ee_traj_x))
+
+        ax[0].plot(ee_traj_x, label='X trajectory')
+        ax[0].legend()
+        ax[1].plot(ee_traj_y, label='Y trajectory')
+        ax[1].legend()
+        plt.show()
