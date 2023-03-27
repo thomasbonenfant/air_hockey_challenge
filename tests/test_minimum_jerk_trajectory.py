@@ -17,12 +17,12 @@ if __name__ == '__main__':
     obs = env.reset()
     agent.reset()
 
-    step = 0
+    steps = 0
     while True:
-        step +=1 
+        steps +=1 
         action = agent.draw_action(obs)
         obs, reward, done, info = env.step(action)
-        env.render()
+        #env.render()
 
         puck_pos = obs[env.base_env.env_info['puck_pos_ids']][:2]
         joint_pos = obs[env.base_env.env_info['joint_pos_ids']]
@@ -36,10 +36,9 @@ if __name__ == '__main__':
         puck_pos = robot_to_world(env.base_env.env_info['robot']['base_frame'][0], puck_pos)[0][:2]
 
         logger.append2trajectory(ee_pos, puck_pos, action)
-
         
-        if done or step > env.info.horizon / 2:
-          break
-
+        if done or steps > env.info.horizon / 2:
+         break
 
     logger.visualize(env.env_info)
+    logger.plot_coordinate_traj()

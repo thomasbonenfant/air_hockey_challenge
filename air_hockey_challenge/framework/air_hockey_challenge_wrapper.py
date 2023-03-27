@@ -40,7 +40,7 @@ class AirHockeyChallengeWrapper(Environment):
                                                                                                        state, action,
                                                                                                        next_state,
                                                                                                        absorbing)
-
+        
         constraint_list = ConstraintList()
         constraint_list.add(JointPositionConstraint(self.env_info))
         constraint_list.add(JointVelocityConstraint(self.env_info))

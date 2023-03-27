@@ -3,6 +3,14 @@ import numpy as np
 
 class TrajectoryLogger():
 
+    '''
+    A support class that implements methods to plot the result of an experiment; it plots
+        - borders of the table, dashed red
+        - puck's trajectory
+        - ee_trajectory
+        - action: the command given but the controller
+    '''
+
     def __init__(self):
         self.ee_trajectory = []
         self.puck_trajectory = []
@@ -21,7 +29,7 @@ class TrajectoryLogger():
         self.action_position.append(action)
 
     def visualize(self, env_info):
-        fig = plt.figure(figsize=(10,10))
+        fig = plt.figure(figsize=(8,8))
 
         ee_traj_x = [pos[0] for pos in self.ee_trajectory]
         ee_traj_y = [pos[1] for pos in self.ee_trajectory]
@@ -53,7 +61,10 @@ class TrajectoryLogger():
         plt.show()
 
     def plot_coordinate_traj(self):
-        fig, ax = plt.subplots(2,1, figsize=(4,4))
+        '''
+        Plots the values of x and y of the ee in the trajectory
+        '''
+        fig, ax = plt.subplots(2,1, figsize=(8,8))
 
         ee_traj_x = [pos[0] for pos in self.ee_trajectory]
         ee_traj_y = [pos[1] for pos in self.ee_trajectory]
@@ -65,3 +76,4 @@ class TrajectoryLogger():
         ax[1].plot(ee_traj_y, label='Y trajectory')
         ax[1].legend()
         plt.show()
+        

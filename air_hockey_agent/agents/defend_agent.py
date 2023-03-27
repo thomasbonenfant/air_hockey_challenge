@@ -18,28 +18,26 @@ class SimpleDefendingAgent(AgentBase):
         self.has_to_plan = True
         
         self.trajectory = []
-        
+
     def reset(self):
         self.has_to_plan = True
     
     def _get_ee_pose_world_frame(self, obs):
         pose = self.get_ee_pose(obs)[0]
         return robot_to_world(self.env_info['robot']['base_frame'][0], pose)[0]
-
+    
     def draw_action(self, obs):
         if self.has_to_plan:
             step = 0
             final_pos = self.plan_defend_point(obs)[:2]
 
             initial_pos = self._get_ee_pose_world_frame(obs)[:2]
-            
-            self.trajectory = plan_minimum_jerk_trajectory(initial_pos, final_pos, 2, self.env_info['dt'])
 
+            self.trajectory = plan_minimum_jerk_trajectory(initial_pos, final_pos, 1, self.env_info['dt'])
 
-            
         self.has_to_plan = False
         action = None
-
+        
         if len(self.trajectory) > 0:
             action = self.trajectory[0]
 
@@ -50,8 +48,7 @@ class SimpleDefendingAgent(AgentBase):
         return action
         
         # Uncomment to let the robot try to follow the puck
-        #return self.plan_trajectory(obs)
-
+        #return self.plan_defend_point(obs)
 
     def plan_defend_point(self, obs):
 
@@ -59,26 +56,21 @@ class SimpleDefendingAgent(AgentBase):
         Find the intersection point of the puck's trajectory with the defend line
         '''
 
-        defend_line = -0.85 # in the evaluation is hardcoded to -0.8 so the success might be distorted
+        defend_line = -0.80 # in the evaluation (air_hockey_challenge_wrapper) is hardcoded to -0.8 so the success might be distorted if different
 
         # get puck pos from the environment and convert it to world coordinates
         puck_pos = robot_to_world(self.env_info['robot']['base_frame'][0], self.get_puck_pos(obs))[0][:2]
-
-        #print('\npuck_pos: ', puck_pos)
-
+                        
+        #puck_velocities = robot_to_world(self.env_info['robot']['base_frame'][0], self.get_puck_vel(obs))[0][:2]
         puck_velocities = self.get_puck_vel(obs)[:2]
-        #print('\npuck_velocities: ', puck_velocities)
-
+        
         # compute versor of the puck's velocity
         defend_dir_2d = puck_velocities / np.linalg.norm(puck_velocities)
-        #print('\ndefend_dir_2d',defend_dir_2d)
         
         # compute intersection point
         lam = (defend_line - puck_pos[0]) / defend_dir_2d[0]
         ee_pos_y = puck_pos[1] + lam*defend_dir_2d[1]
        
-        #ee_pos_y = defend_dir_2d[1] + puck_pos[1] #+ self.env_info['mallet']['radius']
-
         # check if y position violates the constraints
         lower_bound = -self.env_info['table']['width']/2 + self.env_info['mallet']['radius']
         upper_bound = self.env_info['table']['width']/2 - self.env_info['mallet']['radius']
@@ -88,10 +80,53 @@ class SimpleDefendingAgent(AgentBase):
         elif ee_pos_y < lower_bound:
             ee_pos_y = lower_bound + (lower_bound - ee_pos_y)
                     
-        #print('\nee_pos_y', ee_pos_y)
+        ee_pos_x = defend_line
 
-        ee_pos_x = defend_line        
-        
         ee_pos = [ee_pos_x, ee_pos_y, 0]
 
         return np.array(ee_pos)
+    
+""" 
+def main():
+    from air_hockey_challenge.framework.air_hockey_challenge_wrapper import AirHockeyChallengeWrapper
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use("tkAgg")
+
+    env = CustomEnvironmentWrapper(env="3dof-defend")
+
+    agent = SimpleDefendingAgent(env.base_env.env_info, steps_per_action=50)
+
+    obs = env.reset()
+    agent.reset()
+
+    steps = 0
+    while True:
+        steps += 1
+        action = agent.draw_action(obs)
+        obs, reward, done, info = env.step(action)
+        env.render()
+
+        if done or steps > env.info.horizon / 2:
+            nq = env.base_env.env_info['robot']['n_joints']
+            if env.base_env.debug:
+                trajectory_record = np.array(env.base_env.controller_record)
+                fig, axes = plt.subplots(5, nq)
+                nq_total = nq * env.base_env.n_agents
+                for j in range(nq):
+                    axes[0, j].plot(trajectory_record[:, j])
+                    axes[0, j].plot(trajectory_record[:, j + nq_total])
+                    axes[1, j].plot(trajectory_record[:, j + 2 * nq_total])
+                    axes[1, j].plot(trajectory_record[:, j + 3 * nq_total])
+                    axes[2, j].plot(trajectory_record[:, j + 4 * nq_total])
+                    axes[3, j].plot(trajectory_record[:, j + 5 * nq_total])
+                    axes[4, j].plot(trajectory_record[:, j + nq_total] - trajectory_record[:, j])
+                plt.show()
+
+            steps = 0
+            obs = env.reset()
+            agent.reset()
+
+
+if __name__ == '__main__':
+    main() """
