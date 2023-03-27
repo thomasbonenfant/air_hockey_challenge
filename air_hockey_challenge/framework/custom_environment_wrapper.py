@@ -15,7 +15,7 @@ class CustomEnvironmentWrapper(AirHockeyChallengeWrapper):
         super().__init__(env)
 
         self.world2robot_transf = self.env_info['robot']['base_frame'][0]
-            
+        self.old_joint_pos = None
 
     def step(self, action):
         '''
@@ -28,8 +28,17 @@ class CustomEnvironmentWrapper(AirHockeyChallengeWrapper):
 
         success, action_joints = inverse_kinematics(mj_model, mj_data, position_robot_frame) # inverse_kinematics uses robot's frame for coordinates
 
-        joint_velocities = np.zeros((1,self.env_info['robot']['n_joints'])) # for now sets joint velocities as 0
+        joint_velocities = (action_joints - self.old_joint_pos) / self.env_info['dt']
        
+        self.old_joint_pos = action_joints #update stored joint position for future velocity computation
+
         action = np.vstack([action_joints, joint_velocities])
 
         return super().step(action) # calls original step function
+
+    def reset(self, state=None):
+        obs = super().reset()
+
+        self.old_joint_pos = obs[self.env_info['joint_pos_ids']]
+
+        return obs

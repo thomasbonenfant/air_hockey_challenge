@@ -10,12 +10,24 @@ if __name__ == '__main__':
 
     env = CustomEnvironmentWrapper(env="3dof-defend")
 
-    agent = SimpleDefendingAgent(env.base_env.env_info,steps_per_action=50)
+    agent = SimpleDefendingAgent(env.base_env.env_info)
 
     logger = TrajectoryLogger()
 
     obs = env.reset()
     agent.reset()
+
+    
+    mj_model = env.base_env.env_info['robot']['robot_model']
+    mj_data = env.base_env.env_info['robot']['robot_data']
+    
+    puck_pos = obs[env.base_env.env_info['puck_pos_ids']][:2]
+    joint_pos = obs[env.base_env.env_info['joint_pos_ids']]
+    ee_pos = forward_kinematics(mj_model, mj_data, joint_pos)[0]
+    ee_pos = robot_to_world(env.base_env.env_info['robot']['base_frame'][0], ee_pos)[0][:2]
+    puck_pos = robot_to_world(env.base_env.env_info['robot']['base_frame'][0], puck_pos)[0][:2]
+
+    logger.append2trajectory(ee_pos, puck_pos, ee_pos)  
 
     steps = 0
     while True:
@@ -26,9 +38,6 @@ if __name__ == '__main__':
 
         puck_pos = obs[env.base_env.env_info['puck_pos_ids']][:2]
         joint_pos = obs[env.base_env.env_info['joint_pos_ids']]
-
-        mj_model = env.base_env.env_info['robot']['robot_model']
-        mj_data = env.base_env.env_info['robot']['robot_data']
 
         ee_pos = forward_kinematics(mj_model, mj_data, joint_pos)[0]
 
