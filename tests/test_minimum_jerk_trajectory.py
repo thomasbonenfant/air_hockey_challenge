@@ -21,6 +21,7 @@ if __name__ == '__main__':
     mj_model = env.base_env.env_info['robot']['robot_model']
     mj_data = env.base_env.env_info['robot']['robot_data']
     
+    # Observe the environment befor the agent does something
     puck_pos = obs[env.base_env.env_info['puck_pos_ids']][:2]
     joint_pos = obs[env.base_env.env_info['joint_pos_ids']]
     ee_pos = forward_kinematics(mj_model, mj_data, joint_pos)[0]
@@ -34,7 +35,7 @@ if __name__ == '__main__':
         steps +=1 
         action = agent.draw_action(obs)
         obs, reward, done, info = env.step(action)
-        #env.render()
+        env.render()
 
         puck_pos = obs[env.base_env.env_info['puck_pos_ids']][:2]
         joint_pos = obs[env.base_env.env_info['joint_pos_ids']]

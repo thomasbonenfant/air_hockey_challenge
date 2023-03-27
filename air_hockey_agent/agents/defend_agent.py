@@ -1,3 +1,4 @@
+from math import sqrt
 import time
 import threading
 import numpy as np
@@ -18,6 +19,12 @@ class SimpleDefendingAgent(AgentBase):
         self.has_to_plan = True
         
         self.trajectory = []
+        
+        self.defend_line = -0.8
+        self.traj_time = 1
+
+        # flags to test different types of corrections
+        self.has_to_compute_traj_time = True # if False then the agent will reach the point always in the same time=traj_time
 
     def reset(self):
         self.has_to_plan = True
@@ -33,7 +40,26 @@ class SimpleDefendingAgent(AgentBase):
 
             initial_pos = self._get_ee_pose_world_frame(obs)[:2]
 
-            self.trajectory = plan_minimum_jerk_trajectory(initial_pos, final_pos, 1, self.env_info['dt'])
+            if self.has_to_compute_traj_time:
+
+                # Compute traj_time conisidering constant puck's velocity
+
+                puck_pos = robot_to_world(self.env_info['robot']['base_frame'][0], self.get_puck_pos(obs))[0][:2]
+                distance = np.linalg.norm(puck_pos - final_pos, ord=2)
+
+                #print('\nDistance: ', distance)
+
+                puck_velocities = self.get_puck_vel(obs)[:2]
+                velocity_module = np.linalg.norm(puck_velocities)
+                
+                self.traj_time = distance / velocity_module
+                #print('\nTraj time: ', self.traj_time)
+
+                # move the ee with a 10% anticipation on the traj_time
+                self.traj_time = self.traj_time*(1 - 0.1)
+                #print('\nCorrected traj time: ', self.traj_time)
+
+            self.trajectory = plan_minimum_jerk_trajectory(initial_pos, final_pos, self.traj_time, delta_t=self.env_info['dt'])
 
         self.has_to_plan = False
         action = None

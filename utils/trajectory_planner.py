@@ -10,8 +10,8 @@ def plan_minimum_jerk_trajectory(initial_pos, final_pos, traj_time, delta_t):
     coef = [0,0,0, 10/(traj_time**3), -15/(traj_time**4), 6/(traj_time**5)]
     poly = np.polynomial.polynomial.Polynomial(coef)
 
-    tt = np.linspace(0, traj_time, int(traj_time/delta_t)) # can't start from 0 because it will be used as a divider
-
+    tt = np.linspace(0, traj_time, int(traj_time/delta_t))
+    
     traj = []
 
     displ = np.array(final_pos) - np.array(initial_pos)
