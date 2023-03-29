@@ -49,8 +49,57 @@ def plot(experiment, env_name='3dof-defend', n_joints=3):
 
     plt.show()
 
+def custom_dataset_plot(log_dir, n_joints=3):
+    with open(os.path.join('.', 'logs', log_dir), 'rb') as f:
+        joint_action, ee_action, joint_pos, joint_vel, joint_acc, ee_pos, ee_vel, ee_acc, joint_jerk = pickle.load(f)
+
+    joint_jerk = np.array(joint_jerk)
+    joint_pos = np.array(joint_pos)
+    joint_vel = np.array(joint_vel)
+    joint_acc = np.array(joint_acc)
+    joint_action = np.array(joint_action)
+    ee_pos = np.array(ee_pos)
+    ee_vel = np.array(ee_vel)
+    ee_acc = np.array(ee_acc)
+    ee_action = np.array(ee_action)
+
+    fig0, axs = plt.subplots(n_joints, 2, figsize=(15,9), sharex=True)
+    fig0.suptitle('Joints Plot')
+    for i in range(n_joints):
+        axs[i,0].plot(joint_jerk[:,i], label='Jerk')
+        axs[i,0].legend()
+        axs[i,1].plot(joint_vel[:,i], label='Velocity')
+        axs[i,1].plot(joint_action[:,0,i], label='Position Action')
+        axs[i,1].plot(joint_action[:,1,i], label='Velocity Action')
+        axs[i,1].plot(joint_pos[:,i], label='Position')
+        axs[i,1].plot(joint_acc[:,i], label='Acceleration')
+        axs[i,1].legend()
+    
+    
+    
+    fig1, axs = plt.subplots(2, figsize=(15,6), sharey=True, sharex=True)
+    fig1.suptitle('End Effector Plot')
+    axs[0].plot(ee_pos[:,0], label='x EE')
+    axs[0].plot(ee_action[:,0], label='action x EE')
+    axs[0].plot(ee_vel[:,0], label='dx/dt EE')
+    axs[0].plot(ee_acc[:,0], label='ddx/dt EE')
+    axs[0].legend()
+    axs[1].plot(ee_pos[:,1], label='y EE')
+    axs[1].plot(ee_action[:,1], label='action y EE')
+    axs[1].plot(ee_vel[:,1], label='dy/dt EE')
+    axs[1].plot(ee_acc[:,1], label='ddy/dt EE')
+    
+    axs[1].legend()
+
+
+    plt.show()
+        
+        
+
+
+
 if __name__ == '__main__':
-    plot('eval-2023-03-28_14-10-58')
+    custom_dataset_plot('custom_log_2023-03-29 19:17:29.064734.pkl')
 
 
 
