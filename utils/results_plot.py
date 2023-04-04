@@ -28,7 +28,6 @@ def plot(experiment, env_name='3dof-defend', n_joints=3):
         joint_vel.append([reached_state[9], reached_state[10],reached_state[11]])
         joint_pos.append([reached_state[6], reached_state[7], reached_state[8]])
         actions.append(action)
-        print(action)
 
     steps = jerk.shape[0]
     x = np.linspace(1, len(dataset), len(dataset))
@@ -37,7 +36,7 @@ def plot(experiment, env_name='3dof-defend', n_joints=3):
     joint_pos = np.array(joint_pos)
     actions = np.array(actions)
 
-    fig, axs = plt.subplots(n_joints, figsize=(6,6))
+    fig, axs = plt.subplots(n_joints, figsize=(6,6), sharex=True, sharey=True)
     for i in range(n_joints):
         axs[i].plot(x,jerk[:,i], label='Jerk / 1e7')
         axs[i].plot(x, joint_vel[:,i], label='Velocity')
@@ -63,6 +62,10 @@ def custom_dataset_plot(log_dir, n_joints=3):
     ee_acc = np.array(ee_acc)
     ee_action = np.array(ee_action)
 
+
+    ee_jerk = np.array([(ee_acc[i] - ee_acc[i - 1])/0.02 for i in range(1, len(ee_action))])
+    ee_jerk_norm = np.array([np.linalg.norm((ee_acc[i] - ee_acc[i - 1])/0.02) for i in range(1, len(ee_action))])
+
     fig0, axs = plt.subplots(n_joints, 2, figsize=(15,9), sharex=True)
     fig0.suptitle('Joints Plot')
     for i in range(n_joints):
@@ -76,20 +79,24 @@ def custom_dataset_plot(log_dir, n_joints=3):
         axs[i,1].legend()
     
     
-    
-    fig1, axs = plt.subplots(2, figsize=(15,6), sharey=True, sharex=True)
+    fig1, axs = plt.subplots(3, figsize=(15,6), sharey=False, sharex=True)
     fig1.suptitle('End Effector Plot')
     axs[0].plot(ee_pos[:,0], label='x EE')
     axs[0].plot(ee_action[:,0], label='action x EE')
     axs[0].plot(ee_vel[:,0], label='dx/dt EE')
     axs[0].plot(ee_acc[:,0], label='ddx/dt EE')
+    #axs[0].plot([i for i in range(1, len(ee_acc) - 1)], ee_jerk[:,0], label='jerk')
+
     axs[0].legend()
     axs[1].plot(ee_pos[:,1], label='y EE')
     axs[1].plot(ee_action[:,1], label='action y EE')
     axs[1].plot(ee_vel[:,1], label='dy/dt EE')
     axs[1].plot(ee_acc[:,1], label='ddy/dt EE')
-    
+    #axs[1].plot([i for i in range(1, len(ee_acc) - 1)], ee_jerk[:,1], label='jerk')
     axs[1].legend()
+
+    axs[2].plot([i for i in range(1, len(ee_acc) - 1)], ee_jerk_norm, label='jerk norm')
+
 
 
     plt.show()
@@ -99,7 +106,7 @@ def custom_dataset_plot(log_dir, n_joints=3):
 
 
 if __name__ == '__main__':
-    custom_dataset_plot('custom_log_2023-03-29 19:17:29.064734.pkl')
+    custom_dataset_plot('custom_log_2023-04-04_13-19-20.pkl')
 
 
 

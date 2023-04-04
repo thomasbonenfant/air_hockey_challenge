@@ -8,6 +8,8 @@ from air_hockey_agent.agents.defend_agent import SimpleDefendingAgent
 
 if __name__ == '__main__':
 
+    'This test now does not work'
+
     env = CustomEnvironmentWrapper(env="3dof-defend")
 
     agent = SimpleDefendingAgent(env.base_env.env_info)

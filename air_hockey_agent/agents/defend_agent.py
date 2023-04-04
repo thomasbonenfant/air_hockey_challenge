@@ -3,16 +3,16 @@ import time
 import threading
 import numpy as np
 from scipy.interpolate import CubicSpline
-from air_hockey_challenge.framework.agent_base import AgentBase
+from air_hockey_challenge.framework.agent_ee_base import AgentEEBase
 from air_hockey_challenge.framework.custom_environment_wrapper import CustomEnvironmentWrapper
 from air_hockey_challenge.utils.transformations import robot_to_world, world_to_robot
-from utils.trajectory_planner import plan_minimum_jerk_trajectory
+from utils.trajectory_planner import Planner, make_d_f
 
 ''' Example of a custom defending agent to analyze insights from the 'step' function
  try to give always the same goal point to the agent, even if it does not defend porperly
  and check if the trajectory is smooth or not '''
 
-class SimpleDefendingAgent(AgentBase):
+class SimpleDefendingAgent(AgentEEBase):
 
     def __init__(self, env_info, **kwargs):
         super().__init__(env_info, **kwargs)
@@ -23,43 +23,92 @@ class SimpleDefendingAgent(AgentBase):
         self.defend_line = -0.8
         self.traj_time = 1
 
+        self.v_min = -3
+        self.v_max = 3
+        self.a_min = -5
+        self.a_max = 5
+
+        self.old_vel = None
+        self.old_pos = None
+
         # flags to test different types of corrections
         self.has_to_compute_traj_time = True # if False then the agent will reach the point always in the same time=traj_time
 
     def reset(self):
         self.has_to_plan = True
+        self.old_vel = None
+        self.old_pos = None
     
     def _get_ee_pose_world_frame(self, obs):
+        '''
+            TODO: remove this function because it is now unnecessary
+        '''
         pose = self.get_ee_pose(obs)[0]
         return robot_to_world(self.env_info['robot']['base_frame'][0], pose)[0]
-    
+
+    def _plan_trajectory(self, T, dt, final_pos, final_vel, final_acc, initial_pos, initial_vel, initial_acc):
+                
+        df = final_pos - initial_pos
+        v0 = initial_vel
+        a0 = initial_acc
+        vf = final_vel
+        af = final_acc
+
+
+        planner = Planner(3, 1e5, 1e3)
+        weigths = planner.plan(T, vf, df, af, v0, a0, self.a_min, self.a_max, self.v_min, self.v_max, slack=False)
+        
+        if weigths is None:
+            print('No feasible solution without slack')
+            weigths = planner.plan(T, vf, df, af, v0, a0, self.a_min, self.a_max, self.v_min, self.v_max, slack=True)
+        
+        if weigths is None:
+            print("Can't plan")
+            return np.array([initial_pos])
+
+        n_steps = int((T-dt)/dt)
+        tt = np.linspace(dt, T, n_steps)
+
+        fun = make_d_f(initial_pos, v0, a0, weigths)
+
+        return np.array([fun(t) for t in tt])
+
+    def compute_traj_time(self, obs):
+        puck_pos = robot_to_world(self.env_info['robot']['base_frame'][0], self.get_puck_pos(obs))[0][:2]
+        puck_vel = self.get_puck_vel(obs)[:2]
+
+        x_dist = np.abs(puck_pos[0] - self.defend_line)
+        traj_time = x_dist / np.abs(puck_vel[0])
+
+        traj_time *= 0.9
+
+        return traj_time
+
+
     def draw_action(self, obs):
+
+        dt = self.env_info['dt']
+
         if self.has_to_plan:
             step = 0
             final_pos = self.plan_defend_point(obs)[:2]
-
-            initial_pos = self._get_ee_pose_world_frame(obs)[:2]
-
+            initial_pos = self.get_ee_pose(obs)[:2]
+            
+            initial_vel = (initial_pos - self.old_pos) / dt if self.old_pos is not None else np.array([0,0])
+            initial_acc = (initial_vel - self.old_vel) / dt if self.old_vel is not None else np.array([0,0])
+            
             if self.has_to_compute_traj_time:
+                self.traj_time = self.compute_traj_time(obs)
 
-                # Compute traj_time conisidering constant puck's velocity
+            final_vel = np.array([0,0])
+            final_acc = np.array([0,0])
 
-                puck_pos = robot_to_world(self.env_info['robot']['base_frame'][0], self.get_puck_pos(obs))[0][:2]
-                distance = np.linalg.norm(puck_pos - final_pos, ord=2)
+            x_traj = self._plan_trajectory(self.traj_time, dt, final_pos[0], final_vel[0], final_acc[0], initial_pos[0], \
+                                            initial_vel[0], initial_acc[0])
+            y_traj = self._plan_trajectory(self.traj_time, dt, final_pos[1], final_vel[1], final_acc[1], initial_pos[1] ,\
+                                            initial_vel[1], initial_acc[1])
 
-                #print('\nDistance: ', distance)
-
-                puck_velocities = self.get_puck_vel(obs)[:2]
-                velocity_module = np.linalg.norm(puck_velocities)
-                
-                self.traj_time = distance / velocity_module
-                #print('\nTraj time: ', self.traj_time)
-
-                # move the ee with a 10% anticipation on the traj_time
-                self.traj_time = self.traj_time*(1 - 0.1)
-                #print('\nCorrected traj time: ', self.traj_time)
-
-            self.trajectory = plan_minimum_jerk_trajectory(initial_pos, final_pos, self.traj_time, delta_t=self.env_info['dt'])
+            self.trajectory = np.vstack((x_traj, y_traj, [0 for i in range(len(x_traj))])).T    
 
         self.has_to_plan = False
         action = None
@@ -112,47 +161,3 @@ class SimpleDefendingAgent(AgentBase):
 
         return np.array(ee_pos)
     
-""" 
-def main():
-    from air_hockey_challenge.framework.air_hockey_challenge_wrapper import AirHockeyChallengeWrapper
-    import matplotlib.pyplot as plt
-    import matplotlib
-    matplotlib.use("tkAgg")
-
-    env = CustomEnvironmentWrapper(env="3dof-defend")
-
-    agent = SimpleDefendingAgent(env.base_env.env_info, steps_per_action=50)
-
-    obs = env.reset()
-    agent.reset()
-
-    steps = 0
-    while True:
-        steps += 1
-        action = agent.draw_action(obs)
-        obs, reward, done, info = env.step(action)
-        env.render()
-
-        if done or steps > env.info.horizon / 2:
-            nq = env.base_env.env_info['robot']['n_joints']
-            if env.base_env.debug:
-                trajectory_record = np.array(env.base_env.controller_record)
-                fig, axes = plt.subplots(5, nq)
-                nq_total = nq * env.base_env.n_agents
-                for j in range(nq):
-                    axes[0, j].plot(trajectory_record[:, j])
-                    axes[0, j].plot(trajectory_record[:, j + nq_total])
-                    axes[1, j].plot(trajectory_record[:, j + 2 * nq_total])
-                    axes[1, j].plot(trajectory_record[:, j + 3 * nq_total])
-                    axes[2, j].plot(trajectory_record[:, j + 4 * nq_total])
-                    axes[3, j].plot(trajectory_record[:, j + 5 * nq_total])
-                    axes[4, j].plot(trajectory_record[:, j + nq_total] - trajectory_record[:, j])
-                plt.show()
-
-            steps = 0
-            obs = env.reset()
-            agent.reset()
-
-
-if __name__ == '__main__':
-    main() """
