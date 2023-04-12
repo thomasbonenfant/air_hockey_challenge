@@ -17,9 +17,7 @@ class AgentBase(Agent):
                 A dictionary contains agent related information.
 
         """
-        if 'no_initialization' not in kwargs:
-            super().__init__(env_info['rl_info'], None)
-
+        super().__init__(env_info['rl_info'], None)
         self.env_info = env_info
         self.agent_id = agent_id
         self.robot_model = copy.deepcopy(env_info['robot']['robot_model'])

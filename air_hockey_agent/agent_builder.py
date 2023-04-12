@@ -1,6 +1,4 @@
 from air_hockey_challenge.framework import AgentBase
-from air_hockey_agent.agents.hit_agent import HittingAgent
-
 
 def build_agent(env_info, **kwargs):
     """
@@ -14,11 +12,4 @@ def build_agent(env_info, **kwargs):
          (AgentBase) An instance of the Agent
     """
 
-    # agent = DummyAgent(env_info, **kwargs)
-    if 'agent' in kwargs:
-        # if kwargs['agent'] == 'dummy-agent':
-        #    agent = DummyAgent(env_info, **kwargs)
-        # elif kwargs['agent'] == 'defend-agent':
-        #    agent = SimpleDefendingAgent(env_info, **kwargs)
-        if kwargs['agent'] == 'hit-agent':
-            agent = HittingAgent(env_info, **kwargs)
+    raise NotImplementedError
