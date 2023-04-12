@@ -13,3 +13,5 @@ matplotlib~=3.7.1
 scipy~=1.10.1
 setuptools~=65.5.1
 joblib~=1.2.0
+
+sympy~=1.11.1
