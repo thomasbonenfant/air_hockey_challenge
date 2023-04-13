@@ -31,15 +31,18 @@ class ViabilityConstraint:
         self.b_state = b
 
     def fun(self, q, dq, origin_constr=False):
+        """origin_constr: if True, return the original constraint function else return the augmented constraint function"""
         if origin_constr:
             return self.fun_origin(q)
         else:
             return self.fun_origin(q) + self.K * (self.J(q) @ dq)
 
     def K_J(self, q):
+        """ K_J(q) = K * J(q) """
         return np.diag(self.K) @ self.J(q)
 
     def b(self, q, dq):
+        """ b(q, dq) = dJ(q, dq) dq"""
         return self.J(q) @ dq + self.K * self.b_state(q, dq)
 
 
@@ -54,10 +57,12 @@ class ConstraintsSet:
         self.dim_out = 0
 
     def add_constraint(self, c: ViabilityConstraint):
+        """Add a constraint to the set"""
         self.dim_out += c.dim_out
         self.constraints_list.append(c)
 
     def fun(self, q, dq, origin_constr=False):
+        """"""
         ret = np.zeros(self.dim_out)
         i = 0
         for c in self.constraints_list:
@@ -66,6 +71,7 @@ class ConstraintsSet:
         return ret
 
     def K_J(self, q):
+        """"""
         ret = np.zeros((self.dim_out, self.dim_q))
         i = 0
         for c in self.constraints_list:
@@ -74,6 +80,7 @@ class ConstraintsSet:
         return ret
 
     def b(self, q, dq):
+        """"""
         ret = np.zeros(self.dim_out)
         i = 0
         for c in self.constraints_list:

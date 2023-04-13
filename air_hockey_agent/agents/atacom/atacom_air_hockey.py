@@ -21,6 +21,7 @@ class AirHockeyPlanarAtacom(AtacomEnvWrapper):
                                        torque_control=True, random_init=random_init,
                                        action_penalty=action_penalty)
         """
+
         dim_q = 3
         cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.cart_pos_g, J=self.cart_pos_J_g,
                                          b=self.cart_pos_b_g, K=0.5)
