@@ -5,6 +5,7 @@ from air_hockey_challenge.utils.kinematics import forward_kinematics
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper
 import torch
 from air_hockey_agent.agents.hit_agent import HittingAgent
+from air_hockey_agent.agents.ATACOM_hit_agent import AtacomHittingAgent
 
 
 def main():
@@ -24,7 +25,7 @@ def main():
 
     print(env.env_info)
 
-    agent = HittingAgent(env)
+    agent = AtacomHittingAgent(env)
     #agent = AirHockeyPlanarAtacom(env.env_info, env.info, policy_class, policy_params, actor_params, actor_optimizer, critic_params,
     #        batch_size, initial_replay_size, max_replay_size, tau, task='H', gamma=gamma_eval)
 

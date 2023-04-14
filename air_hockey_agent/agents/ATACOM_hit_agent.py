@@ -25,13 +25,16 @@ class AtacomHittingAgent(HittingAgent):
             Ka (array, float): the scaling factor for the viability acceleration bound
             time_step (float): the step size for time discretization
         """
-        dim_q = 3
+
+        super().__init__(env, **kwargs)
+
+        dim_q = self.env_info['robot']['n_joints']
         Kc = 240.
         timestamp = 1/240.
-        cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.cart_pos_g, J=self.cart_pos_J_g,
+        cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.cart_pos_g, J=self.cart_pos_J_g,
                                          b=self.cart_pos_b_g, K=0.5)
         # TODO: still need to check validity of fun, J, b
-        joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.joint_pos_g, J=self.joint_pos_J_g,
+        joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=2*dim_q, fun=self.joint_pos_g, J=self.joint_pos_J_g,
                                           b=self.joint_pos_b_g, K=1.0)
         f = None
         g = ConstraintsSet(dim_q)
@@ -41,7 +44,8 @@ class AtacomHittingAgent(HittingAgent):
 
         # TODO: if we want to include the jerk we may want to create a accel constraint and put the value here
         acc_max = np.ones(3) * 10
-        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits
+        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1:] #takes only max values
+        vel_max = np.squeeze(vel_max)
         Kq = 2 * acc_max / vel_max
 
         self.env = env
@@ -103,11 +107,10 @@ class AtacomHittingAgent(HittingAgent):
         # shouldn't be needed
         # self.env.step_action_function = self.step_action_function
         self.mu = 0
-        super().__init__(env, **kwargs)
+        
 
     def reset(self):
-        self.new_start = True
-        self.hold_position = None
+        super().reset()
 
     def draw_action(self, observation):
         """
@@ -119,10 +122,15 @@ class AtacomHittingAgent(HittingAgent):
         alpha = np.clip(alpha, self.env.info.action_space.low, self.env.info.action_space.high)
         alpha = alpha * self.alpha_max
         # Observe the qk, q˙k from sk
-        q = observation[self.env_info['joint_pos_ids']]
-        dq = observation[self.env_info['joint_vel_ids']]
+        self.q = self.get_joint_pos(observation)
+        self.dq = self.get_joint_vel(observation)
+
+        # Compute slack variable mu
+        self._compute_slack_variables()
+
         # Compute Jc, k = Jc(qk, µk), ψk = ψ(qk, q˙k), ck = c(qk, q˙k, µk)
-        Jc, psi = self.env_info['robot'].get_jacobian(q, self.mu)
+        Jc, psi = self._construct_Jc_psi(self.q, self.mu, self.dq)
+
         Jc_inv, Nc = pinv_null(Jc)
         # Compute the RCEF of tangent space basis of NcR
         Nc = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
@@ -144,13 +152,24 @@ class AtacomHittingAgent(HittingAgent):
         dq = self.dq.tolist()
         ddq = ddq.tolist()
 
-        #return self.env.client.calculateInverseDynamics(self.env._model_map['planar_robot_1'], q, dq, ddq)
+        # integrate acceleration because we do control the robot with a PD Controller
+        next_dq = dq + ddq * self.time_step
+        next_q = q + dq * self.time_step + 0.5 * ddq * (self.time_step ** 2)
+        return np.array(next_q, next_dq)
+
+        # return self.env.client.calculateInverseDynamics(self.env._model_map['planar_robot_1'], q, dq, ddq)
 
     def acc_truncation(self, dq, ddq):
         acc_u = np.maximum(np.minimum(self.acc_max, -self.K_q * (dq - self.vel_max)), -self.acc_max)
         acc_l = np.minimum(np.maximum(-self.acc_max, -self.K_q * (dq + self.vel_max)), self.acc_max)
         ddq = np.clip(ddq, acc_l, acc_u)
         return ddq
+
+    def _compute_slack_variables(self):
+        self.mu = None
+        if self.dims['g'] > 0:
+            mu_squared = np.maximum(-2 * self.g.fun(self.q, self.dq, origin_constr=False), 0)
+            self.mu = np.sqrt(mu_squared)
 
     def _construct_Jc_psi(self, q, s, dq):
         Jc = np.zeros((self.dims['f'] + self.dims['g'], self.dims['q'] + self.dims['g']))
@@ -236,6 +255,7 @@ class AtacomHittingAgent(HittingAgent):
         mj_model = self.env_info['robot']['robot_model']
         mj_data = self.env_info['robot']['robot_data']
         acc = mujoco.mj_objectAcceleration(mj_model,mj_data, mujoco.mjtObj.mjOBJ_SITE, link_to_xml_name(mj_model, 'ee'))[3:] #last 3 elements are linear acceleration
+        J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
 
         return J_c @ acc #Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
 
