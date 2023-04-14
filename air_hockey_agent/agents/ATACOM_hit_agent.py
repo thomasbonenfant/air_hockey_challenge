@@ -2,9 +2,12 @@ import numpy as np
 
 from air_hockey_agent.agents.hit_agent import HittingAgent
 from air_hockey_challenge.utils import forward_kinematics
-from atacom.utils.null_space_coordinate import rref, pinv_null
-from atacom.constraints import ViabilityConstraint, ConstraintsSet
+from air_hockey_agent.agents.atacom.utils.null_space_coordinate import rref, pinv_null
+from air_hockey_agent.agents.atacom.constraints import ViabilityConstraint, ConstraintsSet
 from mushroom_rl.utils.spaces import Box
+
+import mujoco
+from air_hockey_challenge.utils.kinematics import link_to_xml_name
 
 class AtacomHittingAgent(HittingAgent):
 
@@ -204,46 +207,64 @@ class AtacomHittingAgent(HittingAgent):
 
     def cart_pos_g(self, q):
         """ Compute the constraint function g(q) = 0 position of the end-effector"""
-        ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)
-        ee_pos_world = ee_pos + self.env.agents[0]['frame'][:2, 3]
-        g_1 = - ee_pos_world[0] - (self.env.env_spec['table']['length'] / 2 - self.env.env_spec['mallet']['radius'])
-        g_2 = - ee_pos_world[1] - (self.env.env_spec['table']['width'] / 2 - self.env.env_spec['mallet']['radius'])
-        g_3 = ee_pos_world[1] - (self.env.env_spec['table']['width'] / 2 - self.env.env_spec['mallet']['radius'])
-        return np.array([g_1, g_2, g_3])
+        #ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)
+        #ee_pos_world = ee_pos + self.env.agents[0]['frame'][:2, 3]
+        #g_1 = - ee_pos_world[0] - (self.env.env_spec['table']['length'] / 2 - self.env.env_spec['mallet']['radius'])
+        #g_2 = - ee_pos_world[1] - (self.env.env_spec['table']['width'] / 2 - self.env.env_spec['mallet']['radius'])
+        #g_3 = ee_pos_world[1] - (self.env.env_spec['table']['width'] / 2 - self.env.env_spec['mallet']['radius'])
+        #return np.array([g_1, g_2, g_3])
+
+        g = self.env_info['constraints'].get('ee_constr')
+        return g.fun(q, None) #dq is not used
 
     def cart_pos_J_g(self, q):
         """ Compute the constraint function g'(q) = 0 derivative of the end-effector """
-        ee_jac = self.env_info['constraints'].get('ee_constraint').jacobian(q)
-        J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
-        return J_c @ ee_jac
+        #ee_jac = self.env_info['constraints'].get('ee_constraint').jacobian(q)
+        #J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
+        #return J_c @ ee_jac
+        
+        g = self.env_info['constraints'].get('ee_constr')
+        return g.jacobian(q, None) #dq is not used
 
     def cart_pos_b_g(self, q, dq):
-        """ TODO: understand what this is """
-        ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)
+        """ TODO: understand what this is: it should be dJ/dt * dq/dt  """
+        #ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)
         # probably not correct
-        acc = self.env_info['constraints'].get('join_val_constr').jacobian(q)
+        g = self.env_info['constraints'].get('ee_constr').jacobian(q, dq)
         #pino.getFrameClassicalAcceleration(self.pino_model, self.pino_data, self.pino_model.nframes - 1,pino.LOCAL_WORLD_ALIGNED).vector
-        J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
-        return J_c @ acc[:2]
+
+        mj_model = self.env_info['robot']['robot_model']
+        mj_data = self.env_info['robot']['robot_data']
+        acc = mujoco.mj_objectAcceleration(mj_model,mj_data, mujoco.mjtObj.mjOBJ_SITE, link_to_xml_name(mj_model, 'ee'))[3:] #last 3 elements are linear acceleration
+
+        return J_c @ acc #Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
 
     def joint_pos_g(self, q):
         """Compute the constraint function g(q) = 0 position of the joints"""
-        return np.array(q ** 2 - self.pino_model.upperPositionLimit ** 2)
+        #return np.array(q ** 2 - self.pino_model.upperPositionLimit ** 2)
+        g = self.env_info['constraints'].get('joint_pos')
+        return g.fun(q,None)
+
 
     def joint_pos_J_g(self, q):
-
-        return 2 * np.diag(q)
+        """Compute constraint jacobian function J_g(q)"""
+        g = self.env_info['constraints'].get('joint_pos')
+        return g.jacobian(q,None)
 
     def joint_pos_b_g(self, q, dq):
-        return 2 * dq ** 2
+        """Compute constraint b(q,dq) function. It should be equal to dJ/dt * dq/dt"""
+        #return 2 * np.diag(q)
+        g = self.env_info['constraint'].get('joint_pos') 
+        return np.zeros(g.output_dim) #this constraint is linear so second order derivative goes to zero
 
-    def joint_vel_g(self, q, dq):
-        return np.array([dq ** 2 - self.pino_model.velocityLimit ** 2])
+    #next constraint is not used
+    #def joint_vel_g(self, q, dq):
+    #    #return np.array([dq ** 2 - self.pino_model.velocityLimit ** 2])
 
-    def joint_vel_A_g(self, q, dq):
-        return 2 * np.diag(dq)
+    #def joint_vel_A_g(self, q, dq):
+    #    return 2 * np.diag(dq)
 
-    def joint_vel_b_g(self, q, dq):
-        return np.zeros(3)
+    #def joint_vel_b_g(self, q, dq):
+    #    return np.zeros(3)
 
 
