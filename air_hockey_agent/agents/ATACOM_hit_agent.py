@@ -64,7 +64,7 @@ class AtacomHittingAgent(HittingAgent):
         if self.g is not None:
             assert self.dims['q'] == self.g.dim_q, "Input dimension is different in g"
             self.dims['g'] = self.g.dim_out
-            self.s = np.zeros(self.dims['g'])
+            self.mu = np.zeros(self.dims['g'])
 
         self.dims['null'] = self.dims['q'] - self.dims['f']
         self.dims['c'] = self.dims['f'] + self.dims['g']
@@ -143,10 +143,10 @@ class AtacomHittingAgent(HittingAgent):
         # Compute the tangent space acceleration [q¨k µ˙ k].T ← −J^†_c,k [K_cck + ψ_k] + N^R_c α_k
         self._act_a = -Jc_inv @ psi
         self._act_b = Nc @ alpha
-        self._act_err = self._compute_error_correction(self.q, self.dq, self.s, Jc_inv)
+        self._act_err = self._compute_error_correction(self.q, self.dq, self.mu, Jc_inv)
         ddq_ds = self._act_a + self._act_b + self._act_err
 
-        self.s += ddq_ds[self.dims['q']:(self.dims['q'] + self.dims['g'])] * self.time_step
+        self.mu += ddq_ds[self.dims['q']:(self.dims['q'] + self.dims['g'])] * self.time_step
         # Clip the joint acceleration q¨k ← clip(q¨k, al, au)
         ddq = self.acc_truncation(self.dq, ddq_ds[:self.dims['q']])
         # Integrate the slack variable µk+1 = µk + µ˙ k∆T

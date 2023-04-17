@@ -21,7 +21,7 @@ def main():
 
     # Settings
     # number of initial iterations to fill the replay memory
-    initial_replay_size = 100
+    initial_replay_size = 5000
 
     #print(env.env_info)
 
@@ -41,9 +41,9 @@ def main():
     core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
 
     # RUN
-    n_epochs = 100
-    n_steps = 100
-    n_steps_test = 200
+    n_epochs = 50
+    n_steps = 5000
+    n_steps_test = 5000
 
     if test:
         dataset = core.evaluate(n_steps=n_steps_test, render=True)
@@ -59,7 +59,7 @@ def main():
 
     for n in range(n_epochs):
         print('\nEpoch: ', n + 1)
-        core.learn(n_steps=n_steps, n_steps_per_fit=10, render=True)
+        core.learn(n_steps=n_steps, n_steps_per_fit=1)
 
     dataset = core.evaluate(n_steps=n_steps_test, render=True)
     J = compute_J(dataset, gamma_eval)
