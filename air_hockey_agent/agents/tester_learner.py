@@ -23,7 +23,7 @@ def main():
     # number of initial iterations to fill the replay memory
     initial_replay_size = 100
 
-    print(env.env_info)
+    #print(env.env_info)
 
     agent = AtacomHittingAgent(env)
     #agent = AirHockeyPlanarAtacom(env.env_info, env.info, policy_class, policy_params, actor_params, actor_optimizer, critic_params,

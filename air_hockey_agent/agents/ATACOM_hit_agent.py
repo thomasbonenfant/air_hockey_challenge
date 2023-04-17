@@ -31,19 +31,21 @@ class AtacomHittingAgent(HittingAgent):
         dim_q = self.env_info['robot']['n_joints']
         Kc = 240.
         timestamp = 1/240.
-        cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.cart_pos_g, J=self.cart_pos_J_g,
-                                         b=self.cart_pos_b_g, K=0.5)
+        # why dim out of 5?
+        # cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.cart_pos_g, J=self.cart_pos_J_g, b=self.cart_pos_b_g, K=0.5)
+        cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.cart_pos_g, J=self.cart_pos_J_g, b=self.cart_pos_b_g, K=0.5)
+
         # TODO: still need to check validity of fun, J, b
         joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=2*dim_q, fun=self.joint_pos_g, J=self.joint_pos_J_g,
                                           b=self.joint_pos_b_g, K=1.0)
         f = None
         g = ConstraintsSet(dim_q)
         g.add_constraint(cart_pos_g)
-        g.add_constraint(joint_pos_g)
+        #g.add_constraint(joint_pos_g)
         #g.add_constraint(joint_vel_g)
 
         # TODO: if we want to include the jerk we may want to create a accel constraint and put the value here
-        acc_max = np.ones(3) * 10
+        acc_max = self.env_info['robot']['joint_acc_limit'][1]
         vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1:] #takes only max values
         vel_max = np.squeeze(vel_max)
         Kq = 2 * acc_max / vel_max
@@ -96,6 +98,7 @@ class AtacomHittingAgent(HittingAgent):
             self.K_q = Kq
             assert np.shape(self.K_q)[0] == self.dims['q']
 
+        # self.alpha_max = np.ones(self.dims['null']) * self.acc_max.max()
         self.alpha_max = np.ones(self.dims['null']) * self.acc_max.max()
 
         self.state = self.env.reset()
@@ -119,7 +122,8 @@ class AtacomHittingAgent(HittingAgent):
         """
         # Sample policy action αk ∼ π(·|sk).
         alpha = super().draw_action(observation)
-        alpha = np.clip(alpha, self.env.info.action_space.low, self.env.info.action_space.high)
+
+        alpha = np.clip(alpha, self.env_info['robot']['joint_acc_limit'][0], self.env_info['robot']['joint_acc_limit'][1])
         alpha = alpha * self.alpha_max
         # Observe the qk, q˙k from sk
         self.q = self.get_joint_pos(observation)
@@ -133,7 +137,9 @@ class AtacomHittingAgent(HittingAgent):
 
         Jc_inv, Nc = pinv_null(Jc)
         # Compute the RCEF of tangent space basis of NcR
-        Nc = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
+        # Nc = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
+        Nc = rref(Nc[:, :6], row_vectors=False, tol=0.05)
+
         # Compute the tangent space acceleration [q¨k µ˙ k].T ← −J^†_c,k [K_cck + ψ_k] + N^R_c α_k
         self._act_a = -Jc_inv @ psi
         self._act_b = Nc @ alpha
@@ -148,14 +154,10 @@ class AtacomHittingAgent(HittingAgent):
         return ctrl_action
 
     def acc_to_ctrl_action(self, ddq):
-        q = self.q.tolist()
-        dq = self.dq.tolist()
-        ddq = ddq.tolist()
-
         # integrate acceleration because we do control the robot with a PD Controller
-        next_dq = dq + ddq * self.time_step
-        next_q = q + dq * self.time_step + 0.5 * ddq * (self.time_step ** 2)
-        return np.array(next_q, next_dq)
+        next_dq = self.dq + ddq * self.time_step
+        next_q = self.q + self.dq * self.time_step + 0.5 * ddq * (self.time_step ** 2)
+        return np.concatenate((next_q, next_dq)).reshape(2,3)
 
         # return self.env.client.calculateInverseDynamics(self.env._model_map['planar_robot_1'], q, dq, ddq)
 
@@ -168,6 +170,7 @@ class AtacomHittingAgent(HittingAgent):
     def _compute_slack_variables(self):
         self.mu = None
         if self.dims['g'] > 0:
+            # TODO: check if this is correct
             mu_squared = np.maximum(-2 * self.g.fun(self.q, self.dq, origin_constr=False), 0)
             self.mu = np.sqrt(mu_squared)
 
@@ -234,7 +237,7 @@ class AtacomHittingAgent(HittingAgent):
         #return np.array([g_1, g_2, g_3])
 
         g = self.env_info['constraints'].get('ee_constr')
-        return g.fun(q, None) #dq is not used
+        return g.fun(q, None)[:3] # dq is not used, pick only the first 3 elements (do not need height constraint)
 
     def cart_pos_J_g(self, q):
         """ Compute the constraint function g'(q) = 0 derivative of the end-effector """
@@ -243,7 +246,7 @@ class AtacomHittingAgent(HittingAgent):
         #return J_c @ ee_jac
         
         g = self.env_info['constraints'].get('ee_constr')
-        return g.jacobian(q, None) #dq is not used
+        return g.jacobian(q, None)[:3,:3] # dq is not used
 
     def cart_pos_b_g(self, q, dq):
         """ TODO: understand what this is: it should be dJ/dt * dq/dt  """
@@ -254,10 +257,18 @@ class AtacomHittingAgent(HittingAgent):
 
         mj_model = self.env_info['robot']['robot_model']
         mj_data = self.env_info['robot']['robot_data']
-        acc = mujoco.mj_objectAcceleration(mj_model,mj_data, mujoco.mjtObj.mjOBJ_SITE, link_to_xml_name(mj_model, 'ee'))[3:] #last 3 elements are linear acceleration
-        J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
+        #acc = mujoco.mj_objectAcceleration(mj_model,mj_data, mujoco.mjtObj.mjOBJ_SITE, link_to_xml_name(mj_model, 'ee'))[3:] #last 3 elements are linear acceleration
+        acc = np.zeros(6)
+        id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, link_to_xml_name(mj_model, 'ee'))
 
-        return J_c @ acc #Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
+        # to use  mujoco.mjtObj.mjOBJ_SITE the value should be 6
+        # TODO: check if this works
+        mujoco.mj_objectAcceleration(mj_model, mj_data, mujoco.mjtObj.mjOBJ_BODY, id, acc, 0)  # last 3 elements are linear acceleration
+        acc = acc[3:]
+
+        J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
+        # why in atacom takes only 2 acceleration?
+        return J_c @ acc[:2] #Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
 
     def joint_pos_g(self, q):
         """Compute the constraint function g(q) = 0 position of the joints"""

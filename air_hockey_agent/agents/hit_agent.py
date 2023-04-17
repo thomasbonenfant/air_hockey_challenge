@@ -69,12 +69,12 @@ class HittingAgent(AgentBase, SAC):
         #print(observation)
         action = SAC.draw_action(self, observation)
 
-        pos = action * [self.x_mult, self.y_mult, 1] + [self.x_shifter_lb, self.y_shifter_lb, -0.5]
+        #pos = action * [self.x_mult, self.y_mult, 1] + [self.x_shifter_lb, self.y_shifter_lb, -0.5]
 
         #print(pos)
         #action = inverse_kinematics(self.env_info['robot']['robot_model'], self.env_info['robot']['robot_data'], pos)[1]
 
-        return np.array([action, np.ones(3) * 0.05])
+        return action
 
     def configure_SAC(self, mdp_info, actor_lr=3e-4, critic_lr=3e-4, n_features=[64, 64], batch_size=64,
                         initial_replay_size=5000, max_replay_size=200000, tau=1e-3,
