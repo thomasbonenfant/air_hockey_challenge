@@ -7,7 +7,17 @@ from air_hockey_challenge.environments import planar as planar
 
 class PositionControl:
     def __init__(self, p_gain, d_gain, i_gain, action_type="position-velocity", interpolation_order=3,
-                 debug=False, *args, **kwargs):
+                 debug=False, noise_options=None, *args, **kwargs):
+        """
+        :param noise_options: it is a dictionary specifying the noise we want in the controller to make it unperfect.
+            Keys:
+                - "broken_join_flag" -> Bool: a boolean specifying if we want to simulate a broken join.
+                - "noisy_control_flag" -> Bool: a boolean specifying if we want a noise in the output torque.
+                - "sigma" -> int: the std dev of the noise in the output torque.
+                - "broken_join_prob" -> int in [0, 1]: the probability for which we expirience a random break of a join.
+            
+        """
+
         self.action_type = action_type
         self.debug = debug
 
@@ -35,6 +45,17 @@ class PositionControl:
 
         self.traj = None
         self.jerk = np.zeros(self._num_env_joints)
+
+        self.noise_options = dict(
+            broken_join_flag=False,
+            noisy_control_flag=False,
+            sigma=0,
+            broken_join_id=-1,
+            broken_join_prob=0
+        )
+        if noise_options is not None:
+            for key in ["borken_join_flag", "noisy_control_flag", "sigma", "broken_join_prob"]:
+                self.noise_options[key] = noise_options[key]
 
         if self.debug:
             self.controller_record = deque(maxlen=self.info.horizon * self._n_intermediate_steps)
@@ -91,6 +112,23 @@ class PositionControl:
         if self.debug:
             self.controller_record.append(
                 np.concatenate([desired_pos, current_pos, desired_vel, current_vel, desired_acc, self.jerk]))
+
+        # Add noise if specified
+        if self.noise_options["noisy_control_flag"]:
+            dim_torque = len(torque)
+            torque += np.random.normal(0, self.noise_options["sigma"], dim_torque)
+        
+        # Simulation of a broken join (no torque effect)
+        if self.noise_options["broken_join_flag"]:
+            if self.noise_options["broken_join_id"] == -1:
+                # no join is broken
+                if np.random.uniform(0, 1) < self.noise_options["broken_join_prob"]:
+                    # select the join to break
+                    self.noise_options["broken_join_id"] = np.random.choice([0, 1, 2])
+                    torque[self.noise_options["broken_join_id"]] = 0
+            else:
+                # a join is already broken
+                torque[self.noise_options["broken_join_id"]] = 0
 
         return torque
 
