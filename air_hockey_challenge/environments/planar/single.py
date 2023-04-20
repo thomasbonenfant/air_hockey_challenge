@@ -1,12 +1,15 @@
 import numpy as np
 import mujoco
+import os
+import yaml
 
 from air_hockey_challenge.environments.planar import AirHockeyBase
 
 
 class AirHockeySingle(AirHockeyBase):
     """
-    Base class for single agent air hockey tasks.
+    Base class for single agent air hockey tasks that introduces
+    noises in the observations.
 
     """
     def __init__(self, gamma=0.99, horizon=500, viewer_params={}):
@@ -22,6 +25,24 @@ class AirHockeySingle(AirHockeyBase):
         self.q_pos_prev = np.zeros(self.env_info["robot"]["n_joints"])
         self.q_vel_prev = np.zeros(self.env_info["robot"]["n_joints"])
 
+        # previous position/velocity of the joints, used if one of them is broken or if we loose the tracking
+        self.last_puck_pos = None
+        self.last_puck_vel = None
+
+        # Dictionary containing the noise options
+        path = 'air_hockey_agent/environment_config.yml'
+        if os.path.exists(path):
+            with open(path, 'r') as stream:
+                config = yaml.safe_load(stream)
+        
+        # load options from configuration file
+        self.sigma = config['sigma_obs'] # std dev of the noise in the observations
+        self.var_env = dict()
+        self.var_env['is_track_lost'] = config['is_track_lost']     # True if we loose the track, does not affect the robot that much
+        self.var_env['is_obs_noisy'] = config['is_obs_noisy']       # True if there is noise in the measurements, effectively reduces performances
+        self.var_env['track_loss_prob'] = config['track_loss_prob'] # probability of loosing the tracking at each observation
+        self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6)  # white noise vector for puck's pos and vel
+      
     def get_ee(self):
         """
         Getting the ee properties from the current internal state. Can also be obtained via forward kinematics
@@ -56,13 +77,35 @@ class AirHockeySingle(AirHockeyBase):
 
         puck_vel = self._puck_2d_in_robot_frame(puck_vel, self.env_info['robot']['base_frame'][0], type='vel')
 
-        self.obs_helper.get_from_obs(new_obs, "puck_x_pos")[:] = puck_pos[0]
-        self.obs_helper.get_from_obs(new_obs, "puck_y_pos")[:] = puck_pos[1]
-        self.obs_helper.get_from_obs(new_obs, "puck_yaw_pos")[:] = puck_pos[2]
+        # Loss of tracking
+        if self.var_env["is_track_lost"]:
+            if np.random.uniform(0,1) < self.var_env['track_loss_prob'] or (self.last_puck_pos is None and self.last_puck_vel is None):
+                self.last_puck_pos = puck_pos
+                self.last_puck_vel = puck_vel
 
-        self.obs_helper.get_from_obs(new_obs, "puck_x_vel")[:] = puck_vel[0]
-        self.obs_helper.get_from_obs(new_obs, "puck_y_vel")[:] = puck_vel[1]
-        self.obs_helper.get_from_obs(new_obs, "puck_yaw_vel")[:] = puck_vel[2]
+            puck_pos = self.last_puck_pos
+            puck_vel = self.last_puck_vel
+
+        # Observation Noise 
+        if self.var_env["is_obs_noisy"]:
+
+            self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6) # resample to add a different white noise at each observation
+            self.obs_helper.get_from_obs(new_obs, "puck_x_pos")[:] = puck_pos[0] + self.var_env['noise_value'][0]
+            self.obs_helper.get_from_obs(new_obs, "puck_y_pos")[:] = puck_pos[1] + self.var_env['noise_value'][1]
+            self.obs_helper.get_from_obs(new_obs, "puck_yaw_pos")[:] = puck_pos[2] + self.var_env['noise_value'][2]
+
+            self.obs_helper.get_from_obs(new_obs, "puck_x_vel")[:] = puck_vel[0] + self.var_env['noise_value'][3]
+            self.obs_helper.get_from_obs(new_obs, "puck_y_vel")[:] = puck_vel[1] + self.var_env['noise_value'][4]
+            self.obs_helper.get_from_obs(new_obs, "puck_yaw_vel")[:] = puck_vel[2] + self.var_env['noise_value'][5]
+            
+        else:
+            self.obs_helper.get_from_obs(new_obs, "puck_x_pos")[:] = puck_pos[0]
+            self.obs_helper.get_from_obs(new_obs, "puck_y_pos")[:] = puck_pos[1]
+            self.obs_helper.get_from_obs(new_obs, "puck_yaw_pos")[:] = puck_pos[2]
+
+            self.obs_helper.get_from_obs(new_obs, "puck_x_vel")[:] = puck_vel[0]
+            self.obs_helper.get_from_obs(new_obs, "puck_y_vel")[:] = puck_vel[1]
+            self.obs_helper.get_from_obs(new_obs, "puck_yaw_vel")[:] = puck_vel[2]
 
         return new_obs
 

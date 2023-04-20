@@ -1,0 +1,37 @@
+# Configuration file used to set all the informations about the environmet to decide wich type of noise to implement
+# in the simulation
+
+
+# Noise parameters for 'position_control_wrapper', it has default values in the code
+# NOISE IN THE TORQUE AND BROKEN JOINTS
+broken_join_flag : False    # specify if we want to simulate a broken joint
+noisy_control_flag: False   # specify if we want a noise in the output troque
+sigma: 0.1                  # std dev of the noise in the output torque
+broken_join_id: -1          # -1 if no join is broken a random one will be picked
+broken_join_prob: 0         # int in [0,1]: probability for we experience a random break of a join
+
+
+# Noise parameters for 'base' that implements a MISMATCHED MODEL
+is_model_mismatched: False    # specify if we want to simulate a model mismatch
+displacement_percentage: 0.0  # how much we want to displace the model from the real one
+                              # negative displacements have a stronger impact in degrading performance
+robot: 'planar_robot_1'       # robot type in the xml file
+body_to_displace: ['body_3']  # the part of the robot to mismatch, accepts multiple elements eg: ["body_1", "body_2"]
+
+
+# Noise parameters for 'single', NOISE IN OBSERVATION
+is_track_lost: False  # loose the observation of the track
+is_obs_noisy: False   # add noise to the observations
+track_loss_prob: 0.1  # probability of loosing the tracking at each observation
+sigma_obs: 0.05       # std dev of the observation noise
+
+
+
+# Add observation noise
+# air_hockey_challenge_wrapper -> position_control_wrapper -> hit.py -> import singleNoise
+
+# Add torque noise
+# air_hockey_challenge_wrapper -> import position_control_wrapper_noise
+
+# Add model mismatch
+# single -> import AirHockeyBaseNoise
