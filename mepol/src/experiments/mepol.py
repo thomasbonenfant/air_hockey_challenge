@@ -61,6 +61,8 @@ parser.add_argument('--seed', type=int, default=None,
                     help='The random seed')
 parser.add_argument('--tb_dir_name', type=str, default='mepol',
                     help='The tensorboard directory under which the directory of this experiment is put')
+parser.add_argument('--log_dir', type=str, default='/data/air_hockey',
+                    help='Where to store results')
 
 args = parser.parse_args()
 
@@ -214,7 +216,7 @@ exp_name = f"env={args.env},z_mu_start={args.zero_mean_start},k={args.k},kl_thre
            f"lr={args.learning_rate},opt={args.optimizer},fe_traj_sc={args.full_entropy_traj_scale},fe_k={args.full_entropy_k}," \
            f"use_bt={args.use_backtracking},bt_coeff={args.backtrack_coeff},max_bt_try={args.max_backtrack_try}"
 
-out_path = os.path.join(os.path.dirname(__file__), "..", "..", "results/exploration",
+out_path = os.path.join(args.log_dir, "exploration",
                         args.tb_dir_name, exp_name +
                         "__" + datetime.now().strftime('%Y_%m_%d_%H_%M_%S') +
                         "__" + str(os.getpid()))
