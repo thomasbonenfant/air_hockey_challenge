@@ -76,7 +76,7 @@ def collect_particles(env, policy, num_traj, traj_len, state_filter):
     real_traj_lengths = np.zeros((num_traj, 1), dtype=np.int32)
 
     for trajectory in range(num_traj):
-        print(f'Trajectory: {trajectory}/{num_traj}', end='\r')
+        #print(f'Trajectory: {trajectory}/{num_traj}', end='\r')
         s = env.reset()
 
         for t in range(traj_len):
