@@ -18,7 +18,7 @@ class GymAirHockey(gym.Env):
     def step(self, action):
         action = np.reshape(action, (2,3))
         obs, reward, done, info = self.challenge_env.step(action)
-        return obs, reward, done, info
+        return obs, reward, done, False, info
 
     def render(self, mode="human"):
         self.challenge_env.render()

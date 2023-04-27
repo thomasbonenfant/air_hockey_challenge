@@ -5,6 +5,7 @@ import numpy as np
 
 from datetime import datetime
 from air_hockey_challenge.framework.gym_air_hockey import GymAirHockey
+from mepol.src.envs.ant import Ant
 from mepol.src.envs.discretizer import Discretizer
 from mepol.src.envs.wrappers import ErgodicEnv
 from mepol.src.algorithms.mepol import mepol
@@ -88,6 +89,18 @@ exp_spec = {
         'heatmap_interp': 'spline16',
         'heatmap_cmap': 'Blues',
         'heatmap_labels': ('Puck_X', 'Puck_Y')
+    },
+'Ant': {
+        'env_create': lambda: ErgodicEnv(Ant()),
+        'discretizer_create': lambda env: Discretizer([[-12.0, 12.0], [-12.0, 12.0]], [40, 40], lambda s: [s[0], s[1]]),
+        'hidden_sizes': [400, 300],
+        'activation': nn.ReLU,
+        'log_std_init': -0.5,
+        'eps': 0,
+        'state_filter': list(range(7)),
+        'heatmap_interp': 'spline16',
+        'heatmap_cmap': 'Blues',
+        'heatmap_labels': ('X', 'Y')
     },
 }
 

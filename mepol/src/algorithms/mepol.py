@@ -15,6 +15,20 @@ from torch.utils import tensorboard
 
 from mepol.src.utils.dtypes import float_type, int_type
 
+from air_hockey_challenge.framework.gym_air_hockey import GymAirHockey
+from mepol.src.envs.wrappers import ErgodicEnv
+from mepol.src.envs.ant import Ant
+
+def get_environment(env_name):
+    env_list = {
+        'AirHockey': lambda: GymAirHockey(),
+        'Ant': lambda: ErgodicEnv(Ant())
+    }
+
+    if env_name in env_list:
+        return env_list[env_name]()
+
+    raise Exception
 
 def get_heatmap(env, policy, discretizer, num_episodes, num_steps,
                 cmap, interp, labels):
@@ -33,7 +47,7 @@ def get_heatmap(env, policy, discretizer, num_episodes, num_steps,
         for t in range(num_steps):
             a = policy.predict(s).numpy()
 
-            s, _, done, _ = env.step(a)
+            s, _, done, _, _ = env.step(a)
             state_dist[discretizer.discretize(s)] += 1
 
             if done:
@@ -67,16 +81,18 @@ def get_heatmap(env, policy, discretizer, num_episodes, num_steps,
     return average_state_dist, average_entropy, image_fig
 
 
-def collect_particles(env, policy, num_traj, traj_len, state_filter):
+def collect_particles(env_name, policy, num_traj, traj_len, state_filter):
     """
     Collects num_traj * traj_len samples by running policy in the env.
     """
+    env = get_environment(env_name)
+
     states = np.zeros((num_traj, traj_len + 1, env.num_features), dtype=np.float32)
     actions = np.zeros((num_traj, traj_len, env.action_space.shape[0]), dtype=np.float32)
     real_traj_lengths = np.zeros((num_traj, 1), dtype=np.int32)
 
     for trajectory in range(num_traj):
-        #print(f'Trajectory: {trajectory}/{num_traj}', end='\r')
+        print(f'Trajectory: {trajectory}/{num_traj}', end='\r')
         s = env.reset()
 
         for t in range(traj_len):
@@ -86,7 +102,7 @@ def collect_particles(env, policy, num_traj, traj_len, state_filter):
 
             actions[trajectory, t] = a
 
-            ns, _, done, _ = env.step(a)
+            ns, _, done, _, _ = env.step(a)
 
             s = ns
 
@@ -175,14 +191,15 @@ def compute_kl(behavioral_policy, target_policy, states, actions,
     return kl, numeric_error
 
 
-def collect_particles_and_compute_knn(env, behavioral_policy, num_traj, traj_len,
+def collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj, traj_len,
                                       state_filter, k, num_workers):
     assert num_traj % num_workers == 0, "Please provide a number of trajectories " \
                                         "that can be equally split among workers"
 
+
     # Collect particles using behavioral policy
     res = Parallel(n_jobs=num_workers)(
-        delayed(collect_particles)(env, behavioral_policy, int(num_traj/num_workers), traj_len, state_filter)
+        delayed(collect_particles)(env_name, behavioral_policy, int(num_traj/num_workers), traj_len, state_filter)
         for _ in range(num_workers)
     )
     states, actions, real_traj_lengths, next_states = [np.vstack(x) for x in zip(*res)]
@@ -346,7 +363,7 @@ def mepol(env, env_name, state_filter, create_policy, k, kl_threshold, max_off_i
 
     # Full entropy
     states, actions, real_traj_lengths, next_states, distances, indices = \
-        collect_particles_and_compute_knn(env, behavioral_policy, num_traj * full_entropy_traj_scale,
+        collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj * full_entropy_traj_scale,
                                           traj_len, state_filter, full_entropy_k, num_workers)
 
     with torch.no_grad():
@@ -356,7 +373,7 @@ def mepol(env, env_name, state_filter, create_policy, k, kl_threshold, max_off_i
 
     # Entropy
     states, actions, real_traj_lengths, next_states, distances, indices = \
-        collect_particles_and_compute_knn(env, behavioral_policy, num_traj,
+        collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj,
                                           traj_len, state_filter, k, num_workers)
 
     with torch.no_grad():
@@ -412,7 +429,7 @@ def mepol(env, env_name, state_filter, create_policy, k, kl_threshold, max_off_i
 
         # Collect particles to optimize off policy
         states, actions, real_traj_lengths, next_states, distances, indices = \
-                collect_particles_and_compute_knn(env, behavioral_policy, num_traj,
+                collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj,
                                                   traj_len, state_filter, k, num_workers)
 
         if use_backtracking:
@@ -511,7 +528,7 @@ def mepol(env, env_name, state_filter, create_policy, k, kl_threshold, max_off_i
 
                         # Full entropy
                         states, actions, real_traj_lengths, next_states, distances, indices = \
-                            collect_particles_and_compute_knn(env, behavioral_policy, num_traj * full_entropy_traj_scale,
+                            collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj * full_entropy_traj_scale,
                                                               traj_len, state_filter, full_entropy_k, num_workers)
 
                         with torch.no_grad():
