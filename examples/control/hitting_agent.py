@@ -74,6 +74,9 @@ class HittingAgent(AgentBase):
             self.joint_trajectory = self.joint_trajectory[1:]
             self.last_cmd[1] = joint_vel_des
             self.last_cmd[0] = joint_pos_des
+
+            # clip the action if outside the boundary
+
         else:
             self.last_cmd[1] = np.zeros(self.env_info['robot']['n_joints'])
             if not self.optimization_failed:

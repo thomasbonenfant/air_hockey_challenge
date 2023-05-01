@@ -4,7 +4,7 @@
 
 # Noise parameters for 'position_control_wrapper', it has default values in the code
 # NOISE IN THE TORQUE AND BROKEN JOINTS
-broken_join_flag : True     # specify if we want to simulate a broken joint
+broken_join_flag : False     # specify if we want to simulate a broken joint
 noisy_control_flag: False    # specify if we want a noise in the output troque
 sigma: 0.1                   # std dev of the noise in the output torque
 broken_join_id: -1           # [0,1,2] use -1 if no join is broken, a random one will be picked
@@ -21,9 +21,9 @@ body_to_displace: ['body_3', 'body_2', 'body_1']  # the part of the robot to mis
 
 # Noise parameters for 'single', NOISE IN OBSERVATION
 is_track_lost: False  # loose the observation of the track
-is_obs_noisy: False   # add noise to the observations
+is_obs_noisy: True   # add noise to the observations
 track_loss_prob: 0.8  # probability of loosing the tracking at each observation
-sigma_obs: 0.05       # std dev of the observation noise
+cov_obs: [[0.001, 0],[0, 0.001]]    # variance of the observation noises, multivariate gaussian for position and velocity
 
 
 

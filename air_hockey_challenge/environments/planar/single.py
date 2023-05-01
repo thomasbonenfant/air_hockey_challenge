@@ -36,12 +36,14 @@ class AirHockeySingle(AirHockeyBase):
                 config = yaml.safe_load(stream)
         
         # load options from configuration file
-        self.sigma = config['sigma_obs'] # std dev of the noise in the observations
+        self.cov = config['cov_obs'] # std dev of the noise in the observations
         self.var_env = dict()
         self.var_env['is_track_lost'] = config['is_track_lost']     # True if we loose the track, does not affect the robot that much
         self.var_env['is_obs_noisy'] = config['is_obs_noisy']       # True if there is noise in the measurements, effectively reduces performances
         self.var_env['track_loss_prob'] = config['track_loss_prob'] # probability of loosing the tracking at each observation
-        self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6)  # white noise vector for puck's pos and vel
+
+        #self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6)  # white noise vector for puck's pos and vel
+        self.var_env['noise_value'] = np.random.multivariate_normal(np.zeros(len(self.cov)), self.cov) 
       
     def get_ee(self):
         """
@@ -89,14 +91,18 @@ class AirHockeySingle(AirHockeyBase):
         # Observation Noise 
         if self.var_env["is_obs_noisy"]:
 
-            self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6) # resample to add a different white noise at each observation
-            self.obs_helper.get_from_obs(new_obs, "puck_x_pos")[:] = puck_pos[0] + self.var_env['noise_value'][0]
-            self.obs_helper.get_from_obs(new_obs, "puck_y_pos")[:] = puck_pos[1] + self.var_env['noise_value'][1]
-            self.obs_helper.get_from_obs(new_obs, "puck_yaw_pos")[:] = puck_pos[2] + self.var_env['noise_value'][2]
+            #self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6) # resample to add a different white noise at each observation
+            self.var_env['noise_value'] = np.random.multivariate_normal(np.zeros(len(self.cov)), self.cov, size=3) # resample to add a different white noise at each observation
 
-            self.obs_helper.get_from_obs(new_obs, "puck_x_vel")[:] = puck_vel[0] + self.var_env['noise_value'][3]
-            self.obs_helper.get_from_obs(new_obs, "puck_y_vel")[:] = puck_vel[1] + self.var_env['noise_value'][4]
-            self.obs_helper.get_from_obs(new_obs, "puck_yaw_vel")[:] = puck_vel[2] + self.var_env['noise_value'][5]
+            #print('\n', self.var_env['noise_value'], '\n')
+        
+            self.obs_helper.get_from_obs(new_obs, "puck_x_pos")[:] = puck_pos[0] + self.var_env['noise_value'][0][0]
+            self.obs_helper.get_from_obs(new_obs, "puck_y_pos")[:] = puck_pos[1] + self.var_env['noise_value'][1][0]
+            self.obs_helper.get_from_obs(new_obs, "puck_yaw_pos")[:] = puck_pos[2] + self.var_env['noise_value'][2][0]
+
+            self.obs_helper.get_from_obs(new_obs, "puck_x_vel")[:] = puck_vel[0] + self.var_env['noise_value'][0][1]
+            self.obs_helper.get_from_obs(new_obs, "puck_y_vel")[:] = puck_vel[1] + self.var_env['noise_value'][1][1]
+            self.obs_helper.get_from_obs(new_obs, "puck_yaw_vel")[:] = puck_vel[2] + self.var_env['noise_value'][2][1]
             
         else:
             self.obs_helper.get_from_obs(new_obs, "puck_x_pos")[:] = puck_pos[0]
