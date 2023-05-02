@@ -79,8 +79,8 @@ Experiments specifications
 """
 exp_spec = {
     'AirHockey': {
-        'env_create': lambda: GymAirHockey(),
-        'discretizer_create': lambda env: Discretizer([[-0.974, 0.974],[-0.519,0.519]], [40,40], lambda s: [s[0],s[1]]),
+        'env_create': lambda: ErgodicEnv(GymAirHockey()),
+        'discretizer_create': lambda env: Discretizer([[-0.974, 0.974],[-0.519,0.519]], [75,40], lambda s: [s[0],s[1]]),
         'hidden_sizes': [400, 300],
         'activation': nn.ReLU,
         'log_std_init': -0.5,
