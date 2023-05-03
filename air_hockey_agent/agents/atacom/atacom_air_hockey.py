@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from air_hockey_agent.agents.atacom.atacom import AtacomEnvWrapper
 from air_hockey_agent.agents.atacom.constraints import ViabilityConstraint, ConstraintsSet
-from air_hockey_agent.agents.hit_agent import HittingAgent
+from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
 from air_hockey_challenge.utils.kinematics import forward_kinematics
 
 class AirHockeyPlanarAtacom(AtacomEnvWrapper):

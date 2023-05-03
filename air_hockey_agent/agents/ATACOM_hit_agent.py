@@ -1,6 +1,6 @@
 import numpy as np
 
-from air_hockey_agent.agents.hit_agent import HittingAgent
+from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
 from air_hockey_challenge.utils import forward_kinematics
 from air_hockey_agent.agents.atacom.utils.null_space_coordinate import rref, pinv_null
 from air_hockey_agent.agents.atacom.constraints import ViabilityConstraint, ConstraintsSet
@@ -22,31 +22,30 @@ class AtacomHittingAgent(HittingAgent):
             f (ViabilityConstraint, ConstraintsSet): the equality constraint f(q) = 0
             g (ViabilityConstraint, ConstraintsSet): the inequality constraint g(q) = 0
             Kc (array, float): the scaling factor for error correction
-            Ka (array, float): the scaling factor for the viability acceleration bound
+            Kq (array, float): the scaling factor for the viability acceleration bound
             time_step (float): the step size for time discretization
         """
-
         super().__init__(env, **kwargs)
 
         dim_q = self.env_info['robot']['n_joints']
-        Kc = 240.
+        Kc = 1000.
         timestamp = 1/240.
         # why dim out of 5?
         # cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.cart_pos_g, J=self.cart_pos_J_g, b=self.cart_pos_b_g, K=0.5)
-        cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.cart_pos_g, J=self.cart_pos_J_g, b=self.cart_pos_b_g, K=0.5)
+        ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.ee_pos_g, J=self.ee_pos_J_g, b=self.ee_pos_b_g, K=1.0)
 
         # TODO: still need to check validity of fun, J, b
         joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=2*dim_q, fun=self.joint_pos_g, J=self.joint_pos_J_g,
                                           b=self.joint_pos_b_g, K=1.0)
         f = None
         g = ConstraintsSet(dim_q)
-        g.add_constraint(cart_pos_g)
+        g.add_constraint(ee_pos_g)
         #g.add_constraint(joint_pos_g)
         #g.add_constraint(joint_vel_g)
 
         # TODO: if we want to include the jerk we may want to create a accel constraint and put the value here
         acc_max = self.env_info['robot']['joint_acc_limit'][1]
-        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1:] #takes only max values
+        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1:] # takes only positive constraints
         vel_max = np.squeeze(vel_max)
         Kq = 2 * acc_max / vel_max
 
@@ -110,10 +109,22 @@ class AtacomHittingAgent(HittingAgent):
         # shouldn't be needed
         # self.env.step_action_function = self.step_action_function
         self.mu = 0
-        
+        self.last_actions = []
 
     def reset(self):
         super().reset()
+
+    def fit(self, dataset, **info):
+        # change action to acceleration
+        for i in range(len(dataset)):
+            # convert tuple to list
+            dataset[i] = list(dataset[i])
+            # change action (space, velocity) to action (acceleration)
+            dataset[i][1] = np.array(self.last_actions[i])
+            # convert list back to tuple
+            dataset[i] = tuple(dataset[i])
+        super().fit(dataset, **info)
+        self.last_actions = []
 
     def draw_action(self, observation):
         """
@@ -124,7 +135,7 @@ class AtacomHittingAgent(HittingAgent):
         alpha = super().draw_action(observation)
 
         alpha = np.clip(alpha, self.env_info['robot']['joint_acc_limit'][0], self.env_info['robot']['joint_acc_limit'][1])
-        alpha = alpha * self.alpha_max
+        alpha = alpha #* self.alpha_max # TODO: why alpha max breaks everything?
         # Observe the qk, q˙k from sk
         self.q = self.get_joint_pos(observation)
         self.dq = self.get_joint_vel(observation)
@@ -150,7 +161,9 @@ class AtacomHittingAgent(HittingAgent):
         # Clip the joint acceleration q¨k ← clip(q¨k, al, au)
         ddq = self.acc_truncation(self.dq, ddq_ds[:self.dims['q']])
         # Integrate the slack variable µk+1 = µk + µ˙ k∆T
-        ctrl_action = self.acc_to_ctrl_action(ddq)
+        self.last_actions.append(ddq)
+        ctrl_action = self.acc_to_ctrl_action(ddq)#.reshape((6,))
+
         return ctrl_action
 
     def acc_to_ctrl_action(self, ddq):
@@ -227,7 +240,7 @@ class AtacomHittingAgent(HittingAgent):
 
         return -Jc_inv @ (self.K_c * self._compute_c(q_tmp, dq_tmp, s_tmp, origin_constr=False))
 
-    def cart_pos_g(self, q):
+    def ee_pos_g(self, q):
         """ Compute the constraint function g(q) = 0 position of the end-effector"""
         #ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)
         #ee_pos_world = ee_pos + self.env.agents[0]['frame'][:2, 3]
@@ -239,20 +252,19 @@ class AtacomHittingAgent(HittingAgent):
         g = self.env_info['constraints'].get('ee_constr')
         return g.fun(q, None)[:3] # dq is not used, pick only the first 3 elements (do not need height constraint)
 
-    def cart_pos_J_g(self, q):
+    def ee_pos_J_g(self, q):
         """ Compute the constraint function g'(q) = 0 derivative of the end-effector """
         #ee_jac = self.env_info['constraints'].get('ee_constraint').jacobian(q)
         #J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
         #return J_c @ ee_jac
         
         g = self.env_info['constraints'].get('ee_constr')
+
         return g.jacobian(q, None)[:3,:3] # dq is not used
 
-    def cart_pos_b_g(self, q, dq):
+    def ee_pos_b_g(self, q, dq):
         """ TODO: understand what this is: it should be dJ/dt * dq/dt  """
         #ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)
-        # probably not correct
-        g = self.env_info['constraints'].get('ee_constr').jacobian(q, dq)
         #pino.getFrameClassicalAcceleration(self.pino_model, self.pino_data, self.pino_model.nframes - 1,pino.LOCAL_WORLD_ALIGNED).vector
 
         mj_model = self.env_info['robot']['robot_model']
@@ -267,25 +279,26 @@ class AtacomHittingAgent(HittingAgent):
         acc = acc[3:]
 
         J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
-        # why in atacom takes only 2 acceleration?
-        return J_c @ acc[:2] #Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
+
+        return J_c @ acc[:2] # Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
 
     def joint_pos_g(self, q):
         """Compute the constraint function g(q) = 0 position of the joints"""
         #return np.array(q ** 2 - self.pino_model.upperPositionLimit ** 2)
-        g = self.env_info['constraints'].get('joint_pos')
-        return g.fun(q,None)
+        g = self.env_info['constraints'].get('joint_constr')
+        return g.fun(q, None)
 
 
     def joint_pos_J_g(self, q):
         """Compute constraint jacobian function J_g(q)"""
-        g = self.env_info['constraints'].get('joint_pos')
+        g = self.env_info['constraints'].get('joint_constr')
         return g.jacobian(q,None)
 
     def joint_pos_b_g(self, q, dq):
         """Compute constraint b(q,dq) function. It should be equal to dJ/dt * dq/dt"""
         #return 2 * np.diag(q)
-        g = self.env_info['constraint'].get('joint_pos') 
+        g = self.env_info['constraint'].get('joint_constr')
+        g = self.env_info['constraint'].get('joint_constr')
         return np.zeros(g.output_dim) #this constraint is linear so second order derivative goes to zero
 
     #next constraint is not used

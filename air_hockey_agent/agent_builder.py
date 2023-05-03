@@ -1,5 +1,5 @@
 from air_hockey_challenge.framework import AgentBase
-from air_hockey_agent.agents.hit_agent import HittingAgent
+from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
 
 
 def build_agent(env_info, **kwargs):

@@ -26,7 +26,7 @@ def build_agent(env_info, **kwargs):
 
 class HittingAgent(AgentBase, SAC):
     def __init__(self, env, **kwargs):
-        params = self.configure_SAC(env.info, **kwargs)[:-1]
+        params = self.configure_SAC(env.env_info['rl_info'], **kwargs)[:-1]
         alg_params = params[-1]
         SAC.__init__(self, *params[:-1], **alg_params)
         kwargs['no_initialization'] = True
