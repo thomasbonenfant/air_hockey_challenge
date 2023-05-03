@@ -2,19 +2,31 @@ import numpy as np
 import gym
 from gym import spaces
 from air_hockey_challenge.framework.air_hockey_challenge_wrapper import AirHockeyChallengeWrapper
-from air_hockey_challenge.utils.transformations import robot_to_world
-from air_hockey_challenge.utils.kinematics import forward_kinematics
+from air_hockey_challenge.utils.transformations import robot_to_world, world_to_robot
+from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_kinematics
 
 class GymAirHockey(gym.Env):
-    def __init__(self, use_puck_distance = True):
+    def __init__(self, use_puck_distance = True, task_space=True):
         '''
         Args:
             use_puck_distance: whether add end effector's distance from the puck in the observation
+            task_space: if True changes the action space to x,y
         '''
         self.challenge_env = AirHockeyChallengeWrapper('3dof-hit')
         n_joints = self.challenge_env.env_info['robot']['n_joints']
+        self.world2robot_transf = self.challenge_env.env_info['robot']['base_frame'][0]
 
-        self.action_space = spaces.Box(low=-3, high=3, shape=(2*n_joints,), dtype=np.float32)
+        # to calculate joint velocity
+        self.old_joint_pos = np.zeros(n_joints)
+
+        self.task_space = task_space
+        if self.task_space:
+            action_space_dim = 2 # x,y
+        else:
+            action_space_dim = 2 * n_joints
+
+        self.action_space = spaces.Box(low=-3, high=3, shape=(action_space_dim,), dtype=np.float32)
+
         self.num_features = 10
 
         self.use_puck_distance = use_puck_distance
@@ -50,11 +62,26 @@ class GymAirHockey(gym.Env):
 
 
     def reset(self):
-        return self.convert_obs(self.challenge_env.reset())
+        obs =  self.challenge_env.reset()
+
+        self.old_joint_pos = obs[self.challenge_env.env_info['joint_pos_ids']]
+
+        return self.convert_obs(obs)
     
     def step(self, action):
-        action = np.reshape(action, (2,3))
+
+        if self.task_space:
+            ee_pos_action = np.hstack((action, 0))
+            joint_pos_action = self._apply_inverse_kinematics(ee_pos_action)
+            joint_vel_action = (joint_pos_action - self.old_joint_pos) / self.challenge_env.env_info['dt']
+            action = np.vstack((joint_pos_action, joint_vel_action))
+
+        else:
+            action = np.reshape(action, (2,3))
+
         obs, reward, done, info = self.challenge_env.step(action)
+
+        self.old_joint_pos = obs[self.challenge_env.env_info['joint_pos_ids']]
 
         return self.convert_obs(obs), reward, done, False, info
 
@@ -63,6 +90,15 @@ class GymAirHockey(gym.Env):
     
     def close(self):
         pass
+
+    def _apply_inverse_kinematics(self, ee_pos_robot_frame):
+        env_info = self.challenge_env.env_info
+        mj_model = env_info['robot']['robot_model']
+        mj_data = env_info['robot']['robot_data']
+        position_robot_frame, rotation = world_to_robot(self.world2robot_transf, ee_pos_robot_frame)
+        success, action_joints = inverse_kinematics(mj_model, mj_data,
+                                                    position_robot_frame)  # inverse_kinematics uses robot's frame for coordinates
+        return action_joints
 
 
     

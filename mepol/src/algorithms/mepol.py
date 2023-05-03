@@ -19,10 +19,9 @@ from air_hockey_challenge.framework.gym_air_hockey import GymAirHockey
 from mepol.src.envs.wrappers import ErgodicEnv
 from mepol.src.envs.ant import Ant
 
-def get_environment(env_name):
+def get_environment(env_name, task_space):
     env_list = {
-        'AirHockey': lambda: GymAirHockey(),
-        'Ant': lambda: ErgodicEnv(Ant())
+        'AirHockey': lambda: GymAirHockey(task_space=task_space),
     }
 
     if env_name in env_list:
@@ -85,7 +84,7 @@ def collect_particles(env_name, policy, num_traj, traj_len, state_filter):
     """
     Collects num_traj * traj_len samples by running policy in the env.
     """
-    env = get_environment(env_name)
+    env = get_environment(env_name, task_space=True)
 
     states = np.zeros((num_traj, traj_len + 1, env.num_features), dtype=np.float32)
     actions = np.zeros((num_traj, traj_len, env.action_space.shape[0]), dtype=np.float32)
@@ -312,7 +311,7 @@ def mepol(env, env_name, state_filter, create_policy, k, kl_threshold, max_off_i
         # Seed everything
         np.random.seed(seed)
         torch.manual_seed(seed)
-        #env.seed(seed)
+        #env.reset(seed)
 
     # Create a behavioral, a target policy and a tmp policy used to save valid target policies
     # (those with kl <= kl_threshold) during off policy opt
