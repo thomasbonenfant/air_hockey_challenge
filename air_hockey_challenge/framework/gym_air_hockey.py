@@ -3,10 +3,10 @@ import gym
 from gym import spaces
 from air_hockey_challenge.framework.air_hockey_challenge_wrapper import AirHockeyChallengeWrapper
 from air_hockey_challenge.utils.transformations import robot_to_world, world_to_robot
-from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_kinematics
+from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_kinematics, jacobian
 
 class GymAirHockey(gym.Env):
-    def __init__(self, use_puck_distance = True, task_space=True):
+    def __init__(self, use_puck_distance = False, task_space=True):
         '''
         Args:
             use_puck_distance: whether add end effector's distance from the puck in the observation
@@ -27,11 +27,14 @@ class GymAirHockey(gym.Env):
 
         self.action_space = spaces.Box(low=-3, high=3, shape=(action_space_dim,), dtype=np.float32)
 
-        self.num_features = 10
+        if self.task_space:
+            self.num_features = 14 # puck_x, puck_y, dpuck_x, dpuck_y, ee_x, ee_y, deex, deey
+        else:
+            self.num_features = 10
 
         self.use_puck_distance = use_puck_distance
 
-        if self.use_puck_distance:
+        if self.use_puck_distance and not self.task_space:
             self.num_features += 2
 
         self.observation_space = spaces.Box(low = -10, high=10, shape=(self.num_features,), dtype=np.float32)
@@ -42,20 +45,26 @@ class GymAirHockey(gym.Env):
         puck_pos = puck_pos[:2]
 
         puck_vel = obs[self.challenge_env.env_info['joint_vel_ids']]
+
         joint_pos = obs[self.challenge_env.env_info['joint_pos_ids']]
         joint_vel = obs[self.challenge_env.env_info['joint_vel_ids']]
 
-        obs = np.hstack((puck_pos[:2], puck_vel[:2], joint_vel, joint_pos))
+        mj_model = self.challenge_env.env_info['robot']['robot_model']
+        mj_data = self.challenge_env.env_info['robot']['robot_data']
 
-        if self.use_puck_distance:
-            mj_model = self.challenge_env.env_info['robot']['robot_model']
-            mj_data = self.challenge_env.env_info['robot']['robot_data']
+        obs = np.hstack((puck_pos[:2], puck_vel[:2], joint_pos, joint_vel))
+
+        if self.task_space:
+            ee_pos, _ = forward_kinematics(mj_model, mj_data, joint_pos)
+            ee_vel = self._apply_forward_velocity_kinematics(joint_pos, joint_vel)[:2]
+
+            obs = np.hstack((obs, ee_pos[:2], ee_vel))
+
+        if not self.task_space and self.use_puck_distance:
             ee_pos, _ = forward_kinematics(mj_model,mj_data, joint_pos)
-            ee_pos = ee_pos[0]
 
             puck_distance = puck_pos - ee_pos
             obs = np.hstack((obs, puck_distance))
-
 
         return obs
 
@@ -99,6 +108,15 @@ class GymAirHockey(gym.Env):
         success, action_joints = inverse_kinematics(mj_model, mj_data,
                                                     position_robot_frame)  # inverse_kinematics uses robot's frame for coordinates
         return action_joints
+
+    def _apply_forward_velocity_kinematics(self, joint_pos, joint_vel):
+        mj_model = self.challenge_env.env_info['robot']['robot_model']
+        mj_data = self.challenge_env.env_info['robot']['robot_data']
+
+        jac = jacobian(mj_model, mj_data, joint_pos)[:3]  # last part of the matrix is about rotation. no need for it
+        ee_vel = jac @ joint_vel
+
+        return ee_vel
 
 
     
