@@ -16,6 +16,7 @@ parser.add_argument('--num_workers', type=int, default=1,
                     help='How many parallel workers to use when collecting env trajectories and compute k-nn')
 parser.add_argument('--env', type=str, required=True,
                     help='The MDP')
+parser.add_argument('--exp_name', type=str, required=True)
 parser.add_argument('--zero_mean_start', type=int, default=1, choices=[0, 1],
                     help='Whether to make the policy start from a zero mean output')
 parser.add_argument('--k', type=int, required=True,
@@ -59,7 +60,15 @@ parser.add_argument('--tb_dir_name', type=str, default='mepol',
 parser.add_argument('--log_dir', type=str, default='/data/air_hockey',
                     help='Where to store results')
 
+# environment parameters
+parser.add_argument('--task_space', type=int, required=True, choices=[0, 1], help='Whether use task space actions')
+parser.add_argument('--task_space_vel', type=int, required=True, choices=[0,1], help='Use inv kinematics for velocity')
+parser.add_argument('--use_puck_distance', type=int, default=0, choices=[0, 1])
+
 args = parser.parse_args()
+
+env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_puck_distance')}
+
 
 """
 Experiments specifications
@@ -78,7 +87,7 @@ Experiments specifications
 """
 exp_spec = {
     'AirHockey': {
-        'env_create': lambda: ErgodicEnv(GymAirHockey(task_space=True)),
+        'env_create': lambda: ErgodicEnv(GymAirHockey(**env_parameters)),
         'discretizer_create': lambda env: Discretizer([[-0.974, 0.974],[-0.519,0.519]], [75,40], lambda s: [s[0],s[1]]),
         'hidden_sizes': [400, 300],
         'activation': nn.ReLU,
@@ -102,6 +111,7 @@ discretizer = spec['discretizer_create'](env)
 state_filter = spec.get('state_filter')
 eps = spec['eps']
 
+
 def create_policy(is_behavioral=False):
 
     policy = GaussianPolicy(
@@ -118,7 +128,9 @@ def create_policy(is_behavioral=False):
     return policy
 
 
-exp_name = f"env={args.env},z_mu_start={args.zero_mean_start},k={args.k},kl_thresh={args.kl_threshold}," \
+
+
+exp_name = f"exp_name={args.exp_name},env={args.env},z_mu_start={args.zero_mean_start},k={args.k},kl_thresh={args.kl_threshold}," \
            f"max_off_iters={args.max_off_iters},num_traj={args.num_trajectories},traj_len={args.trajectory_length}," \
            f"lr={args.learning_rate},opt={args.optimizer},fe_traj_sc={args.full_entropy_traj_scale},fe_k={args.full_entropy_k}," \
            f"use_bt={args.use_backtracking},bt_coeff={args.backtrack_coeff},max_bt_try={args.max_backtrack_try}"
@@ -149,6 +161,7 @@ with open(os.path.join(out_path, 'log_info.txt'), 'w') as f:
 mepol(
     env=env,
     env_name=args.env,
+    env_maker=spec['env_create'],
     state_filter=state_filter,
     create_policy=create_policy,
     k=args.k,

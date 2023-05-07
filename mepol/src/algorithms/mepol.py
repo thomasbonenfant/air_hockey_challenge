@@ -80,11 +80,11 @@ def get_heatmap(env, policy, discretizer, num_episodes, num_steps,
     return average_state_dist, average_entropy, image_fig
 
 
-def collect_particles(env_name, policy, num_traj, traj_len, state_filter):
+def collect_particles(env_maker, policy, num_traj, traj_len, state_filter):
     """
     Collects num_traj * traj_len samples by running policy in the env.
     """
-    env = get_environment(env_name, task_space=True)
+    env = env_maker()
 
     states = np.zeros((num_traj, traj_len + 1, env.num_features), dtype=np.float32)
     actions = np.zeros((num_traj, traj_len, env.action_space.shape[0]), dtype=np.float32)
@@ -190,7 +190,7 @@ def compute_kl(behavioral_policy, target_policy, states, actions,
     return kl, numeric_error
 
 
-def collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj, traj_len,
+def collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj, traj_len,
                                       state_filter, k, num_workers):
     assert num_traj % num_workers == 0, "Please provide a number of trajectories " \
                                         "that can be equally split among workers"
@@ -198,7 +198,7 @@ def collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj, tra
 
     # Collect particles using behavioral policy
     res = Parallel(n_jobs=num_workers)(
-        delayed(collect_particles)(env_name, behavioral_policy, int(num_traj/num_workers), traj_len, state_filter)
+        delayed(collect_particles)(env_maker, behavioral_policy, int(num_traj/num_workers), traj_len, state_filter)
         for _ in range(num_workers)
     )
     states, actions, real_traj_lengths, next_states = [np.vstack(x) for x in zip(*res)]
@@ -298,7 +298,7 @@ def policy_update(optimizer, behavioral_policy, target_policy, states, actions,
     return loss, numeric_error
 
 
-def mepol(env, env_name, state_filter, create_policy, k, kl_threshold, max_off_iters,
+def mepol(env, env_name, env_maker, state_filter, create_policy, k, kl_threshold, max_off_iters,
           use_backtracking, backtrack_coeff, max_backtrack_try, eps,
           learning_rate, num_traj, traj_len, num_epochs, optimizer,
           full_entropy_traj_scale, full_entropy_k,
@@ -362,7 +362,7 @@ def mepol(env, env_name, state_filter, create_policy, k, kl_threshold, max_off_i
 
     # Full entropy
     states, actions, real_traj_lengths, next_states, distances, indices = \
-        collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj * full_entropy_traj_scale,
+        collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj * full_entropy_traj_scale,
                                           traj_len, state_filter, full_entropy_k, num_workers)
 
     with torch.no_grad():
@@ -372,7 +372,7 @@ def mepol(env, env_name, state_filter, create_policy, k, kl_threshold, max_off_i
 
     # Entropy
     states, actions, real_traj_lengths, next_states, distances, indices = \
-        collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj,
+        collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj,
                                           traj_len, state_filter, k, num_workers)
 
     with torch.no_grad():
@@ -428,7 +428,7 @@ def mepol(env, env_name, state_filter, create_policy, k, kl_threshold, max_off_i
 
         # Collect particles to optimize off policy
         states, actions, real_traj_lengths, next_states, distances, indices = \
-                collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj,
+                collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj,
                                                   traj_len, state_filter, k, num_workers)
 
         if use_backtracking:
