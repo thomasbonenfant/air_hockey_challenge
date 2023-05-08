@@ -527,7 +527,7 @@ def mepol(env, env_name, env_maker, state_filter, create_policy, k, kl_threshold
 
                         # Full entropy
                         states, actions, real_traj_lengths, next_states, distances, indices = \
-                            collect_particles_and_compute_knn(env_name, behavioral_policy, num_traj * full_entropy_traj_scale,
+                            collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj * full_entropy_traj_scale,
                                                               traj_len, state_filter, full_entropy_k, num_workers)
 
                         with torch.no_grad():
