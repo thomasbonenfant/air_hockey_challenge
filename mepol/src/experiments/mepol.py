@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 from datetime import datetime
-from air_hockey_challenge.framework.gym_air_hockey import GymAirHockey
+from mepol.src.envs.air_hockey import GymAirHockey
 from mepol.src.envs.discretizer import Discretizer
 from mepol.src.envs.wrappers import ErgodicEnv
 from mepol.src.algorithms.mepol import mepol
@@ -63,11 +63,10 @@ parser.add_argument('--log_dir', type=str, default='/data/air_hockey',
 # environment parameters
 parser.add_argument('--task_space', type=int, required=True, choices=[0, 1], help='Whether use task space actions')
 parser.add_argument('--task_space_vel', type=int, required=True, choices=[0,1], help='Use inv kinematics for velocity')
-parser.add_argument('--use_puck_distance', type=int, default=0, choices=[0, 1])
 
 args = parser.parse_args()
 
-env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_puck_distance')}
+env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel')}
 
 
 """

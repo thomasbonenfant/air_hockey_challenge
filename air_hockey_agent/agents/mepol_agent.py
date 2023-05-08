@@ -1,8 +1,6 @@
-import torch
 import torch.nn
 from mepol.src.policy import GaussianPolicy
-from mepol.src.envs.wrappers import ErgodicEnv
-from air_hockey_challenge.framework.gym_air_hockey import GymAirHockey
+from mepol.src.envs.air_hockey import GymAirHockey
 from mepol.src.envs.wrappers import ErgodicEnv
 
 spec = {
@@ -20,7 +18,7 @@ policy = GaussianPolicy(
         log_std_init=spec['log_std_init']
     )
 
-#policy.load_state_dict(torch.load('/home/thomas/Downloads/175-policy'))
+#policy.load_state_dict(torch.load('/home/thomas/Downloads/75-policy'))
 
 #Simulation
 obs = env.reset()
@@ -29,11 +27,11 @@ steps = 0
 
 while True:
     steps += 1
-    action = policy.predict(obs, deterministic=True)
+    action = policy.predict(obs)
     obs, reward, done, _, info = env.step(action)
     env.render()
 
-    if done or steps >= 200:
+    if done or steps >= 400:
         env.reset()
         steps = 0
 

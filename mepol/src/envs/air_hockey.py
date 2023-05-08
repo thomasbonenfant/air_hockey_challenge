@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 from numpy.linalg import pinv
 import gym
 from gym import spaces
@@ -8,18 +9,27 @@ from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_ki
 
 
 class GymAirHockey(gym.Env):
-    def __init__(self, use_puck_distance = False, task_space=True, task_space_vel=True):
+    def __init__(self, action_type = 'position-velocity', interpolation_order=3, custom_reward_function=None, task_space=True, task_space_vel=True):
         '''
         Args:
-            use_puck_distance: whether add end effector's distance from the puck in the observation
             task_space: if True changes the action space to x,y
         '''
-        self.challenge_env = AirHockeyChallengeWrapper('3dof-hit')
+        self.challenge_env = AirHockeyChallengeWrapper('3dof-hit', action_type=action_type,
+                                                       interpolation_order=interpolation_order,
+                                                       custom_reward_function=custom_reward_function)
+
+        env_info = self.challenge_env.env_info
 
         n_joints = self.challenge_env.env_info['robot']['n_joints']
+        self.gamma = env_info['rl_info'].gamma
+
+        ac_space = env_info['rl_info'].action_space
+        obs_space = env_info['rl_info'].observation_space
+
+
         self.world2robot_transf = self.challenge_env.env_info['robot']['base_frame'][0]
-        self.mj_model = self.challenge_env.env_info['robot']['robot_model']
-        self.mj_data = self.challenge_env.env_info['robot']['robot_data']
+        self.mj_model = copy.deepcopy(self.challenge_env.env_info['robot']['robot_model'])
+        self.mj_data = copy.deepcopy(self.challenge_env.env_info['robot']['robot_data'])
 
         # to calculate joint velocity
         self.old_joint_pos = np.zeros(n_joints)
@@ -42,11 +52,6 @@ class GymAirHockey(gym.Env):
         else:
             self.num_features = 10
 
-        self.use_puck_distance = use_puck_distance
-
-        if self.use_puck_distance and not self.task_space:
-            self.num_features += 2
-
         self.observation_space = spaces.Box(low = -10, high=10, shape=(self.num_features,), dtype=np.float32)
 
     def convert_obs(self, obs):
@@ -66,12 +71,6 @@ class GymAirHockey(gym.Env):
             ee_vel = self._apply_forward_velocity_kinematics(joint_pos, joint_vel)[:2]
 
             obs = np.hstack((obs, ee_pos[:2], ee_vel))
-
-        if not self.task_space and self.use_puck_distance:
-            ee_pos, _ = forward_kinematics(self.mj_model, self.mj_data, joint_pos)
-
-            puck_distance = puck_pos - ee_pos
-            obs = np.hstack((obs, puck_distance))
 
         return obs
 

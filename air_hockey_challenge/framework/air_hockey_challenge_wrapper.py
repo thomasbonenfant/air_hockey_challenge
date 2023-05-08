@@ -51,6 +51,13 @@ class AirHockeyChallengeWrapper(Environment):
 
         super().__init__(self.base_env.info)
 
+    def set_puck_pos(self, pos):
+        self.base_env._write_data("puck_x_pos", pos[0])
+        self.base_env._write_data("puck_y_pos", pos[1])
+        self.base_env._write_data("puck_x_vel", 0)
+        self.base_env._write_data("puck_y_vel", 0)
+
+
     def step(self, action):
         obs, reward, done, info = self.base_env.step(action)
 
@@ -75,6 +82,10 @@ class AirHockeyChallengeWrapper(Environment):
                 info["jerk"].append(
                     self.base_env.jerk[i * self.env_info['robot']['n_joints']:(i + 1) * self.env_info['robot'][
                         'n_joints']])
+
+        if done:
+            self.set_puck_pos(np.array([-0.4,0,0]))
+            obs, reward, done, info = self.step(action)
 
         return obs, reward, done, info
 

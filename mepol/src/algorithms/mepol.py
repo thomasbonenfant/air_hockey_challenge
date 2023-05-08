@@ -15,19 +15,6 @@ from torch.utils import tensorboard
 
 from mepol.src.utils.dtypes import float_type, int_type
 
-from air_hockey_challenge.framework.gym_air_hockey import GymAirHockey
-from mepol.src.envs.wrappers import ErgodicEnv
-from mepol.src.envs.ant import Ant
-
-def get_environment(env_name, task_space):
-    env_list = {
-        'AirHockey': lambda: GymAirHockey(task_space=task_space),
-    }
-
-    if env_name in env_list:
-        return env_list[env_name]()
-
-    raise Exception
 
 def get_heatmap(env, policy, discretizer, num_episodes, num_steps,
                 cmap, interp, labels):
@@ -91,7 +78,6 @@ def collect_particles(env_maker, policy, num_traj, traj_len, state_filter):
     real_traj_lengths = np.zeros((num_traj, 1), dtype=np.int32)
 
     for trajectory in range(num_traj):
-        print(f'Trajectory: {trajectory}/{num_traj}', end='\r')
         s = env.reset()
 
         for t in range(traj_len):
