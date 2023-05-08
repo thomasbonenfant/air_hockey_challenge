@@ -91,7 +91,7 @@ exp_spec = {
         'hidden_sizes': [400, 300],
         'activation': nn.ReLU,
         'log_std_init': -0.5,
-        'eps': 1e-15,
+        'eps': 0,
         'state_filter': [0,1],
         'heatmap_interp': 'spline16',
         'heatmap_cmap': 'Blues',

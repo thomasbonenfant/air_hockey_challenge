@@ -30,7 +30,7 @@ class AirHockeyHit(AirHockeySingle):
         if randomize_puck:
             puck_pos = np.random.rand(2) * (self.hit_range[:, 1] - self.hit_range[:, 0]) + self.hit_range[:, 0]
         else:
-            puck_pos = np.array([-0.4,0,0])
+            puck_pos = np.array([-0.75,0,0])
 
 
 
