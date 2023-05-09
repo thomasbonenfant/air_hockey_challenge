@@ -1,1 +1,1 @@
-python run.py -e 3dof-hit -r --example hit-agent --n_cores 1 -n 5
+python run.py -e 3dof-hit --example hit-agent --n_cores 1 -n 5

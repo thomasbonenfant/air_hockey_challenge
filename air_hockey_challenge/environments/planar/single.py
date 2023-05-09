@@ -34,17 +34,17 @@ class AirHockeySingle(AirHockeyBase):
         if os.path.exists(path):
             with open(path, 'r') as stream:
                 config = yaml.safe_load(stream)
-        
+
         # load options from configuration file
-        self.cov = config['cov_obs'] # std dev of the noise in the observations
+        self.cov = config['cov_obs']  # std dev of the noise in the observations
         self.var_env = dict()
         self.var_env['is_track_lost'] = config['is_track_lost']     # True if we loose the track, does not affect the robot that much
-        self.var_env['is_obs_noisy'] = config['is_obs_noisy']       # True if there is noise in the measurements, effectively reduces performances
+        self.var_env['is_obs_noisy'] = config['is_obs_noisy']       # True if there is noise in the measurements, effectively reduces performances
         self.var_env['track_loss_prob'] = config['track_loss_prob'] # probability of loosing the tracking at each observation
 
         #self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6)  # white noise vector for puck's pos and vel
-        self.var_env['noise_value'] = np.random.multivariate_normal(np.zeros(len(self.cov)), self.cov) 
-      
+        self.var_env['noise_value'] = np.random.multivariate_normal(np.zeros(len(self.cov)), self.cov)
+
     def get_ee(self):
         """
         Getting the ee properties from the current internal state. Can also be obtained via forward kinematics
@@ -70,6 +70,21 @@ class AirHockeySingle(AirHockeyBase):
             q_vel[i] = self.obs_helper.get_from_obs(obs, "robot_1/joint_" + str(i+1) + "_vel")[0]
 
         return q_pos, q_vel
+
+    def get_state(self, obs):
+        """
+        Get joint position, velocities; puck position and velocities, opponent's end effector position and velocities
+        if present.
+        It retrieves info by calling already existing functions, it is a summary to retrieve all info together
+
+        Returns
+        -------
+            ([puck_position, puck_velocities], [joint_position, joint_velocities], [ee_opponent_pos(if any)])
+        """
+        joint_pos, joint_vel = self.get_joints(obs)
+        puck_pos, puck_vel = self.get_puck(obs)
+
+        return np.concatenate((puck_pos, puck_vel, joint_pos, joint_vel))
 
     def _modify_observation(self, obs):
         new_obs = obs.copy()

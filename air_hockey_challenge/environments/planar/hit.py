@@ -1,6 +1,9 @@
+import numpy
 import numpy as np
 from air_hockey_challenge.environments.planar.single import AirHockeySingle
+from air_hockey_challenge.constraints import *
 
+from copy import deepcopy
 
 class AirHockeyHit(AirHockeySingle):
     """
@@ -48,8 +51,101 @@ class AirHockeyHit(AirHockeySingle):
         super(AirHockeyHit, self).setup(state)
         
     def reward(self, state, action, next_state, absorbing):
-        return 0
-    
+
+        """
+        Custom reward function, it is in the form: r_tot = r_hit + alpha * r_const
+        
+        - r_hit: reward for the hitting part
+        - r_const: reward for the constraint part
+        - alpha: constant
+
+        r_hit:
+
+              || p_ee - p_puck||
+          -  ------------------ - c * ||a||      , if no hit
+              0.5 * diag_tavolo
+
+
+                vx_hit
+            -------------- - c * ||a||          , if has hit
+              big_number     
+
+
+               1
+            -------                             , if goal
+             1 - Ɣ
+        """
+        # TODO parametri da aggiungere al main.py per gli addestramenti (repo oac-explore)
+
+        alpha = 1           # TODO find a suitable value
+        has_hit = False     # TODO implement a way to check if it happened
+        c = 0               # constant, set to 0 for the first experiments
+        gamma = 0.998       # 0.998 means 500 steps of horizon, they train for 500 steps (0,997 -> ~333 steps)
+        big_number = 10**4  # TODO find a suitable value, guardare limiti dello spazio di stato (observation_space)
+
+        # compute table diagonal
+        table_length = self.env_info['table']['length']
+        table_width = self.env_info['table']['width']
+        table_diag = np.sqrt(table_length**2 + table_width**2)
+
+        # get ee and puck position
+        ee_pos = self.get_ee()[0] 
+        puck_pos = self.get_puck(state)[0][0:2]  # FIXME takes observation as input, state should be fine
+
+        ''' REWARD HIT '''
+        # goal case, default option 
+        reward_hit = 1 / (1 - gamma)
+        
+        # no hit case
+        if not has_hit:
+            reward_hit = - (np.linalg.norm(ee_pos[0:2] - puck_pos) / 0.5 * table_diag) - c * np.linalg.norm(action)
+        
+        # hit case
+        if has_hit:
+            ee_x_vel = self.get_ee()[1][3]  # retrieve the linear x velocity
+
+            reward_hit = (ee_x_vel / big_number) - c * np.linalg.norm(action)
+
+        ''' REWARD CONSTRAINTS '''
+        # retrieve constraints
+        constraint_list = ConstraintList()
+        constraint_list.add(JointPositionConstraint(self.env_info))
+        constraint_list.add(JointVelocityConstraint(self.env_info))
+        constraint_list.add((EndEffectorConstraint(self.env_info)))
+
+        self.env_info['constraints'] = constraint_list
+        constraints = self.env_info['constraints']
+
+        # RECOMPUTE CONSTRAINTS
+        info = dict()
+        info['constraints_value'] = deepcopy(constraints.fun(state[self.env_info['joint_pos_ids']],
+                                                             state[self.env_info['joint_vel_ids']]))
+
+        # import penalty weights from a dictionary in evaluate_agent
+        from air_hockey_challenge.framework.evaluate_agent import PENALTY_POINTS
+        constraint_weights = PENALTY_POINTS
+
+        # retrieve slack variables and multiply for penalty weights
+        # if slack_variable > 0 then the constraint is violated
+        slack_variables = info['constraints_value']
+
+        for key in slack_variables.keys():
+            if key in constraint_weights.keys():
+                slack_variables[key] = np.array(list(map(lambda x: x if x > 0 else 0, slack_variables[key])))  # take only positive values
+                slack_variables[key] *= constraint_weights[key]  # multiply by the penalty weights
+                # FIXME is max of observation space ok?
+                normalization_factor = max(self.env_info['rl_info'].observation_space.high)  # correction factor, max of observation space
+                slack_variables[key] = slack_variables[key] / normalization_factor
+
+        # sum the slack variables multiplied by their weights divided by correction factor
+        sum_slack = 0
+        for value in slack_variables.values():
+            sum_slack += sum(value)
+
+        reward_constraints = - sum_slack / sum(constraint_weights.values())
+
+        return (reward_hit + alpha * reward_constraints) / 2  # negative rewards should never go below -1
+
     def is_absorbing(self, obs):
         _, puck_vel = self.get_puck(obs)
         # Stop if the puck bounces back on the opponents wall
@@ -62,7 +158,7 @@ if __name__ == '__main__':
     env = AirHockeyHit(moving_init=False)
 
     env.reset()
-    env.render()
+    #env.render()
     R = 0.
     J = 0.
     gamma = 1.
@@ -71,7 +167,7 @@ if __name__ == '__main__':
         action = np.zeros(3)
 
         observation, reward, done, info = env.step(action)
-        env.render()
+        #env.render()
 
         gamma *= env.info.gamma
         J += gamma * reward

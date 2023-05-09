@@ -60,7 +60,7 @@ class PositionControl:
                     broken_join_id = config['broken_join_id'],
                     broken_join_prob = config['broken_join_prob']
                 )
-        else: # default settings
+        else:  # default settings
             self.noise_options = dict(
                 broken_join_flag=False,
                 noisy_control_flag=False,
