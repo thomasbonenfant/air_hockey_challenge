@@ -21,6 +21,7 @@ class AirHockeySingle(AirHockeyBase):
         self.init_state = np.array([-1.15570723,  1.30024401,  1.44280414])
         super().__init__(gamma=gamma, horizon=horizon, n_agents=1, viewer_params=viewer_params)
 
+        self.gamma = gamma
         self.filter_ratio = 0.274
         self.q_pos_prev = np.zeros(self.env_info["robot"]["n_joints"])
         self.q_vel_prev = np.zeros(self.env_info["robot"]["n_joints"])
@@ -81,10 +82,19 @@ class AirHockeySingle(AirHockeyBase):
         -------
             ([puck_position, puck_velocities], [joint_position, joint_velocities], [ee_opponent_pos(if any)])
         """
+
         joint_pos, joint_vel = self.get_joints(obs)
         puck_pos, puck_vel = self.get_puck(obs)
+        ee_pos, ee_vel = self.get_ee()
 
-        return np.concatenate((puck_pos, puck_vel, joint_pos, joint_vel))
+        # FIXME it his just a patch
+        # FIXME since the puck starts still it will be hit when its speed will be different from 0
+        has_hit = False
+        if puck_vel[0] != 0:
+            has_hit = True
+        #has_hit = self._check_collision("puck", "robot_1/ee")  # FIXME dovrebbe andare nello step
+
+        return puck_pos, puck_vel, joint_pos, joint_vel, ee_pos, ee_vel, has_hit
 
     def _modify_observation(self, obs):
         new_obs = obs.copy()

@@ -77,11 +77,10 @@ class AirHockeyHit(AirHockeySingle):
         """
         # TODO parametri da aggiungere al main.py per gli addestramenti (repo oac-explore)
 
-        alpha = 1           # TODO find a suitable value
-        has_hit = False     # TODO implement a way to check if it happened
+        alpha = 1           # TODO find a suitable value, start with 1
         c = 0               # constant, set to 0 for the first experiments
-        gamma = 0.998       # 0.998 means 500 steps of horizon, they train for 500 steps (0,997 -> ~333 steps)
-        big_number = 10**4  # TODO find a suitable value, guardare limiti dello spazio di stato (observation_space)
+        #gamma = 0.998      # 0.998 means 500 steps of horizon, they train for 500 steps (0,997 -> ~333 steps)
+        big_number = 100    # 100 because is the limit to get in the absorbing state in 'base'
 
         # compute table diagonal
         table_length = self.env_info['table']['length']
@@ -89,13 +88,21 @@ class AirHockeyHit(AirHockeySingle):
         table_diag = np.sqrt(table_length**2 + table_width**2)
 
         # get ee and puck position
-        ee_pos = self.get_ee()[0] 
-        puck_pos = self.get_puck(state)[0][0:2]  # FIXME takes observation as input, state should be fine
+        #ee_pos = self.get_ee()[0]
+        #puck_pos = self.get_puck(state)[0][0:2]
+
+        puck_pos, puck_vel, joint_pos, joint_vel, ee_pos, ee_vel, has_hit = self.get_state(state)
+        puck_pos = puck_pos[0:2]
 
         ''' REWARD HIT '''
-        # goal case, default option 
-        reward_hit = 1 / (1 - gamma)
-        
+
+        # goal case
+        # over the table and between the goal area
+        if absorbing:
+            if (round(puck_pos[0], 3)+0.1 - self.env_info['table']['length'] / 2) >= 0 and \
+                    (np.abs(puck_pos[1]) - self.env_info['table']['goal_width']) <= 0:
+                reward_hit = 1 / (1 - self.gamma)
+
         # no hit case
         if not has_hit:
             reward_hit = - (np.linalg.norm(ee_pos[0:2] - puck_pos) / 0.5 * table_diag) - c * np.linalg.norm(action)
@@ -129,13 +136,33 @@ class AirHockeyHit(AirHockeySingle):
         # if slack_variable > 0 then the constraint is violated
         slack_variables = info['constraints_value']
 
+        # retrieve limits for joint position and velocity
+        # they're the correction factor of the constraint's reward
+        # FIXME verificare che le costanti siano corrette
+        joint_pos_limit = self.env_info['robot']['joint_pos_limit']
+        joint_vel_limit = self.env_info['robot']['joint_vel_limit']
+        # the ee_limit is the table length/width
+
+        '''
+        print('\nSlack variables')
+        for key, value in slack_variables.items():
+            print(key, ':', value)
+        '''
+
         for key in slack_variables.keys():
             if key in constraint_weights.keys():
                 slack_variables[key] = np.array(list(map(lambda x: x if x > 0 else 0, slack_variables[key])))  # take only positive values
                 slack_variables[key] *= constraint_weights[key]  # multiply by the penalty weights
-                # FIXME is max of observation space ok?
-                normalization_factor = max(self.env_info['rl_info'].observation_space.high)  # correction factor, max of observation space
-                slack_variables[key] = slack_variables[key] / normalization_factor
+
+                # TODO add correction factor from the observation space in 'base'
+                #normalization_factor = max(self.env_info['rl_info'].observation_space.high)  # correction factor, max of observation space
+                #slack_variables[key] = slack_variables[key] / normalization_factor
+
+        slack_variables['joint_pos_constr'] = slack_variables['joint_pos_constr'] / joint_pos_limit.flatten()
+        slack_variables['joint_vel_constr'] = slack_variables['joint_vel_constr'] / joint_vel_limit.flatten()
+        slack_variables['ee_constr'][0] = slack_variables['ee_constr'][0] / self.env_info['table']['length']
+        slack_variables['ee_constr'][1:3] = slack_variables['ee_constr'][1:3] / self.env_info['table']['width']
+
 
         # sum the slack variables multiplied by their weights divided by correction factor
         sum_slack = 0
@@ -161,7 +188,7 @@ if __name__ == '__main__':
     #env.render()
     R = 0.
     J = 0.
-    gamma = 1.
+    gamma = 0.99
     steps = 0
     while True:
         action = np.zeros(3)
