@@ -5,6 +5,7 @@ import numpy as np
 
 from datetime import datetime
 from mepol.src.envs.air_hockey import GymAirHockey
+from gym.wrappers import ClipAction
 from mepol.src.envs.discretizer import Discretizer
 from mepol.src.envs.wrappers import ErgodicEnv
 from mepol.src.algorithms.mepol import mepol
@@ -63,10 +64,11 @@ parser.add_argument('--log_dir', type=str, default='/data/air_hockey',
 # environment parameters
 parser.add_argument('--task_space', type=int, required=True, choices=[0, 1], help='Whether use task space actions')
 parser.add_argument('--task_space_vel', type=int, required=True, choices=[0,1], help='Use inv kinematics for velocity')
+parser.add_argument('--use_delta_pos', type=int, required=True, choices=[0,1], help='Use Delta Pos Actions')
 
 args = parser.parse_args()
 
-env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel')}
+env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_delta_pos')}
 
 
 """
@@ -86,13 +88,13 @@ Experiments specifications
 """
 exp_spec = {
     'AirHockey': {
-        'env_create': lambda: ErgodicEnv(GymAirHockey(**env_parameters)),
-        'discretizer_create': lambda env: Discretizer([[-0.974, 0.974],[-0.519,0.519]], [75,40], lambda s: [s[0],s[1]]),
+        'env_create': lambda: ClipAction(ErgodicEnv(GymAirHockey(**env_parameters))),
+        'discretizer_create': lambda env: None, # Discretizer([[-0.974, 0.974],[-0.519,0.519]], [75,40], lambda s: [s[0],s[1]]),
         'hidden_sizes': [400, 300],
         'activation': nn.ReLU,
         'log_std_init': -0.5,
         'eps': 0,
-        'state_filter': [0,1],
+        'state_filter': [0,1,10,11],
         'heatmap_interp': 'spline16',
         'heatmap_cmap': 'Blues',
         'heatmap_labels': ('Puck_X', 'Puck_Y')

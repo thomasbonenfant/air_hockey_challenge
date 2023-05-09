@@ -2,6 +2,7 @@ import torch.nn
 from mepol.src.policy import GaussianPolicy
 from mepol.src.envs.air_hockey import GymAirHockey
 from mepol.src.envs.wrappers import ErgodicEnv
+from gym.wrappers import ClipAction
 
 spec = {
     'hidden_sizes':[400,300],
@@ -9,7 +10,7 @@ spec = {
     'log_std_init': -0.5,
 }
 
-env = ErgodicEnv(GymAirHockey(task_space=True))
+env = ClipAction(ErgodicEnv(GymAirHockey(task_space=True, task_space_vel=False, use_delta_pos=True)))
 policy = GaussianPolicy(
         num_features=env.num_features,
         hidden_sizes=spec['hidden_sizes'],

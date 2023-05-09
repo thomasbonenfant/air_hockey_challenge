@@ -9,7 +9,8 @@ from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_ki
 
 
 class GymAirHockey(gym.Env):
-    def __init__(self, action_type = 'position-velocity', interpolation_order=3, custom_reward_function=None, task_space=True, task_space_vel=True):
+    def __init__(self, action_type = 'position-velocity', interpolation_order=3, custom_reward_function=None,
+                 task_space=True, task_space_vel=True, use_delta_pos=True):
         '''
         Args:
             task_space: if True changes the action space to x,y
@@ -23,8 +24,6 @@ class GymAirHockey(gym.Env):
         n_joints = self.challenge_env.env_info['robot']['n_joints']
         self.gamma = env_info['rl_info'].gamma
 
-        ac_space = env_info['rl_info'].action_space
-        obs_space = env_info['rl_info'].observation_space
 
 
         self.world2robot_transf = self.challenge_env.env_info['robot']['base_frame'][0]
@@ -36,16 +35,28 @@ class GymAirHockey(gym.Env):
 
         self.task_space = task_space
         self.task_space_vel = task_space_vel
+        self.use_delta_pos = use_delta_pos
+        self.prev_ee_pos = None
 
         if self.task_space:
             if self.task_space_vel:
                 action_space_dim = 4    # x,y, dx, dy
+
+                max_action = np.array([0.974, 0.519, 10,10])
+                self.action_space = spaces.Box(low=-max_action, high=max_action,
+                                               shape=(action_space_dim,), dtype=np.float32)
             else:
                 action_space_dim = 2
+                if self.use_delta_pos:
+                    max_action = np.array([0.1, 0.1])
+                else:
+                    max_action = np.array([0.974, 0.519])
+                self.action_space = spaces.Box(low=-max_action, high=max_action,
+                                               shape=(action_space_dim,), dtype=np.float32)
         else:
             action_space_dim = 2 * n_joints
-
-        self.action_space = spaces.Box(low=-3, high=3, shape=(action_space_dim,), dtype=np.float32)
+            self.action_space = spaces.Box(low=-3, high=3,
+                                           shape=(action_space_dim,), dtype=np.float32)
 
         if self.task_space:
             self.num_features = 14 # puck_x, puck_y, dpuck_x, dpuck_y, ee_x, ee_y, deex, deey
@@ -68,6 +79,7 @@ class GymAirHockey(gym.Env):
 
         if self.task_space:
             ee_pos, _ = forward_kinematics(self.mj_model, self.mj_data, joint_pos)
+            self.prev_ee_pos = ee_pos
             ee_vel = self._apply_forward_velocity_kinematics(joint_pos, joint_vel)[:2]
 
             obs = np.hstack((obs, ee_pos[:2], ee_vel))
@@ -121,6 +133,9 @@ class GymAirHockey(gym.Env):
             else:
                 ee_pos_action = np.hstack((action, 0))
 
+            # if the action is only a delta position update the resulting ee position action
+            if self.use_delta_pos:
+                ee_pos_action = self.prev_ee_pos + ee_pos_action
             joint_pos_action = self._apply_inverse_kinematics(ee_pos_action)
 
             if self.task_space_vel:
