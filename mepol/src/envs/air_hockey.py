@@ -10,7 +10,7 @@ from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_ki
 
 class GymAirHockey(gym.Env):
     def __init__(self, action_type = 'position-velocity', interpolation_order=3, custom_reward_function=None,
-                 task_space=True, task_space_vel=True, use_delta_pos=True):
+                 task_space=True, task_space_vel=True, use_delta_pos=True, use_puck_distance=True):
         '''
         Args:
             task_space: if True changes the action space to x,y
@@ -36,6 +36,7 @@ class GymAirHockey(gym.Env):
         self.task_space = task_space
         self.task_space_vel = task_space_vel
         self.use_delta_pos = use_delta_pos
+        self.use_puck_distance = use_puck_distance
         self.prev_ee_pos = None
 
         if self.task_space:
@@ -63,6 +64,9 @@ class GymAirHockey(gym.Env):
         else:
             self.num_features = 10
 
+        if self.use_puck_distance:
+            self.num_features += 2
+
         self.observation_space = spaces.Box(low = -10, high=10, shape=(self.num_features,), dtype=np.float32)
 
     def convert_obs(self, obs):
@@ -85,6 +89,9 @@ class GymAirHockey(gym.Env):
 
             obs = np.hstack((obs, ee_pos[:2], ee_vel))
 
+        if self.use_puck_distance:
+            obs = np.hstack((obs, ee_pos[:2] - puck_pos))
+
         return obs
 
 
@@ -100,11 +107,14 @@ class GymAirHockey(gym.Env):
 
         action = self._convert_action(action)
 
-        obs, reward, done, info = self.challenge_env.step(action)
+        obs, _, done, info = self.challenge_env.step(action)
 
         self.old_joint_pos = obs[self.challenge_env.env_info['joint_pos_ids']]
 
-        return self.convert_obs(obs), reward, done, False, info
+        obs = self.convert_obs(obs)
+        reward = np.linalg.norm(obs[[0,1]] - obs[[10,11]])
+
+        return obs, reward, done, False, info
 
     def render(self, mode="human"):
         self.challenge_env.render()

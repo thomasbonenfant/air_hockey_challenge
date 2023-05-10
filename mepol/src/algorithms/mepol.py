@@ -256,7 +256,7 @@ def log_epoch_statistics(writer, log_file, csv_file_1, csv_file_2, epoch,
             ["Backtrack iters", backtrack_iters],
         ])
 
-    fancy_grid = tabulate(table, headers="firstrow", tablefmt="fancy_grid", numalign='right')
+    fancy_grid = tabulate(table, headers="firstrow", tablefmt="simple", numalign='right')
 
     # Log to csv file 1
     csv_file_1.write(f"{epoch},{loss},{entropy},{full_entropy},{num_off_iters},{execution_time}\n")

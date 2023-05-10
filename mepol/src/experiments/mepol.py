@@ -94,8 +94,8 @@ exp_spec = {
         'activation': nn.ReLU,
         'log_std_init': -0.5,
         'eps': 0,
-        'state_filter': [0,1],
-        'fallback_state_filter': [10,11],
+        'state_filter': [0,1,14,15],
+        'fallback_state_filter': None,
         'heatmap_interp': 'spline16',
         'heatmap_cmap': 'Blues',
         'heatmap_labels': ('Puck_X', 'Puck_Y')
