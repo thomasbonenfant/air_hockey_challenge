@@ -94,7 +94,8 @@ exp_spec = {
         'activation': nn.ReLU,
         'log_std_init': -0.5,
         'eps': 0,
-        'state_filter': [0,1,10,11],
+        'state_filter': [0,1],
+        'fallback_state_filter': [10,11],
         'heatmap_interp': 'spline16',
         'heatmap_cmap': 'Blues',
         'heatmap_labels': ('Puck_X', 'Puck_Y')
@@ -110,6 +111,7 @@ if spec is None:
 env = spec['env_create']()
 discretizer = spec['discretizer_create'](env)
 state_filter = spec.get('state_filter')
+fallback_state_filter = spec.get('fallback_state_filter')
 eps = spec['eps']
 
 
@@ -164,6 +166,7 @@ mepol(
     env_name=args.env,
     env_maker=spec['env_create'],
     state_filter=state_filter,
+    state_filter_fallback=fallback_state_filter,
     create_policy=create_policy,
     k=args.k,
     kl_threshold=args.kl_threshold,

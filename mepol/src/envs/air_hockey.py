@@ -19,7 +19,7 @@ class GymAirHockey(gym.Env):
                                                        interpolation_order=interpolation_order,
                                                        custom_reward_function=custom_reward_function)
 
-        env_info = self.challenge_env.env_info
+        self.env_info = env_info = self.challenge_env.env_info
 
         n_joints = self.challenge_env.env_info['robot']['n_joints']
         self.gamma = env_info['rl_info'].gamma
@@ -67,10 +67,10 @@ class GymAirHockey(gym.Env):
 
     def convert_obs(self, obs):
         # change coordinates to world's reference frame coordinates
-        puck_pos, _ = robot_to_world(self.challenge_env.env_info['robot']['base_frame'][0], obs[:3])
+        puck_pos, _ = robot_to_world(self.challenge_env.env_info['robot']['base_frame'][0], obs[self.challenge_env.env_info['puck_pos_ids']])
         puck_pos = puck_pos[:2]
 
-        puck_vel = obs[self.challenge_env.env_info['joint_vel_ids']]
+        puck_vel = obs[self.challenge_env.env_info['puck_vel_ids']]
 
         joint_pos = obs[self.challenge_env.env_info['joint_pos_ids']]
         joint_vel = obs[self.challenge_env.env_info['joint_vel_ids']]
@@ -79,6 +79,7 @@ class GymAirHockey(gym.Env):
 
         if self.task_space:
             ee_pos, _ = forward_kinematics(self.mj_model, self.mj_data, joint_pos)
+            ee_pos, _ = robot_to_world(self.world2robot_transf, ee_pos)
             self.prev_ee_pos = ee_pos
             ee_vel = self._apply_forward_velocity_kinematics(joint_pos, joint_vel)[:2]
 
