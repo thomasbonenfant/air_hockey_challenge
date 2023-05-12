@@ -26,11 +26,11 @@ def build_agent(env_info, **kwargs):
 
 class HittingAgent(AgentBase, SAC):
     def __init__(self, env, **kwargs):
-        params = self.configure_SAC(env.env_info['rl_info'], **kwargs)[:-1]
+        params = self.configure_SAC(env['rl_info'], **kwargs)[:-1]
         alg_params = params[-1]
         SAC.__init__(self, *params[:-1], **alg_params)
         kwargs['no_initialization'] = True
-        AgentBase.__init__(self, env.env_info, **kwargs)
+        AgentBase.__init__(self, env, **kwargs)
         self.new_start = True
         self.hold_position = None
 
@@ -50,8 +50,10 @@ class HittingAgent(AgentBase, SAC):
         self.sigmoid = lambda x: 1 / (1 + np.exp(-x))
 
     def reset(self):
+        #print("Resetting agent")
         self.new_start = True
         self.hold_position = None
+
 
     def draw_action(self, observation):
         """
@@ -73,7 +75,6 @@ class HittingAgent(AgentBase, SAC):
 
         #print(pos)
         #action = inverse_kinematics(self.env_info['robot']['robot_model'], self.env_info['robot']['robot_data'], pos)[1]
-
         return action
 
     def configure_SAC(self, mdp_info, actor_lr=3e-4, critic_lr=3e-4, n_features=[64, 64], batch_size=64,

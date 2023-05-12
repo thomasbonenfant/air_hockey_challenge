@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
@@ -7,7 +9,8 @@ from air_hockey_agent.agents.atacom.constraints import ViabilityConstraint, Cons
 from mushroom_rl.utils.spaces import Box
 
 import mujoco
-from air_hockey_challenge.utils.kinematics import link_to_xml_name
+from air_hockey_challenge.utils.kinematics import link_to_xml_name, inverse_kinematics
+
 
 class AtacomHittingAgent(HittingAgent):
 
@@ -25,28 +28,33 @@ class AtacomHittingAgent(HittingAgent):
             Kq (array, float): the scaling factor for the viability acceleration bound
             time_step (float): the step size for time discretization
         """
+
+        env['rl_info'].action_space = Box(env['robot']['joint_acc_limit'][0], env['robot']['joint_acc_limit'][1])
+        env['rl_info'].observation_space = Box(np.append(env['rl_info'].observation_space.low, 0), np.append(env['rl_info'].observation_space.high, 1))
         super().__init__(env, **kwargs)
 
         dim_q = self.env_info['robot']['n_joints']
-        Kc = 1000.
-        timestamp = 1/240.
+        Kc = 100.
+        timestamp = 1/50.
         # why dim out of 5?
         # cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.cart_pos_g, J=self.cart_pos_J_g, b=self.cart_pos_b_g, K=0.5)
-        ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.ee_pos_g, J=self.ee_pos_J_g, b=self.ee_pos_b_g, K=1.0)
+        ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.ee_pos_g, J=self.ee_pos_J_g, b=self.ee_pos_b_g, K=0.5)
 
         # TODO: still need to check validity of fun, J, b
-        joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=2*dim_q, fun=self.joint_pos_g, J=self.joint_pos_J_g,
+        joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=dim_q, fun=self.joint_pos_g, J=self.joint_pos_J_g,
                                           b=self.joint_pos_b_g, K=1.0)
         f = None
         g = ConstraintsSet(dim_q)
         g.add_constraint(ee_pos_g)
-        #g.add_constraint(joint_pos_g)
+        g.add_constraint(joint_pos_g)
         #g.add_constraint(joint_vel_g)
 
         # TODO: if we want to include the jerk we may want to create a accel constraint and put the value here
-        acc_max = self.env_info['robot']['joint_acc_limit'][1]
+        acc_max = 10
         vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1:] # takes only positive constraints
         vel_max = np.squeeze(vel_max)
+        vel_max = np.ones(dim_q) * 2.35619449
+
         Kq = 2 * acc_max / vel_max
 
         self.env = env
@@ -76,8 +84,9 @@ class AtacomHittingAgent(HittingAgent):
         self.q = np.zeros(self.dims['q'])
         self.dq = np.zeros(self.dims['q'])
 
-        self._mdp_info = self.env.info.copy()
-        self._mdp_info.action_space = Box(low=-np.ones(self.dims['null']), high=np.ones(self.dims['null']))
+        self._mdp_info = self.env['rl_info'].copy()
+
+        #self._mdp_info.action_space = Box(low=-np.ones(self.dims['null']), high=np.ones(self.dims['null']))
 
         if np.isscalar(vel_max):
             self.vel_max = np.ones(self.dims['q']) * vel_max
@@ -100,7 +109,6 @@ class AtacomHittingAgent(HittingAgent):
         # self.alpha_max = np.ones(self.dims['null']) * self.acc_max.max()
         self.alpha_max = np.ones(self.dims['null']) * self.acc_max.max()
 
-        self.state = self.env.reset()
         self._act_a = None
         self._act_b = None
         self._act_err = None
@@ -110,9 +118,43 @@ class AtacomHittingAgent(HittingAgent):
         # self.env.step_action_function = self.step_action_function
         self.mu = 0
         self.last_actions = []
+        self.tmp = 0
+        self.add_preprocessor(self.add_observation_preprocessors)
+        self.was_hit = 0
 
     def reset(self):
+        # TODO: why is this function not executed?
+        # in episode start this method is not called but the child method is called (HittingAgent)
+        #print("resetting ATACOM")
+        self.was_hit = 0
         super().reset()
+
+    def episode_start(self):
+        #print("ATACOM episode start")
+        self.was_hit = 0
+        self.reset()
+        #super().episode_start()
+
+    def add_observation_preprocessors(self, state):
+        """mj_model = self.env_info['robot']['robot_model']
+        mj_data = self.env_info['robot']['robot_data']
+        id_ee = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, link_to_xml_name(mj_model, 'ee'))
+        print(mujoco.mj_collision(mj_model[id_ee], mj_data[id_ee]), mujoco.contact())
+        #id_puck = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, link_to_xml_name(mj_model, 'puck'))
+        acc = np.zeros(6)
+        mujoco.mj_contactForce(mj_model, mj_data, id_ee, acc)
+        print(acc)
+        print(id_ee)
+        #print(id_puck)
+        # to use  mujoco.mjtObj.mjOBJ_SITE the value should be 6
+        print(mujoco.mj_collision(mj_model, mj_data))"""
+        # TODO: implement better contact mechanism
+        if self.was_hit == 0:
+            self.was_hit = 0 if np.sum(self.get_puck_vel(state)[:2]) == 0 else 1
+            #if self.was_hit == 1:
+            #    print("HIT")
+
+        return np.append(state, self.was_hit)
 
     def fit(self, dataset, **info):
         # change action to acceleration
@@ -121,10 +163,12 @@ class AtacomHittingAgent(HittingAgent):
             dataset[i] = list(dataset[i])
             # change action (space, velocity) to action (acceleration)
             dataset[i][1] = np.array(self.last_actions[i])
+
             # convert list back to tuple
             dataset[i] = tuple(dataset[i])
-        super().fit(dataset, **info)
         self.last_actions = []
+
+        super().fit(dataset, **info)
 
     def draw_action(self, observation):
         """
@@ -133,23 +177,32 @@ class AtacomHittingAgent(HittingAgent):
         """
         # Sample policy action αk ∼ π(·|sk).
         alpha = super().draw_action(observation)
+        """if self.was_hit == 0:
+            ee_pos = forward_kinematics(self.robot_model, self.robot_data, self.get_joint_pos(observation))[0]
+            puck_pos = self.get_puck_pos(observation)
+            diff = (puck_pos - ee_pos) / np.linalg.norm(puck_pos - ee_pos) * 0.05 + ee_pos
+            success, joint_pos_des = inverse_kinematics(self.robot_model, self.robot_data, diff)
+            joint_vel = (joint_pos_des - self.q) / self.time_step
+        else:
+            joint_vel = np.zeros(self.dims['q'])
 
-        alpha = np.clip(alpha, self.env_info['robot']['joint_acc_limit'][0], self.env_info['robot']['joint_acc_limit'][1])
-        alpha = alpha #* self.alpha_max # TODO: why alpha max breaks everything?
+        alpha = (joint_vel - self.dq) / self.time_step"""
+
+        #alpha = np.clip(alpha, self.env_info['robot']['joint_acc_limit'][0], self.env_info['robot']['joint_acc_limit'][1])
+        #alpha = alpha * self.alpha_max # TODO: why alpha max breaks everything?
         # Observe the qk, q˙k from sk
         self.q = self.get_joint_pos(observation)
         self.dq = self.get_joint_vel(observation)
 
         # Compute slack variable mu
-        self._compute_slack_variables()
+        # self._compute_slack_variables()
 
         # Compute Jc, k = Jc(qk, µk), ψk = ψ(qk, q˙k), ck = c(qk, q˙k, µk)
         Jc, psi = self._construct_Jc_psi(self.q, self.mu, self.dq)
-
         Jc_inv, Nc = pinv_null(Jc)
         # Compute the RCEF of tangent space basis of NcR
         # Nc = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
-        Nc = rref(Nc[:, :6], row_vectors=False, tol=0.05)
+        Nc = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
 
         # Compute the tangent space acceleration [q¨k µ˙ k].T ← −J^†_c,k [K_cck + ψ_k] + N^R_c α_k
         self._act_a = -Jc_inv @ psi
@@ -175,6 +228,7 @@ class AtacomHittingAgent(HittingAgent):
         # return self.env.client.calculateInverseDynamics(self.env._model_map['planar_robot_1'], q, dq, ddq)
 
     def acc_truncation(self, dq, ddq):
+        # TODO: test on correctness of this value
         acc_u = np.maximum(np.minimum(self.acc_max, -self.K_q * (dq - self.vel_max)), -self.acc_max)
         acc_l = np.minimum(np.maximum(-self.acc_max, -self.K_q * (dq + self.vel_max)), self.acc_max)
         ddq = np.clip(ddq, acc_l, acc_u)
@@ -224,21 +278,21 @@ class AtacomHittingAgent(HittingAgent):
         c_dq_i = np.abs(dq) - self.vel_max
         self.constr_logs.append([np.max(c_i), np.max(c_dq_i)])
 
-    def _compute_error_correction(self, q, dq, s, Jc_inv, act_null=None):
+    def _compute_error_correction(self, q, dq, mu, Jc_inv, act_null=None):
         q_tmp = q.copy()
         dq_tmp = dq.copy()
-        s_tmp = None
+        mu_tmp = None
 
         if self.dims['g'] > 0:
-            s_tmp = s.copy()
+            mu_tmp = mu.copy()
 
         if act_null is not None:
             q_tmp += dq_tmp * self.time_step + act_null[:self.dims['q']] * self.time_step ** 2 / 2
             dq_tmp += act_null[:self.dims['q']] * self.time_step
             if self.dims['g'] > 0:
-                s_tmp += act_null[self.dims['q']:self.dims['q'] + self.dims['g']] * self.time_step
+                mu_tmp += act_null[self.dims['q']:self.dims['q'] + self.dims['g']] * self.time_step
 
-        return -Jc_inv @ (self.K_c * self._compute_c(q_tmp, dq_tmp, s_tmp, origin_constr=False))
+        return -Jc_inv @ (self.K_c * self._compute_c(q_tmp, dq_tmp, mu_tmp, origin_constr=False))
 
     def ee_pos_g(self, q):
         """ Compute the constraint function g(q) = 0 position of the end-effector"""
@@ -260,7 +314,7 @@ class AtacomHittingAgent(HittingAgent):
         
         g = self.env_info['constraints'].get('ee_constr')
 
-        return g.jacobian(q, None)[:3,:3] # dq is not used
+        return g.jacobian(q, None)[:3, :3] # dq is not used
 
     def ee_pos_b_g(self, q, dq):
         """ TODO: understand what this is: it should be dJ/dt * dq/dt  """
@@ -284,22 +338,23 @@ class AtacomHittingAgent(HittingAgent):
 
     def joint_pos_g(self, q):
         """Compute the constraint function g(q) = 0 position of the joints"""
-        #return np.array(q ** 2 - self.pino_model.upperPositionLimit ** 2)
-        g = self.env_info['constraints'].get('joint_constr')
-        return g.fun(q, None)
-
+        # return np.array(q ** 2 - self.pino_model.upperPositionLimit ** 2)
+        g = self.env_info['constraints'].get('joint_pos_constr')
+        return g.fun(q, None)[:3]
 
     def joint_pos_J_g(self, q):
         """Compute constraint jacobian function J_g(q)"""
-        g = self.env_info['constraints'].get('joint_constr')
-        return g.jacobian(q,None)
+        g = self.env_info['constraints'].get('joint_pos_constr')
+        # return g.jacobian(q, None)[:3, :3]
+        return g.jacobian(q, None)[:3, :3]
 
     def joint_pos_b_g(self, q, dq):
         """Compute constraint b(q,dq) function. It should be equal to dJ/dt * dq/dt"""
-        #return 2 * np.diag(q)
-        g = self.env_info['constraint'].get('joint_constr')
-        g = self.env_info['constraint'].get('joint_constr')
-        return np.zeros(g.output_dim) #this constraint is linear so second order derivative goes to zero
+        # return 2 * np.diag(q)
+        # g = self.env_info['constraint'].get('joint_pos_constr')
+        # return np.zeros(g.output_dim) # this constraint is linear so second order derivative goes to zero
+
+        return 2 * dq ** 2
 
     #next constraint is not used
     #def joint_vel_g(self, q, dq):
@@ -311,4 +366,6 @@ class AtacomHittingAgent(HittingAgent):
     #def joint_vel_b_g(self, q, dq):
     #    return np.zeros(3)
 
-
+    def reset(self):
+        super().reset()
+        self._compute_slack_variables()

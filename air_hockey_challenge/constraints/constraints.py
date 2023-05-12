@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 from air_hockey_challenge.utils.kinematics import forward_kinematics, jacobian
+from air_hockey_challenge.utils import robot_to_world
 
 
 class Constraint:

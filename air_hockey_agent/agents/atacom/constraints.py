@@ -35,6 +35,10 @@ class ViabilityConstraint:
         if origin_constr:
             return self.fun_origin(q)
         else:
+            #print(self.fun_origin(q).shape)
+            #print(self.J(q).shape)
+            #print(dq.shape)
+            #print(((self.J(q) @ dq)).shape)
             return self.fun_origin(q) + self.K * (self.J(q) @ dq)
 
     def K_J(self, q):
@@ -43,6 +47,7 @@ class ViabilityConstraint:
 
     def b(self, q, dq):
         """ b(q, dq) = dJ(q, dq) dq"""
+
         return self.J(q) @ dq + self.K * self.b_state(q, dq)
 
 
