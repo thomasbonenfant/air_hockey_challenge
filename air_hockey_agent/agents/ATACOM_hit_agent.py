@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import sympy
 
 from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
 from air_hockey_challenge.utils import forward_kinematics
@@ -46,14 +47,14 @@ class AtacomHittingAgent(HittingAgent):
         f = None
         g = ConstraintsSet(dim_q)
         g.add_constraint(ee_pos_g)
-        g.add_constraint(joint_pos_g)
-        #g.add_constraint(joint_vel_g)
+        # g.add_constraint(joint_pos_g)
+        # g.add_constraint(joint_vel_g)
 
         # TODO: if we want to include the jerk we may want to create a accel constraint and put the value here
-        acc_max = 10
-        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1:] # takes only positive constraints
+        acc_max = self.env_info['robot']['joint_acc_limit'][1]
+        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1] # takes only positive constraints
         vel_max = np.squeeze(vel_max)
-        vel_max = np.ones(dim_q) * 2.35619449
+        # vel_max = np.ones(dim_q) * 2.35619449
 
         Kq = 2 * acc_max / vel_max
 
@@ -114,8 +115,6 @@ class AtacomHittingAgent(HittingAgent):
         self._act_err = None
 
         self.constr_logs = list()
-        # shouldn't be needed
-        # self.env.step_action_function = self.step_action_function
         self.mu = 0
         self.last_actions = []
         self.tmp = 0
@@ -123,17 +122,13 @@ class AtacomHittingAgent(HittingAgent):
         self.was_hit = 0
 
     def reset(self):
-        # TODO: why is this function not executed?
-        # in episode start this method is not called but the child method is called (HittingAgent)
-        #print("resetting ATACOM")
         self.was_hit = 0
+        self._compute_slack_variables()
         super().reset()
 
     def episode_start(self):
-        #print("ATACOM episode start")
-        self.was_hit = 0
         self.reset()
-        #super().episode_start()
+        super().episode_start()
 
     def add_observation_preprocessors(self, state):
         """mj_model = self.env_info['robot']['robot_model']
@@ -194,38 +189,44 @@ class AtacomHittingAgent(HittingAgent):
         self.q = self.get_joint_pos(observation)
         self.dq = self.get_joint_vel(observation)
 
-        # Compute slack variable mu
-        # self._compute_slack_variables()
-
         # Compute Jc, k = Jc(qk, µk), ψk = ψ(qk, q˙k), ck = c(qk, q˙k, µk)
         Jc, psi = self._construct_Jc_psi(self.q, self.mu, self.dq)
         Jc_inv, Nc = pinv_null(Jc)
         # Compute the RCEF of tangent space basis of NcR
-        # Nc = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
-        Nc = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
-
+        #Ncd = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
+        #print(Ncd)
+        Nc = np.array(sympy.Matrix(Nc[:, :self.dims['null']]).rref()[0], dtype=np.float64)
+        #print(Nc)
+        #print(Nc)
         # Compute the tangent space acceleration [q¨k µ˙ k].T ← −J^†_c,k [K_cck + ψ_k] + N^R_c α_k
         self._act_a = -Jc_inv @ psi
         self._act_b = Nc @ alpha
         self._act_err = self._compute_error_correction(self.q, self.dq, self.mu, Jc_inv)
         ddq_ds = self._act_a + self._act_b + self._act_err
 
+        # Integrate the slack variable µk+1 = µk + µ˙ k∆T
         self.mu += ddq_ds[self.dims['q']:(self.dims['q'] + self.dims['g'])] * self.time_step
         # Clip the joint acceleration q¨k ← clip(q¨k, al, au)
         ddq = self.acc_truncation(self.dq, ddq_ds[:self.dims['q']])
-        # Integrate the slack variable µk+1 = µk + µ˙ k∆T
+
         self.last_actions.append(ddq)
         ctrl_action = self.acc_to_ctrl_action(ddq)#.reshape((6,))
+
+        #self.last_actions.append(alpha)
+        #ctrl_action = self.acc_to_ctrl_action(alpha)  # .reshape((6,))
 
         return ctrl_action
 
     def acc_to_ctrl_action(self, ddq):
         # integrate acceleration because we do control the robot with a PD Controller
+        #self.robot_data.qacc[:] = ddq
+        #self.robot_data.qvel[:] = self.robot_data.qacc[:] * self.time_step
+        #mujoco.mj_inverse(self.robot_model, self.robot_data)
+        #ddq2 = self.robot_data.qfrc_inverse[:]
+
         next_dq = self.dq + ddq * self.time_step
         next_q = self.q + self.dq * self.time_step + 0.5 * ddq * (self.time_step ** 2)
         return np.concatenate((next_q, next_dq)).reshape(2,3)
-
-        # return self.env.client.calculateInverseDynamics(self.env._model_map['planar_robot_1'], q, dq, ddq)
 
     def acc_truncation(self, dq, ddq):
         # TODO: test on correctness of this value
@@ -365,7 +366,3 @@ class AtacomHittingAgent(HittingAgent):
 
     #def joint_vel_b_g(self, q, dq):
     #    return np.zeros(3)
-
-    def reset(self):
-        super().reset()
-        self._compute_slack_variables()

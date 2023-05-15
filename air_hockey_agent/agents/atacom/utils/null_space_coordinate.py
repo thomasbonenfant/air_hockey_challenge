@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 
 def pinv_null(a, rcond=None, return_rank=False):
-    u, s, vh = linalg.svd(a, full_matrices=True, check_finite=False)
+    u, s, vh = np.linalg.svd(a, full_matrices=True)
     M, N = u.shape[0], vh.shape[1]
 
     if rcond is None:
