@@ -92,7 +92,7 @@ def reward(base_env, state, action, next_state, absorbing):
         ee_pos = forward_kinematics(base_env.env_info['robot']['robot_model'], base_env.env_info['robot']['robot_data'], action[0])[0][:2]
         # compute distance between puck and end effector
         rew = - np.linalg.norm(puck_pos[:2] - ee_pos)
-        rew *= 10
+        
     elif absorbing:
 
         puck_pos, puck_vel = base_env.get_puck(next_state)  # get puck position and velocity
