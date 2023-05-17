@@ -26,7 +26,7 @@ def main():
 
     # Settings
     # number of initial iterations to fill the replay memory
-    initial_replay_size = 200
+    initial_replay_size = 20000
 
     #print(env.env_info)
 

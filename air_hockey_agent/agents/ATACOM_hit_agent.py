@@ -209,7 +209,7 @@ class AtacomHittingAgent(HittingAgent):
         # Clip the joint acceleration q¨k ← clip(q¨k, al, au)
         ddq = self.acc_truncation(self.dq, ddq_ds[:self.dims['q']])
 
-        self.last_actions.append(ddq)
+        self.last_actions.append(alpha)
         ctrl_action = self.acc_to_ctrl_action(ddq)#.reshape((6,))
 
         #self.last_actions.append(alpha)
