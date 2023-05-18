@@ -292,10 +292,12 @@ def policy_update(optimizer, behavioral_policy, target_policy, states, actions,
     loss = - compute_entropy(behavioral_policy, target_policy, states, actions,
                              num_traj, traj_len, distances, indices, k, G, B, ns, eps)
 
+
     numeric_error = torch.isinf(loss) or torch.isnan(loss)
 
-    loss.backward()
-    optimizer.step()
+    if not numeric_error:
+        loss.backward()
+        optimizer.step()
 
     return loss, numeric_error
 
@@ -458,6 +460,7 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
                 loss, numeric_error = policy_update(optimizer, behavioral_policy, target_policy, states,
                                                 actions, num_traj, real_traj_lengths,
                                                 distances, indices, k, G, B, ns, eps)
+                entropy = - loss.detach().numpy()
 
             with torch.no_grad():
                 kl, kl_numeric_error = compute_kl(behavioral_policy, target_policy, states,
@@ -498,7 +501,7 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
                 # Just perform at most 1 step using backtracking
                 kl_threshold_reached = True
 
-            if num_off_iters == max_off_iters:
+            if num_off_iters >= max_off_iters:
                 # Set exit condition also if the maximum number
                 # of off policy opt iterations has been reached
                 kl_threshold_reached = True

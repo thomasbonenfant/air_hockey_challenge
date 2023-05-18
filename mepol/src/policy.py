@@ -13,10 +13,11 @@ class GaussianPolicy(nn.Module):
     Gaussian Policy with state-independent diagonal covariance matrix
     """
 
-    def __init__(self, hidden_sizes, num_features, action_dim, log_std_init=-0.5, activation=nn.ReLU):
+    def __init__(self, hidden_sizes, num_features, action_dim, log_std_init=-0.5, activation=nn.ReLU, use_tanh=False):
         super().__init__()
 
         self.activation = activation
+        self.use_tanh = use_tanh
 
         layers = []
         layers.extend((nn.Linear(num_features, hidden_sizes[0]), self.activation()))
@@ -42,13 +43,24 @@ class GaussianPolicy(nn.Module):
 
     def get_log_p(self, states, actions):
         mean, _ = self(states)
-        return torch.sum(
+
+        if self.use_tanh:
+            gaussian_actions = torch.arctanh(actions)
+        else:
+            gaussian_actions = actions
+
+        log_p = torch.sum(
             -0.5 * (
                 self.log_of_two_pi
                 + 2*self.log_std
-                + ((actions - mean)**2 / (torch.exp(self.log_std) + eps)**2)
-            ), dim=1
-        )
+                + ((gaussian_actions - mean)**2 / (torch.exp(self.log_std) + eps)**2)
+            ), dim=1)
+
+        if self.use_tanh:
+            log_p = log_p - torch.sum(torch.log(1 - actions**2 + eps), dim=1)
+
+        return log_p
+
 
     def forward(self, x, deterministic=False):
         mean = self.mean(self.net(x))
@@ -57,6 +69,10 @@ class GaussianPolicy(nn.Module):
             output = mean
         else:
             output = mean + torch.randn(mean.size(), dtype=float_type) * torch.exp(self.log_std)
+
+        if self.use_tanh:
+            mean = torch.tanh(mean)
+            output = torch.tanh(output)
 
         return mean, output
 

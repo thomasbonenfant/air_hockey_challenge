@@ -65,10 +65,14 @@ parser.add_argument('--log_dir', type=str, default='/data/air_hockey',
 parser.add_argument('--task_space', type=int, required=True, choices=[0, 1], help='Whether use task space actions')
 parser.add_argument('--task_space_vel', type=int, required=True, choices=[0,1], help='Use inv kinematics for velocity')
 parser.add_argument('--use_delta_pos', type=int, required=True, choices=[0,1], help='Use Delta Pos Actions')
+parser.add_argument('--use_puck_distance', type=int, required=True, choices=[0,1])
+
+parser.add_argument('--use_tanh', type=int, required=True, choices=[0,1])
 
 args = parser.parse_args()
 
-env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_delta_pos')}
+env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_delta_pos', 'use_puck_distance')}
+policy_parameters = {k: vars(args)[k] for k in ('use_tanh',)}
 
 
 """
@@ -88,13 +92,13 @@ Experiments specifications
 """
 exp_spec = {
     'AirHockey': {
-        'env_create': lambda: ClipAction(ErgodicEnv(GymAirHockey(**env_parameters))),
-        'discretizer_create': lambda env: None, # Discretizer([[-0.974, 0.974],[-0.519,0.519]], [75,40], lambda s: [s[0],s[1]]),
+        'env_create': lambda: ErgodicEnv(GymAirHockey(**env_parameters)),
+        'discretizer_create': lambda env: Discretizer([[-0.974, 0.974],[-0.519,0.519]], [75,40], lambda s: [s[0],s[1]]),
         'hidden_sizes': [400, 300],
         'activation': nn.ReLU,
         'log_std_init': -0.5,
         'eps': 0,
-        'state_filter': [0,1,14,15],
+        'state_filter': [0,1,10,11],
         'fallback_state_filter': None,
         'heatmap_interp': 'spline16',
         'heatmap_cmap': 'Blues',
@@ -122,7 +126,8 @@ def create_policy(is_behavioral=False):
         hidden_sizes=spec['hidden_sizes'],
         action_dim=env.action_space.shape[0],
         activation=spec['activation'],
-        log_std_init=spec['log_std_init']
+        log_std_init=spec['log_std_init'],
+        **policy_parameters
     )
 
     if is_behavioral and args.zero_mean_start:

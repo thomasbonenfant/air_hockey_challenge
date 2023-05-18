@@ -7,6 +7,7 @@ from air_hockey_challenge.framework.air_hockey_challenge_wrapper import AirHocke
 from air_hockey_challenge.utils.transformations import robot_to_world, world_to_robot
 from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_kinematics, jacobian
 
+ACTION_SQUARE_LEN=1
 
 class GymAirHockey(gym.Env):
     def __init__(self, action_type = 'position-velocity', interpolation_order=3, custom_reward_function=None,
@@ -21,14 +22,23 @@ class GymAirHockey(gym.Env):
 
         self.env_info = env_info = self.challenge_env.env_info
 
-        n_joints = self.challenge_env.env_info['robot']['n_joints']
+        n_joints = env_info['robot']['n_joints']
         self.gamma = env_info['rl_info'].gamma
 
+        self.world2robot_transf = env_info['robot']['base_frame'][0]
+        self.mj_model = copy.deepcopy(env_info['robot']['robot_model'])
+        self.mj_data = copy.deepcopy(env_info['robot']['robot_data'])
 
+        joint_pos_ids = env_info['joint_pos_ids']
+        joint_vel_ids = env_info['joint_vel_ids']
 
-        self.world2robot_transf = self.challenge_env.env_info['robot']['base_frame'][0]
-        self.mj_model = copy.deepcopy(self.challenge_env.env_info['robot']['robot_model'])
-        self.mj_data = copy.deepcopy(self.challenge_env.env_info['robot']['robot_data'])
+        joint_min_pos = env_info['rl_info'].observation_space.low[joint_pos_ids]
+        joint_max_pos = env_info['rl_info'].observation_space.high[joint_pos_ids]
+        joint_min_vel = env_info['rl_info'].observation_space.low[joint_vel_ids]
+        joint_max_vel = env_info['rl_info'].observation_space.high[joint_vel_ids]
+
+        self.ee_max_pos = np.array([0, 0.519])
+        self.ee_min_pos = np.array([-0.974, -0.519])
 
         # to calculate joint velocity
         self.old_joint_pos = np.zeros(n_joints)
@@ -40,34 +50,35 @@ class GymAirHockey(gym.Env):
         self.prev_ee_pos = None
 
         if self.task_space:
+
             if self.task_space_vel:
                 action_space_dim = 4    # x,y, dx, dy
 
-                max_action = np.array([0.974, 0.519, 10,10])
+                max_action = np.array([0.974, 0.519, 1,1])
                 self.action_space = spaces.Box(low=-max_action, high=max_action,
                                                shape=(action_space_dim,), dtype=np.float32)
             else:
                 action_space_dim = 2
                 if self.use_delta_pos:
-                    max_action = np.array([0.1, 0.1])
+                    max_action = np.array([ACTION_SQUARE_LEN, ACTION_SQUARE_LEN])
+                    min_action = -max_action
                 else:
-                    max_action = np.array([0.974, 0.519])
-                self.action_space = spaces.Box(low=-max_action, high=max_action,
+                    max_action = self.ee_max_pos
+                    min_action = self.ee_min_pos
+                self.action_space = spaces.Box(low=min_action, high=max_action,
                                                shape=(action_space_dim,), dtype=np.float32)
         else:
             action_space_dim = 2 * n_joints
-            self.action_space = spaces.Box(low=-3, high=3,
+            low_action = np.hstack((joint_min_pos, joint_min_vel))
+            high_action = np.hstack((joint_max_pos, joint_max_vel))
+            self.action_space = spaces.Box(low=low_action, high=high_action,
                                            shape=(action_space_dim,), dtype=np.float32)
 
         if self.task_space:
             self.num_features = 14 # puck_x, puck_y, dpuck_x, dpuck_y, ee_x, ee_y, deex, deey
         else:
             self.num_features = 10
-
-        if self.use_puck_distance:
-            self.num_features += 2
-
-        self.observation_space = spaces.Box(low = -10, high=10, shape=(self.num_features,), dtype=np.float32)
+        self.observation_space = spaces.Box(low = -3, high=3, shape=(self.num_features,), dtype=np.float32)
 
     def convert_obs(self, obs):
         # change coordinates to world's reference frame coordinates
@@ -75,25 +86,28 @@ class GymAirHockey(gym.Env):
         puck_pos = puck_pos[:2]
 
         puck_vel = obs[self.challenge_env.env_info['puck_vel_ids']]
+        puck_vel = puck_vel[:2]
 
         joint_pos = obs[self.challenge_env.env_info['joint_pos_ids']]
         joint_vel = obs[self.challenge_env.env_info['joint_vel_ids']]
 
-        obs = np.hstack((puck_pos[:2], puck_vel[:2], joint_pos, joint_vel))
-
         if self.task_space:
             ee_pos, _ = forward_kinematics(self.mj_model, self.mj_data, joint_pos)
             ee_pos, _ = robot_to_world(self.world2robot_transf, ee_pos)
+            ee_pos = ee_pos[:2]
+
+            #saves ee_pos for delta pos calculation
             self.prev_ee_pos = ee_pos
             ee_vel = self._apply_forward_velocity_kinematics(joint_pos, joint_vel)[:2]
 
-            obs = np.hstack((obs, ee_pos[:2], ee_vel))
-
-        if self.use_puck_distance:
-            obs = np.hstack((obs, ee_pos[:2] - puck_pos))
+            if self.use_puck_distance:
+                obs = np.hstack((puck_pos, puck_vel, joint_pos, joint_vel, (puck_pos - ee_pos), ee_vel))
+            else:
+                obs = np.hstack((puck_pos, puck_vel, joint_pos, joint_vel, ee_pos, ee_vel))
+        else:
+            obs = np.hstack((puck_pos, puck_vel, joint_pos, joint_vel))
 
         return obs
-
 
 
     def reset(self):
@@ -107,12 +121,11 @@ class GymAirHockey(gym.Env):
 
         action = self._convert_action(action)
 
-        obs, _, done, info = self.challenge_env.step(action)
+        obs, reward, done, info = self.challenge_env.step(action)
 
         self.old_joint_pos = obs[self.challenge_env.env_info['joint_pos_ids']]
 
         obs = self.convert_obs(obs)
-        reward = np.linalg.norm(obs[[0,1]] - obs[[10,11]])
 
         return obs, reward, done, False, info
 
@@ -138,15 +151,28 @@ class GymAirHockey(gym.Env):
         return ee_vel
 
     def _convert_action(self, action):
+
+        action = np.array(action)
+
         if self.task_space:
             if self.task_space_vel:
-                ee_pos_action = np.hstack((action[:2], 1))
+                ee_pos_action = action[:2]
             else:
-                ee_pos_action = np.hstack((action, 0))
+                ee_pos_action = action
 
             # if the action is only a delta position update the resulting ee position action
             if self.use_delta_pos:
+                # scale delta action
+                ee_pos_action *= ACTION_SQUARE_LEN
+
                 ee_pos_action = self.prev_ee_pos + ee_pos_action
+
+            # clip action inside table
+            ee_pos_action = np.clip(ee_pos_action, a_min=self.ee_min_pos, a_max=self.ee_max_pos)
+
+            # make action 3D
+            ee_pos_action = np.hstack((ee_pos_action, 0))
+
             joint_pos_action = self._apply_inverse_kinematics(ee_pos_action)
 
             if self.task_space_vel:
