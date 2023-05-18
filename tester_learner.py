@@ -11,8 +11,8 @@ from air_hockey_challenge.framework import AirHockeyChallengeWrapper, ChallengeC
 import torch
 from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
 from air_hockey_agent.agents.ATACOM_hit_agent import AtacomHittingAgent
-from hit_agent_SAC_for_ATACOM_env import HittingAgentSAC4ATACOM
-from ATACOM_challenge import ATACOMChallengeWrapper
+from air_hockey_agent.agents.hit_agent_SAC_for_ATACOM_env import HittingAgentSAC4ATACOM
+from air_hockey_agent.agents.ATACOM_challenge import ATACOMChallengeWrapper
 
 def main():
     test = False
@@ -25,11 +25,11 @@ def main():
                                     interpolation_order=3, debug=False, custom_reward_function=reward)
 
     # MDP
-    gamma_eval = 0.9975
+    gamma_eval = 0.999
 
     # Settings
     # number of initial iterations to fill the replay memory
-    initial_replay_size = 200
+    initial_replay_size = 20000
 
     agent = HittingAgentSAC4ATACOM(env.env_info)
     #agent = AtacomHittingAgent(env.env_info)
@@ -46,13 +46,13 @@ def main():
     core = ChallengeCore(agent, env)
 
     # RUN
-    n_epochs = 50
+    n_epochs = 100
     n_steps = 5000
     n_steps_test = 5000
     history_J = []
     plt.plot(history_J)
     if test:
-        dataset = core.evaluate(n_steps=n_steps_test, render=True)
+        dataset = core.evaluate(n_steps=n_steps_test, render=False)
         J = compute_J(dataset, gamma_eval)
         print('evaluatiom:')
         print('J: ', np.mean(J))
@@ -61,25 +61,28 @@ def main():
     # Fill the replay memory with random samples
     core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
 
-    dataset = core.evaluate(n_steps=500, render=True)
+    dataset = core.evaluate(n_steps=500, render=False)
     J = compute_J(dataset, gamma_eval)
     history_J.append(np.mean(J))
     print('Epoch: 0')
     print('J: ', np.mean(J))
-    plot_constraints(env.env_info, dataset, "log")
+    plot_constraints(env.env_info, dataset, "air_hockey_agent/agents/log")
+    # this created the  directory log if not already existing
 
     for n in range(n_epochs):
         print('\nEpoch: ', n + 1)
         dataset = core.learn(n_steps=n_steps, n_steps_per_fit=10)
-        dataset = core.evaluate(n_steps=500, render=True)
+        dataset = core.evaluate(n_steps=500, render=False)
         J = compute_J(dataset, gamma_eval)
         print('J: ', np.mean(J))
         history_J.append(np.mean(J))
+        plt.plot(history_J)
+        plt.savefig(os.path.join("air_hockey_agent/agents/log", "history_J"))
 
-    dataset = core.evaluate(n_steps=n_steps_test, render=True)
+    dataset = core.evaluate(n_steps=n_steps_test, render=False)
     J = compute_J(dataset, gamma_eval)
     print('J: ', np.mean(J))
-    plot_constraints(env.env_info, dataset, "log")
+    plot_constraints(env.env_info, dataset, "air_hockey_agent/agents/log")
     history_J.append(np.mean(J))
     plt.plot(history_J)
     plt.show()
