@@ -1,4 +1,6 @@
 import time
+
+import numpy as np
 from mushroom_rl.core import Core
 
 
@@ -24,10 +26,11 @@ class ChallengeCore(Core):
             of the reached state and the last step flag.
 
         """
+        q, dq = self.agent.get_joint_pos(self._state), self.agent.get_joint_vel(self._state)
         start_time = time.time()
         action = self.agent.draw_action(self._state)
         end_time = time.time()
-        next_state, reward, absorbing, step_info = self.mdp.step(action[self.action_idx])
+        next_state, reward, absorbing, step_info = self.mdp.step(action, q, dq)
         step_info["computation_time"] = (end_time - start_time)
 
         self._episode_steps += 1
@@ -42,8 +45,7 @@ class ChallengeCore(Core):
         state = self._state
         next_state = self._preprocess(next_state.copy())
         # added to compute reward
-        reward = self.mdp.base_env.reward(state, action, next_state, absorbing)
-        #print(reward)
+        reward = self.mdp.base_env.reward(state, np.array([q, dq]), next_state, absorbing)
         self._state = next_state
 
         return (state, action, reward, next_state, absorbing, last), step_info

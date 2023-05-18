@@ -11,26 +11,28 @@ from air_hockey_challenge.framework import AirHockeyChallengeWrapper, ChallengeC
 import torch
 from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
 from air_hockey_agent.agents.ATACOM_hit_agent import AtacomHittingAgent
-
+from hit_agent_SAC_for_ATACOM_env import HittingAgentSAC4ATACOM
+from ATACOM_challenge import ATACOMChallengeWrapper
 
 def main():
     test = False
 
     np.random.seed(0)
     torch.manual_seed(0)
-    env = AirHockeyChallengeWrapper(env="3dof-hit", action_type="position-velocity",
+    #env = AirHockeyChallengeWrapper(env="3dof-hit", action_type="position-velocity",
+    #                                interpolation_order=3, debug=False, custom_reward_function=reward)
+    env = ATACOMChallengeWrapper(env="3dof-hit", action_type="position-velocity",
                                     interpolation_order=3, debug=False, custom_reward_function=reward)
 
     # MDP
-    gamma_eval = 0.999
+    gamma_eval = 0.9975
 
     # Settings
     # number of initial iterations to fill the replay memory
-    initial_replay_size = 20000
+    initial_replay_size = 200
 
-    #print(env.env_info)
-
-    agent = AtacomHittingAgent(env.env_info)
+    agent = HittingAgentSAC4ATACOM(env.env_info)
+    #agent = AtacomHittingAgent(env.env_info)
     #agent = AirHockeyPlanarAtacom(env.env_info, env.info, policy_class, policy_params, actor_params, actor_optimizer, critic_params,
     #        batch_size, initial_replay_size, max_replay_size, tau, task='H', gamma=gamma_eval)
 

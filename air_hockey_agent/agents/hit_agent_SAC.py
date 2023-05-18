@@ -50,32 +50,15 @@ class HittingAgent(AgentBase, SAC):
         self.sigmoid = lambda x: 1 / (1 + np.exp(-x))
 
     def reset(self):
-        #print("Resetting agent")
         self.new_start = True
         self.hold_position = None
-
 
     def draw_action(self, observation):
         """
         Draw an action from the agent's policy.
         :param observation: The current observation of the environment.
         """
-        if self.new_start:
-            self.new_start = False
-            #print(self.env_info['robot']['base_frame'][0][0, 3])
-
-        q = observation[self.env_info['joint_pos_ids']]
-        dq = observation[self.env_info['joint_vel_ids']]
-        #print(q, dq)
-        #print(self.env_info["constraints"].get("ee_constr").fun(q, dq))
-        #print(observation)
-        action = SAC.draw_action(self, observation)
-
-        #pos = action * [self.x_mult, self.y_mult, 1] + [self.x_shifter_lb, self.y_shifter_lb, -0.5]
-
-        #print(pos)
-        #action = inverse_kinematics(self.env_info['robot']['robot_model'], self.env_info['robot']['robot_data'], pos)[1]
-        return action
+        return SAC.draw_action(self, observation)
 
     def configure_SAC(self, mdp_info, actor_lr=3e-4, critic_lr=3e-4, n_features=[64, 64], batch_size=64,
                         initial_replay_size=5000, max_replay_size=200000, tau=1e-3,
