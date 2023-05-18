@@ -41,7 +41,9 @@ class ChallengeCore(Core):
 
         state = self._state
         next_state = self._preprocess(next_state.copy())
-
+        # added to compute reward
+        reward = self.mdp.base_env.reward(state, action, next_state, absorbing)
+        #print(reward)
         self._state = next_state
 
         return (state, action, reward, next_state, absorbing, last), step_info

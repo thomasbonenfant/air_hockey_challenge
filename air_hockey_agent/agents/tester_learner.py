@@ -7,7 +7,7 @@ from mushroom_rl.utils.dataset import compute_J
 
 from air_hockey_challenge.utils import robot_to_world
 from air_hockey_challenge.utils.kinematics import forward_kinematics
-from air_hockey_challenge.framework import AirHockeyChallengeWrapper
+from air_hockey_challenge.framework import AirHockeyChallengeWrapper, ChallengeCore
 import torch
 from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
 from air_hockey_agent.agents.ATACOM_hit_agent import AtacomHittingAgent
@@ -41,7 +41,7 @@ def main():
     obs = env.reset()
     agent.episode_start()
     # Algorithm
-    core = Core(agent, env)
+    core = ChallengeCore(agent, env)
 
     # RUN
     n_epochs = 50
@@ -68,7 +68,7 @@ def main():
 
     for n in range(n_epochs):
         print('\nEpoch: ', n + 1)
-        dataset = core.learn(n_steps=n_steps, n_steps_per_fit=1)
+        dataset = core.learn(n_steps=n_steps, n_steps_per_fit=10)
         dataset = core.evaluate(n_steps=500, render=True)
         J = compute_J(dataset, gamma_eval)
         print('J: ', np.mean(J))
