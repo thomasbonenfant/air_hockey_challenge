@@ -4,6 +4,7 @@ import numpy as np
 
 from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
 from air_hockey_challenge.utils import forward_kinematics
+from air_hockey_challenge.utils.transformations import robot_to_world
 from air_hockey_agent.agents.atacom.utils.null_space_coordinate import rref, pinv_null
 from air_hockey_agent.agents.atacom.constraints import ViabilityConstraint, ConstraintsSet
 from mushroom_rl.utils.spaces import Box
@@ -81,7 +82,13 @@ class AtacomHittingAgent(HittingAgent):
         else:
             self.K_c = Kc
 
-        self.q = np.zeros(self.dims['q'])
+        """
+        Initial point of the position was zeros. it is not right since the initial pos of the joints
+        is not at zeros. this is not such a big deal but it may cause some issues. the numbers hard coded are the 
+        initial pos of the joints. initial velocity is zeros which is right.
+        """
+        # TODO for next phase, we have to have initial pos of the joints of the new robot
+        self.q = np.array([-1.156, 1.300, 1.443])
         self.dq = np.zeros(self.dims['q'])
 
         self._mdp_info = self.env['rl_info'].copy()
@@ -123,7 +130,8 @@ class AtacomHittingAgent(HittingAgent):
         self.was_hit = 0
 
     def reset(self):
-        # TODO: why is this function not executed?
+        # TODO: why is this function not executed? Becuase there is another
+        #  reset function at the end of this code
         # in episode start this method is not called but the child method is called (HittingAgent)
         #print("resetting ATACOM")
         self.was_hit = 0
@@ -234,13 +242,14 @@ class AtacomHittingAgent(HittingAgent):
         ddq = np.clip(ddq, acc_l, acc_u)
         return ddq
 
+    """ OK """
     def _compute_slack_variables(self):
         self.mu = None
         if self.dims['g'] > 0:
             # TODO: check if this is correct
             mu_squared = np.maximum(-2 * self.g.fun(self.q, self.dq, origin_constr=False), 0)
             self.mu = np.sqrt(mu_squared)
-
+    """ OK """
     def _construct_Jc_psi(self, q, s, dq):
         Jc = np.zeros((self.dims['f'] + self.dims['g'], self.dims['q'] + self.dims['g']))
         psi = np.zeros(self.dims['c'])
@@ -296,15 +305,19 @@ class AtacomHittingAgent(HittingAgent):
 
     def ee_pos_g(self, q):
         """ Compute the constraint function g(q) = 0 position of the end-effector"""
-        #ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)
-        #ee_pos_world = ee_pos + self.env.agents[0]['frame'][:2, 3]
-        #g_1 = - ee_pos_world[0] - (self.env.env_spec['table']['length'] / 2 - self.env.env_spec['mallet']['radius'])
-        #g_2 = - ee_pos_world[1] - (self.env.env_spec['table']['width'] / 2 - self.env.env_spec['mallet']['radius'])
-        #g_3 = ee_pos_world[1] - (self.env.env_spec['table']['width'] / 2 - self.env.env_spec['mallet']['radius'])
-        #return np.array([g_1, g_2, g_3])
+        ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)[0]
+        ee_pos_world = robot_to_world(self.env_info["robot"]["base_frame"][0], ee_pos)[0]
+        # ee_pos_world = ee_pos + self.env.agents[0]['frame'][:2, 3]
+        g_1 = - ee_pos_world[0] - (self.env_info['table']['length'] / 2 - self.env_info['mallet']['radius'])
+        g_2 = - ee_pos_world[1] - (self.env_info['table']['width'] / 2 - self.env_info['mallet']['radius'])
+        g_3 = ee_pos_world[1] - (self.env_info['table']['width'] / 2 - self.env_info['mallet']['radius'])
+        """
+        I changed the code to be like the original, but this code and yours are identical.
+        """
 
-        g = self.env_info['constraints'].get('ee_constr')
-        return g.fun(q, None)[:3] # dq is not used, pick only the first 3 elements (do not need height constraint)
+        return np.array([g_1, g_2, g_3])
+        # g = self.env_info['constraints'].get('ee_constr')
+        # return g.fun(q, None)[:3] # dq is not used, pick only the first 3 elements (do not need height constraint)
 
     def ee_pos_J_g(self, q):
         """ Compute the constraint function g'(q) = 0 derivative of the end-effector """
@@ -338,9 +351,23 @@ class AtacomHittingAgent(HittingAgent):
 
     def joint_pos_g(self, q):
         """Compute the constraint function g(q) = 0 position of the joints"""
-        # return np.array(q ** 2 - self.pino_model.upperPositionLimit ** 2)
         g = self.env_info['constraints'].get('joint_pos_constr')
-        return g.fun(q, None)[:3]
+        # here the function of g is returning q - qu. we must find qu.
+        q_minus_qu = g.fun(q, None)[:3]
+        qu = q - q_minus_qu
+        """
+        Here is the main bug that I found. if you consider only 3 element of the g.fun(), based on this link:
+        https://air-hockey-challenges-docs.readthedocs.io/en/latest/constraints.html#constraints
+        you are ignoring the lower bound on the joint pos. if you consider all of them, which are 6, the code will break
+        because they used something which was 3 originally, so for solving it, their method is better, since having 
+        q ** 2 - qu ** 2 < 0 => 
+        q ** 2 < qu ** 2 => 
+        |q| < |qu| => 
+        -qu < q < qu
+        this is correct for us since the lower bound of the joint pos is actually the negative of the upper bound   
+        """
+        # return g.fun(q, None)[:3]
+        return np.array(q ** 2 - qu ** 2)
 
     def joint_pos_J_g(self, q):
         """Compute constraint jacobian function J_g(q)"""
@@ -367,5 +394,8 @@ class AtacomHittingAgent(HittingAgent):
     #    return np.zeros(3)
 
     def reset(self):
+        # RESET the initial pos and vel t
+        self.q = np.array([-1.156, 1.300, 1.443])
+        self.dq = np.zeros(self.dims['q'])
         super().reset()
         self._compute_slack_variables()
