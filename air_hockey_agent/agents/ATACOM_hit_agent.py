@@ -395,6 +395,9 @@ class AtacomHittingAgent(HittingAgent):
 
     def reset(self):
         # RESET the initial pos and vel t
+        """
+        we have to reset also the initialization of the robot pos and velocity
+        """
         self.q = np.array([-1.156, 1.300, 1.443])
         self.dq = np.zeros(self.dims['q'])
         super().reset()
