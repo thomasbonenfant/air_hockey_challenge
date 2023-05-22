@@ -73,7 +73,6 @@ class DDPGCriticNetwork(nn.Module):
         dim_action = kwargs['action_shape'][0]
         dim_state = n_input - dim_action
 
-        print(dim_state, dim_action, n_input)
         self._action_scaling = torch.tensor(kwargs['action_scaling'], dtype=torch.float).to(
             device=torch.device('cuda' if kwargs['use_cuda'] else 'cpu'))
 
@@ -102,19 +101,12 @@ class DDPGCriticNetwork(nn.Module):
     def forward(self, state, action):
         state = state.float()
 
-
-        #if(action.shape[1:] == (2, 3)):
-        #    print(True)
         action = action.float() / self._action_scaling
 
         features1 = F.relu(self._h1(state))
         features2_s = self._h2_s(features1)
         features2_a = self._h2_a(action)
-        #print(action.shape)
-        #print(state.shape)
         features2 = F.relu(features2_s + features2_a)
-        #print((features2_s + features2_a).shape)
-        #print("\n")
 
         q = self._h3(features2)
 

@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import scipy
 import sympy
 
 from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
@@ -36,26 +37,32 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
                          custom_reward_function=custom_reward_function, **kwargs)
 
         dim_q = self.env_info['robot']['n_joints']
-        Kc = 100.
+        Kc = 200.
         timestamp = 1/50.
         # why dim out of 5?
-        # cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.cart_pos_g, J=self.cart_pos_J_g, b=self.cart_pos_b_g, K=0.5)
-        ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.ee_pos_g, J=self.ee_pos_J_g, b=self.ee_pos_b_g, K=0.5)
+        #ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.ee_pos_g, J=self.ee_pos_J_g, b=self.ee_pos_b_g, K=0.5)
+        ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.ee_pos_g, J=self.ee_pos_J_g,
+                                       b=self.ee_pos_b_g, K=1.0)
 
-        # TODO: still need to check validity of fun, J, b
         joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=dim_q, fun=self.joint_pos_g, J=self.joint_pos_J_g,
                                           b=self.joint_pos_b_g, K=1.0)
+
+        joint_vel_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.joint_vel_g, J=self.joint_vel_J_g,
+                                              b=self.joint_vel_b_g, K=1.0)
         f = None
         g = ConstraintsSet(dim_q)
         g.add_constraint(ee_pos_g)
-        # g.add_constraint(joint_pos_g)
-        # g.add_constraint(joint_vel_g)
+        #g.add_constraint(joint_pos_g)
+        #g.add_constraint(joint_vel_g)
 
         # TODO: if we want to include the jerk we may want to create a accel constraint and put the value here
         acc_max = self.env_info['robot']['joint_acc_limit'][1]
         vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1] # takes only positive constraints
         vel_max = np.squeeze(vel_max)
         # vel_max = np.ones(dim_q) * 2.35619449
+
+        self.robot_model = self.env_info['robot']['robot_model']
+        self.robot_data = self.env_info['robot']['robot_data']
 
         Kq = 2 * acc_max / vel_max
 
@@ -104,7 +111,6 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
             self.K_q = Kq
             assert np.shape(self.K_q)[0] == self.dims['q']
 
-        # self.alpha_max = np.ones(self.dims['null']) * self.acc_max.max()
         self.alpha_max = np.ones(self.dims['null']) * self.acc_max.max()
 
         self._act_a = None
@@ -113,19 +119,26 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
 
         self.constr_logs = list()
         self.mu = 0
+        self.first_step = None
 
     def reset(self, state=None):
-        self._compute_slack_variables()
+        self.first_step = True
         return self.base_env.reset(state)
 
     def step(self, action, q, dq):
-        alpha = action
+        alpha = action * self.alpha_max
         # Observe the qk, q˙k from sk
         self.q = q
         self.dq = dq
 
+        if self.first_step:
+            self._compute_slack_variables()
+            self.first_step = False
+
         # Compute Jc, k = Jc(qk, µk), ψk = ψ(qk, q˙k), ck = c(qk, q˙k, µk)
         Jc, psi = self._construct_Jc_psi(self.q, self.mu, self.dq)
+        #Jc_inv = np.linalg.pinv(Jc)
+        #Nc = scipy.linalg.null_space(Jc)
         Jc_inv, Nc = pinv_null(Jc)
         # Compute the RCEF of tangent space basis of NcR
         #Ncd = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
@@ -150,14 +163,14 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
 
     def acc_to_ctrl_action(self, ddq):
         # integrate acceleration because we do control the robot with a PD Controller
-        #self.robot_data.qacc[:] = ddq
-        #self.robot_data.qvel[:] = self.robot_data.qacc[:] * self.time_step
+        #self.robot_data.qacc[:] += ddq
+        #self.robot_data.qvel[:] = self.dq + self.robot_data.qacc[:] * self.time_step
         #mujoco.mj_inverse(self.robot_model, self.robot_data)
-        #ddq2 = self.robot_data.qfrc_inverse[:]
+        #ddq = self.robot_data.qfrc_inverse[:]
 
         next_dq = self.dq + ddq * self.time_step
         next_q = self.q + self.dq * self.time_step + 0.5 * ddq * (self.time_step ** 2)
-        return np.concatenate((next_q, next_dq)).reshape(2,3)
+        return np.concatenate((next_q, next_dq)).reshape(2, 3)
 
     def acc_truncation(self, dq, ddq):
         # TODO: test on correctness of this value
@@ -189,7 +202,7 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
             psi[idx_0:idx_1] = self.g.b(q, dq)
         return Jc, psi
 
-    def _compute_c(self, q, dq, s, origin_constr=False):
+    def _compute_c(self, q, dq, mu, origin_constr=False):
         c = np.zeros(self.dims['f'] + self.dims['g'])
         if self.dims['f'] > 0:
             idx_0 = 0
@@ -201,7 +214,7 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
             if origin_constr:
                 c[idx_0:idx_1] = self.g.fun(q, dq, origin_constr)
             else:
-                c[idx_0:idx_1] = self.g.fun(q, dq, origin_constr) + 1 / 2 * s ** 2
+                c[idx_0:idx_1] = self.g.fun(q, dq, origin_constr) + 1 / 2 * mu ** 2
         return c
 
     def _update_constraint_stats(self, q, dq):
@@ -235,8 +248,9 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
         #g_3 = ee_pos_world[1] - (self.env.env_spec['table']['width'] / 2 - self.env.env_spec['mallet']['radius'])
         #return np.array([g_1, g_2, g_3])
 
-        g = self.env_info['constraints'].get('ee_constr')
-        return g.fun(q, None)[:3] # dq is not used, pick only the first 3 elements (do not need height constraint)
+        ee_constr = self.env_info['constraints'].get('ee_constr')
+        #print(ee_constr.fun(q, None)[:3])
+        return ee_constr.fun(q, None)[:3] # dq is not used, pick only the first 3 elements (do not need height constraint)
 
     def ee_pos_J_g(self, q):
         """ Compute the constraint function g'(q) = 0 derivative of the end-effector """
@@ -244,9 +258,9 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
         #J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
         #return J_c @ ee_jac
         
-        g = self.env_info['constraints'].get('ee_constr')
+        ee_constr = self.env_info['constraints'].get('ee_constr')
 
-        return g.jacobian(q, None)[:3, :3] # dq is not used
+        return ee_constr.jacobian(q, None)[:3, :3] # dq is not used
 
     def ee_pos_b_g(self, q, dq):
         """ TODO: understand what this is: it should be dJ/dt * dq/dt  """
@@ -263,7 +277,6 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
         # TODO: check if this works
         mujoco.mj_objectAcceleration(mj_model, mj_data, mujoco.mjtObj.mjOBJ_BODY, id, acc, 0)  # last 3 elements are linear acceleration
         acc = acc[3:]
-
         J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
 
         return J_c @ acc[:2] # Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
@@ -271,29 +284,31 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
     def joint_pos_g(self, q):
         """Compute the constraint function g(q) = 0 position of the joints"""
         # return np.array(q ** 2 - self.pino_model.upperPositionLimit ** 2)
-        g = self.env_info['constraints'].get('joint_pos_constr')
-        return g.fun(q, None)[:3]
+        #g = self.env_info['constraints'].get('joint_pos_constr')
+        #return g.fun(q, None)[:3]
+        return np.array(q ** 2 - self.env_info['constraints'].get('joint_pos_constr').joint_limits[1] ** 2)
 
     def joint_pos_J_g(self, q):
         """Compute constraint jacobian function J_g(q)"""
-        g = self.env_info['constraints'].get('joint_pos_constr')
+        # g = self.env_info['constraints'].get('joint_pos_constr')
         # return g.jacobian(q, None)[:3, :3]
-        return g.jacobian(q, None)[:3, :3]
+        return 2 * np.diag(q)
 
     def joint_pos_b_g(self, q, dq):
         """Compute constraint b(q,dq) function. It should be equal to dJ/dt * dq/dt"""
         # return 2 * np.diag(q)
         # g = self.env_info['constraint'].get('joint_pos_constr')
-        # return np.zeros(g.output_dim) # this constraint is linear so second order derivative goes to zero
-
         return 2 * dq ** 2
 
-    #next constraint is not used
-    #def joint_vel_g(self, q, dq):
-    #    #return np.array([dq ** 2 - self.pino_model.velocityLimit ** 2])
+    def joint_vel_g(self, dq):
+        # g = self.env_info['constraints'].get('joint_vel_constr')
+        return np.array([dq ** 2 - self.env_info['constraints'].get('joint_vel_constr').joint_limits[1] ** 2])
+        # return g.fun(None, dq)
 
-    #def joint_vel_A_g(self, q, dq):
-    #    return 2 * np.diag(dq)
+    def joint_vel_J_g(self, dq):
+        # g = self.env_info['constraints'].get('joint_vel_constr')
+        # return g.jacobian(None, dq)
+        return 2 * np.diag(dq)
 
-    #def joint_vel_b_g(self, q, dq):
-    #    return np.zeros(3)
+    def joint_vel_b_g(self, q, dq):
+        return np.zeros(3)

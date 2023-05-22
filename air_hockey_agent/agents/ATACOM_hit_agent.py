@@ -358,12 +358,13 @@ class AtacomHittingAgent(HittingAgent):
 
         return 2 * dq ** 2
 
-    #next constraint is not used
-    #def joint_vel_g(self, q, dq):
-    #    #return np.array([dq ** 2 - self.pino_model.velocityLimit ** 2])
+    def joint_vel_g(self, q, dq):
+        g = self.env_info['constraints'].get('joint_vel_constr')
+        #return np.array([dq ** 2 - self.pino_model.velocityLimit ** 2])
+        return g.fun(q, dq)
 
-    #def joint_vel_A_g(self, q, dq):
-    #    return 2 * np.diag(dq)
+    def joint_vel_A_g(self, q, dq):
+        return 2 * np.diag(dq)
 
-    #def joint_vel_b_g(self, q, dq):
-    #    return np.zeros(3)
+    def joint_vel_b_g(self, q, dq):
+        return np.zeros(3)

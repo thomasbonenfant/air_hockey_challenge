@@ -26,11 +26,11 @@ def build_agent(env_info, **kwargs):
 
 class HittingAgent(AgentBase, DDPG):
     def __init__(self, env, **kwargs):
-        params = self.configure_DDPG(env.env_info['rl_info'], **kwargs)[:-1]
+        params = self.configure_DDPG(env['rl_info'], **kwargs)[:-1]
         alg_params = params[-1]
         DDPG.__init__(self, *params[:-1], **alg_params)
         kwargs['no_initialization'] = True
-        AgentBase.__init__(self, env.env_info, **kwargs)
+        AgentBase.__init__(self, env, **kwargs)
         self.new_start = True
         self.hold_position = None
 
@@ -58,23 +58,7 @@ class HittingAgent(AgentBase, DDPG):
         Draw an action from the agent's policy.
         :param observation: The current observation of the environment.
         """
-        if self.new_start:
-            self.new_start = False
-            #print(self.env_info['robot']['base_frame'][0][0, 3])
-
-        q = observation[self.env_info['joint_pos_ids']]
-        dq = observation[self.env_info['joint_vel_ids']]
-        #print(q, dq)
-        #print(self.env_info["constraints"].get("ee_constr").fun(q, dq))
-        #print(observation)
-        action = DDPG.draw_action(self, observation)
-
-        #pos = action * [self.x_mult, self.y_mult, 1] + [self.x_shifter_lb, self.y_shifter_lb, -0.5]
-
-        #print(pos)
-        #action = inverse_kinematics(self.env_info['robot']['robot_model'], self.env_info['robot']['robot_data'], pos)[1]
-
-        return action
+        return DDPG.draw_action(self, observation)
 
     def configure_DDPG(self, mdp_info, actor_lr=3e-4, critic_lr=3e-4, n_features=[64, 64], batch_size=64,
                         initial_replay_size=400, max_replay_size=200000, tau=1e-3,

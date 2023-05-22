@@ -162,3 +162,5 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 air_hockey_agent/agents/log/
+
+air_hockey_agent/agents/air_hockey_agent/agents/log/

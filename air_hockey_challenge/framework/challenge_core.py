@@ -31,6 +31,7 @@ class ChallengeCore(Core):
         action = self.agent.draw_action(self._state)
         end_time = time.time()
         next_state, reward, absorbing, step_info = self.mdp.step(action, q, dq)
+#        next_state, reward, absorbing, step_info = self.mdp.step(action)
         step_info["computation_time"] = (end_time - start_time)
 
         self._episode_steps += 1

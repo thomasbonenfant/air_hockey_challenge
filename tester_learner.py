@@ -19,7 +19,7 @@ def main():
 
     np.random.seed(0)
     torch.manual_seed(0)
-    #env = AirHockeyChallengeWrapper(env="3dof-hit", action_type="position-velocity",
+    # env = AirHockeyChallengeWrapper(env="3dof-hit", action_type="position-velocity",
     #                                interpolation_order=3, debug=False, custom_reward_function=reward)
     env = ATACOMChallengeWrapper(env="3dof-hit", action_type="position-velocity",
                                     interpolation_order=3, debug=False, custom_reward_function=reward)
@@ -61,7 +61,7 @@ def main():
     # Fill the replay memory with random samples
     core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
 
-    dataset = core.evaluate(n_steps=500, render=False)
+    dataset = core.evaluate(n_steps=500, render=True)
     J = compute_J(dataset, gamma_eval)
     history_J.append(np.mean(J))
     print('Epoch: 0')
@@ -71,8 +71,8 @@ def main():
 
     for n in range(n_epochs):
         print('\nEpoch: ', n + 1)
-        dataset = core.learn(n_steps=n_steps, n_steps_per_fit=10)
-        dataset = core.evaluate(n_steps=500, render=False)
+        dataset = core.learn(n_steps=n_steps, n_steps_per_fit=1)
+        dataset = core.evaluate(n_steps=500, render=True)
         J = compute_J(dataset, gamma_eval)
         print('J: ', np.mean(J))
         history_J.append(np.mean(J))
@@ -91,21 +91,22 @@ def main():
 
 def reward(base_env, state, action, next_state, absorbing):
     rew = 0
-    if state[-1] == 0:
-        puck_pos, puck_vel = base_env.get_puck(next_state)  # get puck position and velocity
-        puck_pos = puck_pos[:2]
-        ee_pos = forward_kinematics(base_env.env_info['robot']['robot_model'], base_env.env_info['robot']['robot_data'], action[0])[0][:2]
-        # compute distance between puck and end effector
-        rew = - np.linalg.norm(puck_pos[:2] - ee_pos)
-        
-    elif absorbing:
+    #if state[-1] == 0:
+    #puck_pos, puck_vel = base_env.get_puck(next_state)  # get puck position and velocity
+    #puck_pos = puck_pos[:2]
+    puck_pos = np.array([1., 0.0])
+    ee_pos = forward_kinematics(base_env.env_info['robot']['robot_model'], base_env.env_info['robot']['robot_data'], action[0])[0][:2]
+    # compute distance between puck and end effector
+    rew = - np.linalg.norm(puck_pos - ee_pos)
 
-        puck_pos, puck_vel = base_env.get_puck(next_state)  # get puck position and velocity
-        puck_pos = puck_pos[:2]
+    #elif absorbing:
+    #
+    #    puck_pos, puck_vel = base_env.get_puck(next_state)  # get puck position and velocity
+    #    puck_pos = puck_pos[:2]
 
-        if (puck_pos[0] - base_env.env_info['table']['length'] / 2) > 0 and \
-                (np.abs(puck_pos[1]) - base_env.env_info['table']['goal_width']) < 0:
-            rew = 200
+    #    if (puck_pos[0] - base_env.env_info['table']['length'] / 2) > 0 and \
+    #            (np.abs(puck_pos[1]) - base_env.env_info['table']['goal_width']) < 0:
+    #        rew = 200
     #print(rew)
     return rew
 
