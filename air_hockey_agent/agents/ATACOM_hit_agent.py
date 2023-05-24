@@ -185,6 +185,7 @@ class AtacomHittingAgent(HittingAgent):
         """
         # Sample policy action αk ∼ π(·|sk).
         alpha = super().draw_action(observation)
+        self.last_actions.append(alpha)
         """if self.was_hit == 0:
             ee_pos = forward_kinematics(self.robot_model, self.robot_data, self.get_joint_pos(observation))[0]
             puck_pos = self.get_puck_pos(observation)
@@ -222,7 +223,6 @@ class AtacomHittingAgent(HittingAgent):
         # Clip the joint acceleration q¨k ← clip(q¨k, al, au)
         ddq = self.acc_truncation(self.dq, ddq_ds[:self.dims['q']])
         # Integrate the slack variable µk+1 = µk + µ˙ k∆T
-        self.last_actions.append(ddq)
         ctrl_action = self.acc_to_ctrl_action(ddq)#.reshape((6,))
 
         return ctrl_action
