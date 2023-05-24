@@ -1,5 +1,6 @@
 import argparse
 import torch.nn as nn
+import torch
 import os
 import numpy as np
 
@@ -60,20 +61,34 @@ parser.add_argument('--tb_dir_name', type=str, default='mepol',
                     help='The tensorboard directory under which the directory of this experiment is put')
 parser.add_argument('--log_dir', type=str, default='/data/air_hockey',
                     help='Where to store results')
+parser.add_argument('-s', action='append', type=int, help='Append State index to State filter list')
+parser.add_argument('-f', action='append', type=int, help='Append State index to Fallback State filter list')
+parser.add_argument('--flag_heatmap', type=int, required=True, choices=[0, 1])
 
 # environment parameters
 parser.add_argument('--task_space', type=int, required=True, choices=[0, 1], help='Whether use task space actions')
-parser.add_argument('--task_space_vel', type=int, required=True, choices=[0,1], help='Use inv kinematics for velocity')
-parser.add_argument('--use_delta_pos', type=int, required=True, choices=[0,1], help='Use Delta Pos Actions')
-parser.add_argument('--use_puck_distance', type=int, required=True, choices=[0,1])
+parser.add_argument('--task_space_vel', type=int, required=True, choices=[0, 1], help='Use inv kinematics for velocity')
+parser.add_argument('--use_delta_pos', type=int, required=True, choices=[0, 1], help='Use Delta Pos Actions')
+parser.add_argument('--delta_dim', type=float, default=0.1)
+parser.add_argument('--use_puck_distance', type=int, required=True, choices=[0, 1])
+parser.add_argument('--normalize_obs', type=int, required=True, choices=[0, 1])
+parser.add_argument('--scale_task_space_action', type=int, required=True, choices=[0, 1])
 
-parser.add_argument('--use_tanh', type=int, required=True, choices=[0,1])
+#policy parameters
+parser.add_argument('--use_tanh', type=int, required=True, choices=[0, 1])
+parser.add_argument('--policy_init', type=str, required=False, default=None, help='Path of the policy')
+parser.add_argument('--log_std', type=float, required=False, default=-0.5)
 
 args = parser.parse_args()
 
-env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_delta_pos', 'use_puck_distance')}
+env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_delta_pos', 'delta_dim', 'use_puck_distance')}
 policy_parameters = {k: vars(args)[k] for k in ('use_tanh',)}
 
+
+def make_discretizer(env):
+    if args.flag_heatmap:
+        return Discretizer([[-0.974, 0.974],[-0.519,0.519]], [75,40], lambda s: [s[0],s[1]])
+    return None
 
 """
 Experiments specifications
@@ -93,13 +108,13 @@ Experiments specifications
 exp_spec = {
     'AirHockey': {
         'env_create': lambda: ErgodicEnv(GymAirHockey(**env_parameters)),
-        'discretizer_create': lambda env: Discretizer([[-0.974, 0.974],[-0.519,0.519]], [75,40], lambda s: [s[0],s[1]]),
+        'discretizer_create': make_discretizer,
         'hidden_sizes': [400, 300],
         'activation': nn.ReLU,
-        'log_std_init': -0.5,
+        'log_std_init': args.log_std,
         'eps': 0,
-        'state_filter': [0,1,10,11],
-        'fallback_state_filter': None,
+        'state_filter': args.s,
+        'fallback_state_filter': args.f,
         'heatmap_interp': 'spline16',
         'heatmap_cmap': 'Blues',
         'heatmap_labels': ('Puck_X', 'Puck_Y')
@@ -120,7 +135,6 @@ eps = spec['eps']
 
 
 def create_policy(is_behavioral=False):
-
     policy = GaussianPolicy(
         num_features=env.num_features,
         hidden_sizes=spec['hidden_sizes'],
@@ -130,12 +144,14 @@ def create_policy(is_behavioral=False):
         **policy_parameters
     )
 
+    if args.policy_init is not None:
+        policy.load_state_dict(torch.load(args.policy_init))
+        return policy
+
     if is_behavioral and args.zero_mean_start:
         policy = train_supervised(env, policy, train_steps=100, batch_size=5000)
 
     return policy
-
-
 
 
 exp_name = f"exp_name={args.exp_name},env={args.env},z_mu_start={args.zero_mean_start},k={args.k},kl_thresh={args.kl_threshold}," \
@@ -151,19 +167,19 @@ os.makedirs(out_path, exist_ok=True)
 
 with open(os.path.join(out_path, 'log_info.txt'), 'w') as f:
     f.write(f"Run info:\n")
-    f.write("-"*10 + "\n")
+    f.write("-" * 10 + "\n")
 
     for key, value in vars(args).items():
         f.write(f"{key}={value}\n")
 
-    f.write("-"*10 + "\n")
+    f.write("-" * 10 + "\n")
 
     tmp_policy = create_policy()
     f.write(tmp_policy.__str__())
     f.write("\n")
 
     if args.seed is None:
-        args.seed = np.random.randint(2**16-1)
+        args.seed = np.random.randint(2 ** 16 - 1)
         f.write(f"Setting random seed {args.seed}\n")
 
 mepol(

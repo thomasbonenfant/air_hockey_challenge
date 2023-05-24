@@ -84,8 +84,9 @@ class AirHockeyChallengeWrapper(Environment):
                         'n_joints']])
 
         if done:
-            self.set_puck_pos(np.array([-0.6,0,0]))
-            obs, reward, done, info = self.step(action)
+            # self.set_puck_pos(np.array([-0.6,0,0]))
+            obs = self.reset()
+            # obs, reward, done, info = self.step(action)
 
         return obs, reward, done, info
 
