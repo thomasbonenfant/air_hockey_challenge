@@ -4,6 +4,7 @@ user=air_hockey
 server=turing.deib.polimi.it
 server_root_dir="thomas/air_hockey_challenge/"
 mepol_src="mepol/src/"
+utils_src="utils/"
 air_hockey_challenge_dir="air_hockey_challenge/"
 air_hockey_agent_dir="air_hockey_agent/"
 
@@ -17,4 +18,7 @@ rsync "${args[@]}" $air_hockey_challenge_dir $remote_folder$air_hockey_challenge
 
 rsync "${args[@]}" $air_hockey_agent_dir $remote_folder$air_hockey_agent_dir
 
+rsync "${args[@]}" $utils_src $remote_folder$utils_src
+
 rsync -avz airhockey.sh "$remote_folder"airhockey.sh
+rsync -avx trpo.sh "$remote_folder"trpo.sh

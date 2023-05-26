@@ -5,13 +5,9 @@ import os
 import numpy as np
 
 from datetime import datetime
-from src.envs.wrappers import CustomRewardEnv
-from src.envs.gridworld_continuous import GridWorldContinuous
-from src.envs.ant import Ant
-from src.envs.upsidedown_ant import UpsideDownAnt
-from src.envs.humanoid_standup import HumanoidStandup
-from src.algorithms.trpo import trpo
-from src.policy import GaussianPolicy
+from mepol.src.envs.air_hockey import GymAirHockey
+from mepol.src.algorithms.trpo import trpo
+from mepol.src.policy import GaussianPolicy
 
 
 parser = argparse.ArgumentParser(description='Goal-Based Reinforcement Learning - TRPO')
@@ -52,59 +48,30 @@ parser.add_argument('--seed', type=int, default=None,
                     help='The random seed')
 parser.add_argument('--tb_dir_name', type=str, default='goal_rl',
                     help='The tensorboard directory under which the directory of this experiment is put')
+parser.add_argument('--log_dir', type=str, default='/data/air_hockey/thomas')
+
+# environment parameters
+parser.add_argument('--task_space', type=int, required=True, choices=[0, 1], help='Whether use task space actions')
+parser.add_argument('--task_space_vel', type=int, required=True, choices=[0, 1], help='Use inv kinematics for velocity')
+parser.add_argument('--use_delta_pos', type=int, required=True, choices=[0, 1], help='Use Delta Pos Actions')
+parser.add_argument('--delta_dim', type=float, default=0.1)
+parser.add_argument('--use_puck_distance', type=int, required=True, choices=[0, 1])
+parser.add_argument('--normalize_obs', type=int, required=True, choices=[0, 1])
+parser.add_argument('--scale_task_space_action', type=int, required=True, choices=[0, 1])
+
+#policy parameters
+parser.add_argument('--use_tanh', type=int, required=True, choices=[0, 1])
+parser.add_argument('--log_std', type=float, required=False, default=-0.5)
 
 args = parser.parse_args()
+
+env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_delta_pos', 'delta_dim', 'use_puck_distance')}
+policy_parameters = {k: vars(args)[k] for k in ('use_tanh',)}
 
 """
 Sparse reward functions
 """
-def grid_goal1(s, r, d, i):
-    if np.linalg.norm(s - np.array([5, 5], dtype=np.float32)) <= 1e-1:
-        return 1, True
-    else:
-        return 0, False
 
-def grid_goal2(s, r, d, i):
-    if np.linalg.norm(s - np.array([2, 5], dtype=np.float32)) <= 1e-1:
-        return 1, True
-    else:
-        return 0, False
-
-def grid_goal3(s, r, d, i):
-    if np.linalg.norm(s - np.array([5, 2], dtype=np.float32)) <= 1e-1:
-        return 1, True
-    else:
-        return 0, False
-
-def ant_escape(s, r, d, i):
-    _self = i['self']
-    l1 = _self.unwrapped.get_body_com('aux_1')[2]
-    l2 = _self.unwrapped.get_body_com('aux_2')[2]
-    l3 = _self.unwrapped.get_body_com('aux_3')[2]
-    l4 = _self.unwrapped.get_body_com('aux_4')[2]
-    thresh = 0.8
-    if l1 >= thresh and l2 >= thresh and l3 >= thresh and l4 >= thresh:
-        return 1, True
-    else:
-        return 0, False
-
-def ant_navigate(s, r, d, i):
-    if s[0] >= 7:
-        return 1, True
-    else:
-        return 0, False
-
-def ant_jump(s, r, d, i):
-    if s[2] >= 3:
-        return 1, True
-    else:
-        return 0, False
-
-def humanoid_up(s, r, d, i):
-    if s[2] >= 1:
-        return 1, True
-    else:
-        return 0, False
 
 """
 Experiments specifications
@@ -116,54 +83,12 @@ Experiments specifications
 
 """
 exp_spec = {
-    'GridGoal1': {
-        'env_create': lambda: CustomRewardEnv(GridWorldContinuous(), grid_goal1),
-        'hidden_sizes': [300, 300],
-        'activation': nn.ReLU,
-        'log_std_init': -1.5,
-    },
-
-    'GridGoal2': {
-        'env_create': lambda: CustomRewardEnv(GridWorldContinuous(), grid_goal2),
-        'hidden_sizes': [300, 300],
-        'activation': nn.ReLU,
-        'log_std_init': -1.5,
-    },
-
-    'GridGoal3': {
-        'env_create': lambda: CustomRewardEnv(GridWorldContinuous(), grid_goal3),
-        'hidden_sizes': [300, 300],
-        'activation': nn.ReLU,
-        'log_std_init': -1.5,
-    },
-
-    'AntEscape': {
-        'env_create': lambda: CustomRewardEnv(UpsideDownAnt(), ant_escape),
+    'AirHockey': {
+        'env_create': lambda: GymAirHockey(**env_parameters),
         'hidden_sizes': [400, 300],
         'activation': nn.ReLU,
-        'log_std_init': -0.5
+        'log_std_init': args.log_std,
     },
-
-    'AntNavigate': {
-        'env_create': lambda: CustomRewardEnv(Ant(), ant_navigate),
-        'hidden_sizes': [400, 300],
-        'activation': nn.ReLU,
-        'log_std_init': -0.5
-    },
-
-    'AntJump': {
-        'env_create': lambda: CustomRewardEnv(Ant(), ant_jump),
-        'hidden_sizes': [400, 300],
-        'activation': nn.ReLU,
-        'log_std_init': -0.5
-    },
-
-    'HumanoidUp': {
-        'env_create': lambda: CustomRewardEnv(HumanoidStandup(), humanoid_up),
-        'hidden_sizes': [400, 300],
-        'activation': nn.ReLU,
-        'log_std_init': -0.5
-    }
 
 }
 
@@ -181,7 +106,8 @@ policy = GaussianPolicy(
     hidden_sizes=spec['hidden_sizes'],
     action_dim=env.action_space.shape[0],
     activation=spec['activation'],
-    log_std_init=spec['log_std_init']
+    log_std_init=spec['log_std_init'],
+    **policy_parameters
 )
 
 # Create a critic
@@ -217,7 +143,7 @@ else:
 
 exp_name = f"env={args.env},init={kind}"
 
-out_path = os.path.join(os.path.dirname(__file__), "..", "..", "results/goal_rl",
+out_path = os.path.join(args.log_dir, "goal_rl",
                         args.tb_dir_name, exp_name +
                         "__" + datetime.now().strftime('%Y_%m_%d_%H_%M_%S') +
                         "__" + str(os.getpid()))

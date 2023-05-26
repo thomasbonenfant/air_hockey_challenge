@@ -3,17 +3,20 @@ import torch.nn
 from mepol.src.policy import GaussianPolicy
 from mepol.src.envs.air_hockey import GymAirHockey
 from mepol.src.envs.wrappers import ErgodicEnv
+from utils.env_utils import NormalizedBoxEnv
 from gym.wrappers import ClipAction
 from utils.trajectory_logger import TrajectoryLogger
 
 spec = {
     'hidden_sizes':[400,300],
     'activation': torch.nn.ReLU,
-    'log_std_init': -1.6,
+    'log_std_init': -2.3,
 }
 
-env = ErgodicEnv(GymAirHockey(task_space=True, task_space_vel=False, use_delta_pos=True, use_puck_distance=True,
-                              normalize_obs=True, scale_task_space_action=True))
+env = ErgodicEnv(GymAirHockey(task_space=True, task_space_vel=False, use_delta_pos=False, use_puck_distance=True,
+                              normalize_obs=False, scale_task_space_action=False))
+env = NormalizedBoxEnv(env)
+
 policy = GaussianPolicy(
         num_features=env.num_features,
         hidden_sizes=spec['hidden_sizes'],
@@ -23,7 +26,7 @@ policy = GaussianPolicy(
         use_tanh=True
     )
 
-policy.load_state_dict(torch.load('/home/thomas/Downloads/800-policy'))
+policy.load_state_dict(torch.load('/home/thomas/Downloads/500-policy'))
 
 #Simulation
 obs = env.reset()
@@ -36,9 +39,8 @@ while True:
     action = np.array(policy.predict(obs, deterministic=False), dtype=float)
     obs, reward, done, _, info = env.step(action)
 
-
     env.render()
 
-    if done or steps >= 400:
-        break
+    #if done or steps >= 400:
+    #    break
 

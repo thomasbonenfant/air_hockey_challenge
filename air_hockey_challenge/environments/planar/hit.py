@@ -24,7 +24,7 @@ class AirHockeyHit(AirHockeySingle):
         self.init_velocity_range = (0, 0.5)  # Table Frame
         self.init_ee_range = np.array([[0.60, 1.25], [-0.4, 0.4]])  # Robot Frame
 
-    def setup(self, state=None, randomize_puck=True):
+    def setup(self, state=None, randomize_puck=False):
         # Initial position of the puck
 
         if randomize_puck:

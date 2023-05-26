@@ -6,7 +6,7 @@ import numpy as np
 
 from datetime import datetime
 from mepol.src.envs.air_hockey import GymAirHockey
-from gym.wrappers import ClipAction
+from utils.env_utils import NormalizedBoxEnv
 from mepol.src.envs.discretizer import Discretizer
 from mepol.src.envs.wrappers import ErgodicEnv
 from mepol.src.algorithms.mepol import mepol
@@ -59,7 +59,7 @@ parser.add_argument('--seed', type=int, default=None,
                     help='The random seed')
 parser.add_argument('--tb_dir_name', type=str, default='mepol',
                     help='The tensorboard directory under which the directory of this experiment is put')
-parser.add_argument('--log_dir', type=str, default='/data/air_hockey',
+parser.add_argument('--log_dir', type=str, default='/data/air_hockey/thomas',
                     help='Where to store results')
 parser.add_argument('-s', action='append', type=int, help='Append State index to State filter list')
 parser.add_argument('-f', action='append', type=int, help='Append State index to Fallback State filter list')
@@ -90,6 +90,7 @@ def make_discretizer(env):
         return Discretizer([[-0.974, 0.974],[-0.519,0.519]], [75,40], lambda s: [s[0],s[1]])
     return None
 
+
 """
 Experiments specifications
 
@@ -107,7 +108,7 @@ Experiments specifications
 """
 exp_spec = {
     'AirHockey': {
-        'env_create': lambda: ErgodicEnv(GymAirHockey(**env_parameters)),
+        'env_create': lambda: NormalizedBoxEnv(ErgodicEnv(GymAirHockey(**env_parameters))),
         'discretizer_create': make_discretizer,
         'hidden_sizes': [400, 300],
         'activation': nn.ReLU,

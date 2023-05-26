@@ -67,11 +67,13 @@ def get_heatmap(env, policy, discretizer, num_episodes, num_steps,
     return average_state_dist, average_entropy, image_fig
 
 
-def collect_particles(env_maker, policy, num_traj, traj_len, state_filter, fallback_state_filter=None):
+def collect_particles(env_maker, seed, policy, num_traj, traj_len, state_filter, fallback_state_filter=None):
     """
     Collects num_traj * traj_len samples by running policy in the env.
     """
     env = env_maker()
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
     states = np.zeros((num_traj, traj_len + 1, env.num_features), dtype=np.float32)
     actions = np.zeros((num_traj, traj_len, env.action_space.shape[0]), dtype=np.float32)
@@ -188,10 +190,10 @@ def collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj, tr
     assert num_traj % num_workers == 0, "Please provide a number of trajectories " \
                                         "that can be equally split among workers"
 
-
     # Collect particles using behavioral policy
     res = Parallel(n_jobs=num_workers)(
-        delayed(collect_particles)(env_maker, behavioral_policy, int(num_traj/num_workers), traj_len, state_filter, fallback_state_filter)
+        delayed(collect_particles)(env_maker, np.random.randint(100000), behavioral_policy, int(num_traj/num_workers),
+                                   traj_len, state_filter, fallback_state_filter)
         for _ in range(num_workers)
     )
     states, actions, real_traj_lengths, next_states, next_states_fallback = [np.vstack(x) for x in zip(*res)]
@@ -222,11 +224,12 @@ def compute_knn(k, next_states, num_workers):
 
 
 def log_epoch_statistics(writer, log_file, csv_file_1, csv_file_2, epoch,
-                         loss, entropy, num_off_iters, execution_time, full_entropy,
+                         loss, entropy, policy_log_std, num_off_iters, execution_time, full_entropy,
                          heatmap_image, heatmap_entropy, backtrack_iters, backtrack_lr):
     # Log to Tensorboard
     writer.add_scalar("Loss", loss, global_step=epoch)
     writer.add_scalar("Entropy", entropy, global_step=epoch)
+    writer.add_scalar("Policy Log-std", np.linalg.norm(policy_log_std), global_step=epoch)
     writer.add_scalar("Execution time", execution_time, global_step=epoch)
     writer.add_scalar("Number off-policy iteration", num_off_iters, global_step=epoch)
     if full_entropy is not None:
@@ -388,6 +391,7 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
     full_entropy = full_entropy.numpy()
     entropy = entropy.numpy()
     loss = - entropy
+    policy_log_std = behavioral_policy.log_std.detach()
 
     # Heatmap
     if heatmap_discretizer is not None:
@@ -407,6 +411,7 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
             epoch=epoch,
             loss=loss,
             entropy=entropy,
+            policy_log_std=policy_log_std,
             execution_time=execution_time,
             num_off_iters=0,
             full_entropy=full_entropy,
@@ -525,6 +530,9 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
                     behavioral_policy.load_state_dict(last_valid_target_policy.state_dict())
                     target_policy.load_state_dict(last_valid_target_policy.state_dict())
 
+                    # Track policy variance
+                    policy_log_std = target_policy.log_std.detach()
+
                     loss = - entropy.numpy()
                     entropy = entropy.numpy()
                     execution_time = time.time() - t0
@@ -564,6 +572,7 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
                         epoch=epoch,
                         loss=loss,
                         entropy=entropy,
+                        policy_log_std=policy_log_std,
                         execution_time=execution_time,
                         num_off_iters=num_off_iters,
                         full_entropy=full_entropy,

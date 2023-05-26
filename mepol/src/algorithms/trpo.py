@@ -8,7 +8,7 @@ import time
 from tabulate import tabulate
 from torch.utils import tensorboard
 from joblib import Parallel, delayed
-from src.utils.dtypes import float_type, int_type
+from mepol.src.utils.dtypes import float_type, int_type
 
 
 def assign_flat_params(model, flat_params):
@@ -41,7 +41,7 @@ def backtracking(model, compute_objective, compute_constraint, constrain_thresh,
 
         improvement = new_objective - old_objective
 
-        # If we improve the constrained objective
+        # If we improve the constrained objective,
         valid_update = (just_check_constraint or
                         (torch.isfinite(new_objective) and improvement > 0))
 
@@ -83,9 +83,11 @@ def conj_gradient(Ax, b, iters):
 
     return x
 
-def collect_sample_batch(env, policy, batch_size, traj_len, num_workers=1):
-    def _collect_sample_batch(env, policy, batch_size,
+def collect_sample_batch(env_maker, policy, batch_size, traj_len, num_workers=1):
+    def _collect_sample_batch(env_maker, policy, batch_size,
                               traj_len, parallel=False):
+        env = env_maker()
+
         steps = 0
         obs_shape = env.num_features
 
@@ -98,7 +100,8 @@ def collect_sample_batch(env, policy, batch_size, traj_len, num_workers=1):
         while steps < batch_size:
 
             if parallel:
-                env.seed(np.random.randint(2**16))
+                # env.seed(np.random.randint(2**16))
+                pass
 
             states = np.zeros(
                 (1, traj_len + 1, obs_shape), dtype=np.float32
@@ -113,7 +116,7 @@ def collect_sample_batch(env, policy, batch_size, traj_len, num_workers=1):
                 )
             rewards = np.zeros((1, traj_len), dtype=np.float32)
             real_traj_lens = np.zeros((1, 1), dtype=np.int32)
-            dones = np.zeros((1, 1), dtype=np.bool)
+            dones = np.zeros((1, 1))
 
             s = env.reset()
 
@@ -125,7 +128,7 @@ def collect_sample_batch(env, policy, batch_size, traj_len, num_workers=1):
 
                 actions[0, t] = a
 
-                ns, r, done, _ = env.step(a)
+                ns, r, done, _, info = env.step(a)
 
                 rewards[0, t] = r
                 s = ns
@@ -157,7 +160,7 @@ def collect_sample_batch(env, policy, batch_size, traj_len, num_workers=1):
                 total_real_traj_lens, total_dones)
 
     if num_workers == 1:
-        return _collect_sample_batch(env, policy, batch_size, traj_len)
+        return _collect_sample_batch(env_maker, policy, batch_size, traj_len)
     else:
         assert batch_size % num_workers == 0, \
             "Please provide a batch size" \
@@ -166,7 +169,7 @@ def collect_sample_batch(env, policy, batch_size, traj_len, num_workers=1):
         batch_per_worker = int(batch_size / num_workers)
         results = Parallel(n_jobs=num_workers)(
             delayed(_collect_sample_batch)(
-                env, policy, batch_per_worker, traj_len, parallel=True
+                env_maker, policy, batch_per_worker, traj_len, parallel=True
             ) for i in range(num_workers)
         )
         return [np.vstack(x) for x in zip(*results)]
@@ -235,7 +238,7 @@ def trpo(
     # Seed everything
     if seed is None:
         seed = np.random.randint(2**16)
-    env.seed(seed)
+    #env.seed(seed)
     torch.manual_seed(seed)
     np.random.seed(seed)
 
@@ -270,7 +273,7 @@ def trpo(
 
         # Collect trajectories
         states, actions, rewards, real_traj_lens, dones = collect_sample_batch(
-            env, policy, batch_size, traj_len, num_workers
+            env_maker, policy, batch_size, traj_len, num_workers
         )
         num_traj = states.shape[0]
 
