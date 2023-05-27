@@ -268,21 +268,24 @@ class AtacomHittingAgent(HittingAgent):
         M = 4
         dt = self.time_step / M
         # Runge-Kutta integration
+        pos = self.q
+        vel = self.dq
         for _ in range(M):
+
             k1_qvel = dt * ddq
-            k1_qpos = dt * self.dq
+            k1_qpos = dt * vel
             k2_qvel = dt * ddq  # Use updated acceleration if available
-            k2_qpos = dt * (self.dq + 0.5 * k1_qvel)
+            k2_qpos = dt * (vel + 0.5 * k1_qvel)
             k3_qvel = dt * ddq  # Use updated acceleration if available
-            k3_qpos = dt * (self.dq + 0.5 * k2_qvel)
+            k3_qpos = dt * (vel + 0.5 * k2_qvel)
             k4_qvel = dt * ddq  # Use updated acceleration if available
-            k4_qpos = dt * (self.dq + k3_qvel)
+            k4_qpos = dt * (vel + k3_qvel)
 
             # Update joint positions and velocities
-            next_q += (1 / 6) * (k1_qpos + 2 * k2_qpos + 2 * k3_qpos + k4_qpos)
-            next_dq += (1 / 6) * (k1_qvel + 2 * k2_qvel + 2 * k3_qvel + k4_qvel)
+            pos += (1 / 6) * (k1_qpos + 2 * k2_qpos + 2 * k3_qpos + k4_qpos)
+            vel += (1 / 6) * (k1_qvel + 2 * k2_qvel + 2 * k3_qvel + k4_qvel)
 
-        return np.concatenate((next_q, next_dq)).reshape(2,3)
+        return np.concatenate((pos, vel)).reshape(2,3)
 
         # return self.env.client.calculateInverseDynamics(self.env._model_map['planar_robot_1'], q, dq, ddq)
 
