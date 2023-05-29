@@ -9,7 +9,12 @@ from air_hockey_agent.agents.atacom.utils.null_space_coordinate import rref, pin
 from air_hockey_agent.agents.atacom.constraints import ViabilityConstraint, ConstraintsSet
 from mushroom_rl.utils.spaces import Box
 import time
-
+import copy
+from matplotlib.animation import FuncAnimation
+from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
+from matplotlib.lines import Line2D
+from matplotlib.patches import Circle
 import mujoco
 from air_hockey_challenge.utils.kinematics import link_to_xml_name, inverse_kinematics
 
@@ -32,15 +37,17 @@ class AtacomHittingAgent(HittingAgent):
         """
 
         env['rl_info'].action_space = Box(env['robot']['joint_acc_limit'][0], env['robot']['joint_acc_limit'][1])
-        env['rl_info'].observation_space = Box(np.append(env['rl_info'].observation_space.low, 0), np.append(env['rl_info'].observation_space.high, 1))
+        env['rl_info'].observation_space = Box(np.append(env['rl_info'].observation_space.low, 0),
+                                               np.append(env['rl_info'].observation_space.high, 1))
         super().__init__(env, **kwargs)
 
         dim_q = self.env_info['robot']['n_joints']
         Kc = 100.
-        timestamp = 1/50.
+        timestamp = 1 / 50.
         # why dim out of 5?
         # cart_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.cart_pos_g, J=self.cart_pos_J_g, b=self.cart_pos_b_g, K=0.5)
-        ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.ee_pos_g, J=self.ee_pos_J_g, b=self.ee_pos_b_g, K=0.5)
+        ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.ee_pos_g, J=self.ee_pos_J_g, b=self.ee_pos_b_g,
+                                       K=0.5)
 
         # TODO: still need to check validity of fun, J, b
         joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=dim_q, fun=self.joint_pos_g, J=self.joint_pos_J_g,
@@ -49,11 +56,12 @@ class AtacomHittingAgent(HittingAgent):
         g = ConstraintsSet(dim_q)
         g.add_constraint(ee_pos_g)
         g.add_constraint(joint_pos_g)
-        #g.add_constraint(joint_vel_g)
+        # g.add_constraint(joint_vel_g)
 
         # TODO: if we want to include the jerk we may want to create a accel constraint and put the value here
         acc_max = 10
-        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1:] # takes only positive constraints
+        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[
+                  1:]  # takes only positive constraints
         vel_max = np.squeeze(vel_max)
         vel_max = np.ones(dim_q) * 2.35619449
 
@@ -94,7 +102,7 @@ class AtacomHittingAgent(HittingAgent):
 
         self._mdp_info = self.env['rl_info'].copy()
 
-        #self._mdp_info.action_space = Box(low=-np.ones(self.dims['null']), high=np.ones(self.dims['null']))
+        # self._mdp_info.action_space = Box(low=-np.ones(self.dims['null']), high=np.ones(self.dims['null']))
 
         if np.isscalar(vel_max):
             self.vel_max = np.ones(self.dims['q']) * vel_max
@@ -132,12 +140,14 @@ class AtacomHittingAgent(HittingAgent):
 
         self.i = 0
 
+        self.xs = []
+        self.xx = []
 
     def episode_start(self):
-        #print("ATACOM episode start")
+        # print("ATACOM episode start")
         self.was_hit = 0
         self.reset()
-        #super().episode_start()
+        # super().episode_start()
 
     def add_observation_preprocessors(self, state):
         """mj_model = self.env_info['robot']['robot_model']
@@ -155,7 +165,7 @@ class AtacomHittingAgent(HittingAgent):
         # TODO: implement better contact mechanism
         if self.was_hit == 0:
             self.was_hit = 0 if np.sum(self.get_puck_vel(state)[:2]) == 0 else 1
-            #if self.was_hit == 1:
+            # if self.was_hit == 1:
             #    print("HIT")
 
         return np.append(state, self.was_hit)
@@ -173,7 +183,6 @@ class AtacomHittingAgent(HittingAgent):
         self.last_actions = []
 
         super().fit(dataset, **info)
-
 
     def generate_circle(self, center_x, center_y, radius, num_points):
         # Generate equally spaced angles
@@ -205,6 +214,8 @@ class AtacomHittingAgent(HittingAgent):
         ee_pos_world = robot_to_world(self.env_info["robot"]["base_frame"][0], ee_pos)[0]
         x_values, y_values = self.generate_circle(-0.63, 0, 0.23, n_points)
         new_EE_pos = np.array([x_values[self.i], y_values[self.i], 0.0])
+        self.xs.append(new_EE_pos)
+        self.xx.append(ee_pos_world)
         if self.i == 1:
             colors = np.linspace(0, 1, n_points)
             plt.scatter(x_values, y_values, c=colors, cmap='coolwarm')
@@ -213,13 +224,13 @@ class AtacomHittingAgent(HittingAgent):
         ee_in_robot = world_to_robot(self.env_info["robot"]["base_frame"][0], new_EE_pos)[0]
         success, joint_pos_des = inverse_kinematics(self.robot_model, self.robot_data, ee_in_robot)
         joint_vel = (joint_pos_des - self.q) / self.time_step
-        time.sleep(0.1)
+        # time.sleep(0.1)
         joint_acc = (joint_vel - self.dq) / self.time_step
 
         alpha = joint_acc
         self.last_actions.append(alpha)
 
-        # return np.concatenate((joint_pos_des, joint_vel)).reshape(2, 3)
+        return np.concatenate((joint_pos_des, joint_vel)).reshape(2, 3)
         """if self.was_hit == 0:
             ee_pos = forward_kinematics(self.robot_model, self.robot_data, self.get_joint_pos(observation))[0]
             puck_pos = self.get_puck_pos(observation)
@@ -231,8 +242,8 @@ class AtacomHittingAgent(HittingAgent):
 
         alpha = (joint_vel - self.dq) / self.time_step"""
 
-        #alpha = np.clip(alpha, self.env_info['robot']['joint_acc_limit'][0], self.env_info['robot']['joint_acc_limit'][1])
-        #alpha = alpha * self.alpha_max # TODO: why alpha max breaks everything?
+        # alpha = np.clip(alpha, self.env_info['robot']['joint_acc_limit'][0], self.env_info['robot']['joint_acc_limit'][1])
+        # alpha = alpha * self.alpha_max # TODO: why alpha max breaks everything?
         # Observe the qk, q˙k from sk
 
         # Compute slack variable mu
@@ -255,9 +266,10 @@ class AtacomHittingAgent(HittingAgent):
         # Clip the joint acceleration q¨k ← clip(q¨k, al, au)
         ddq = self.acc_truncation(self.dq, ddq_ds[:self.dims['q']])
         # Integrate the slack variable µk+1 = µk + µ˙ k∆T
-        # pokh = forward_kinematics_acc(self.robot_model, self.robot_data, ddq)
+        desired_pos, desired_vel = self.forward_kinematics_acc(self.robot_model, self.robot_data, ddq, self.env_info)
 
-        ctrl_action = self.acc_to_ctrl_action(ddq)#.reshape((6,))
+        # ctrl_action = np.concatenate((desired_pos, desired_vel)).reshape(2, 3)
+        ctrl_action = self.acc_to_ctrl_action(ddq)  # .reshape((6,))
 
         return ctrl_action
 
@@ -265,13 +277,14 @@ class AtacomHittingAgent(HittingAgent):
         # integrate acceleration because we do control the robot with a PD Controller
         # next_dq = self.dq + ddq * self.time_step
         # next_q = self.q + self.dq * self.time_step + 0.5 * ddq * (self.time_step ** 2)
+        # return np.concatenate((next_q, next_dq)).reshape(2, 3)
+
         M = 4
         dt = self.time_step / M
         # Runge-Kutta integration
         pos = self.q
         vel = self.dq
         for _ in range(M):
-
             k1_qvel = dt * ddq
             k1_qpos = dt * vel
             k2_qvel = dt * ddq  # Use updated acceleration if available
@@ -285,7 +298,7 @@ class AtacomHittingAgent(HittingAgent):
             pos += (1 / 6) * (k1_qpos + 2 * k2_qpos + 2 * k3_qpos + k4_qpos)
             vel += (1 / 6) * (k1_qvel + 2 * k2_qvel + 2 * k3_qvel + k4_qvel)
 
-        return np.concatenate((pos, vel)).reshape(2,3)
+        return np.concatenate((pos, vel)).reshape(2, 3)
 
         # return self.env.client.calculateInverseDynamics(self.env._model_map['planar_robot_1'], q, dq, ddq)
 
@@ -297,13 +310,16 @@ class AtacomHittingAgent(HittingAgent):
         return ddq
 
     """ OK """
+
     def _compute_slack_variables(self):
         self.mu = None
         if self.dims['g'] > 0:
             # TODO: check if this is correct
             mu_squared = np.maximum(-2 * self.g.fun(self.q, self.dq, origin_constr=False), 0)
             self.mu = np.sqrt(mu_squared)
+
     """ OK """
+
     def _construct_Jc_psi(self, q, s, dq):
         Jc = np.zeros((self.dims['f'] + self.dims['g'], self.dims['q'] + self.dims['g']))
         psi = np.zeros(self.dims['c'])
@@ -375,33 +391,35 @@ class AtacomHittingAgent(HittingAgent):
 
     def ee_pos_J_g(self, q):
         """ Compute the constraint function g'(q) = 0 derivative of the end-effector """
-        #ee_jac = self.env_info['constraints'].get('ee_constraint').jacobian(q)
-        #J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
-        #return J_c @ ee_jac
-        
+        # ee_jac = self.env_info['constraints'].get('ee_constraint').jacobian(q)
+        # J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
+        # return J_c @ ee_jac
+
         g = self.env_info['constraints'].get('ee_constr')
 
-        return g.jacobian(q, None)[:3, :3] # dq is not used
+        return g.jacobian(q, None)[:3, :3]  # dq is not used
 
     def ee_pos_b_g(self, q, dq):
         """ TODO: understand what this is: it should be dJ/dt * dq/dt  """
-        #ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)
-        #pino.getFrameClassicalAcceleration(self.pino_model, self.pino_data, self.pino_model.nframes - 1,pino.LOCAL_WORLD_ALIGNED).vector
+        # ee_pos = forward_kinematics(self.robot_model, self.robot_data, q)
+        # pino.getFrameClassicalAcceleration(self.pino_model, self.pino_data, self.pino_model.nframes - 1,pino.LOCAL_WORLD_ALIGNED).vector
 
         mj_model = self.env_info['robot']['robot_model']
         mj_data = self.env_info['robot']['robot_data']
-        #acc = mujoco.mj_objectAcceleration(mj_model,mj_data, mujoco.mjtObj.mjOBJ_SITE, link_to_xml_name(mj_model, 'ee'))[3:] #last 3 elements are linear acceleration
+        # acc = mujoco.mj_objectAcceleration(mj_model,mj_data, mujoco.mjtObj.mjOBJ_SITE, link_to_xml_name(mj_model, 'ee'))[3:] #last 3 elements are linear acceleration
         acc = np.zeros(6)
         id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, link_to_xml_name(mj_model, 'ee'))
 
         # to use  mujoco.mjtObj.mjOBJ_SITE the value should be 6
         # TODO: check if this works
-        mujoco.mj_objectAcceleration(mj_model, mj_data, mujoco.mjtObj.mjOBJ_BODY, id, acc, 0)  # last 3 elements are linear acceleration
+        mujoco.mj_objectAcceleration(mj_model, mj_data, mujoco.mjtObj.mjOBJ_BODY, id, acc,
+                                     0)  # last 3 elements are linear acceleration
         acc = acc[3:]
 
         J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
 
-        return J_c @ acc[:2] # Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
+        return J_c @ acc[
+                     :2]  # Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
 
     def joint_pos_g(self, q):
         """Compute the constraint function g(q) = 0 position of the joints"""
@@ -437,14 +455,14 @@ class AtacomHittingAgent(HittingAgent):
 
         return 2 * dq ** 2
 
-    #next constraint is not used
-    #def joint_vel_g(self, q, dq):
+    # next constraint is not used
+    # def joint_vel_g(self, q, dq):
     #    #return np.array([dq ** 2 - self.pino_model.velocityLimit ** 2])
 
-    #def joint_vel_A_g(self, q, dq):
+    # def joint_vel_A_g(self, q, dq):
     #    return 2 * np.diag(dq)
 
-    #def joint_vel_b_g(self, q, dq):
+    # def joint_vel_b_g(self, q, dq):
     #    return np.zeros(3)
 
     def reset(self):
@@ -452,18 +470,64 @@ class AtacomHittingAgent(HittingAgent):
         """
         we have to reset also the initialization of the robot pos and velocity
         """
+        self.xs = []
+        self.xx = []
+
         self.q = np.array([-1.156, 1.300, 1.443])
         self.dq = np.zeros(self.dims['q'])
         self.i = 0
         super().reset()
         self._compute_slack_variables()
-def _mujoco_fk(acc, name, model, data):
-    data.qacc[:len(acc)] = acc
-    mujoco.mj_inverse(model, data)
-    f = data.qfrc_inverse
-    data.ctrl[:len(f)] = f
-    mujoco.mj_kinematics(model, data)
-    return data.body(name).xpos.copy(), data.body(name).xmat.reshape(3, 3).copy()
+
+    def _mujoco_fk(self, acc, name, model, data):
+        data.qacc[:len(acc)] = acc
+        mujoco.mj_inverse(model, data)
+        f = data.qfrc_inverse
+        data.ctrl[:len(f)] = f
+        mujoco.mj_step(model, data)
+        return data.qpos.copy(), data.qvel.copy()
+
+    def forward_kinematics_acc(self, mj_model, mj_data, q, env_info, link="ee"):
+        """
+        Compute the forward kinematics of the robots.
+
+        IMPORTANT:
+            For the iiwa we assume that the universal joint at the end of the end-effector always leaves the mallet
+            parallel to the table and facing down. This assumption only makes sense for a subset of robot configurations
+            where the mallet can be parallel to the table without colliding with the rod it is mounted on. If this is the
+            case this function will return the wrong values.
+
+        Coordinate System:
+            All translations and rotations are in the coordinate frame of the Robot. The zero point is in the center of the
+            base of the Robot. The x-axis points forward, the z-axis points up and the y-axis forms a right-handed
+            coordinate system
+
+        Args:
+            mj_model (mujoco.MjModel):
+                mujoco MjModel of the robot-only model
+            mj_data (mujoco.MjData):
+                mujoco MjData object generated from the model
+            q (np.array):
+                joint configuration for which the forward kinematics are computed
+            link (string, "ee"):
+                Link for which the forward kinematics is calculated. When using the iiwas the choices are
+                ["1", "2", "3", "4", "5", "6", "7", "ee"]. When using planar the choices are ["1", "2", "3", "ee"]
+
+        Returns
+        -------
+        position: numpy.ndarray, (3,)
+            Position of the link in robot's base frame
+        orientation: numpy.ndarray, (3, 3)
+            Orientation of the link in robot's base frame
+        """
+        copy_of_data = copy.deepcopy(mj_data)
+        return self._mujoco_fk(q, link_to_xml_name(mj_model, link), mj_model, copy_of_data)
+
+    def __del__(self):
+        print("slm slm")
+        v = Visualization(self.xx, self.xs, self.env_info['mallet']['radius'])
+
+
 
 def link_to_xml_name(mj_model, link):
     try:
@@ -488,39 +552,78 @@ def link_to_xml_name(mj_model, link):
     return link_to_frame_idx[link]
 
 
+class Visualization():
+    def __init__(self, xx, xs, r):
+        self.xx = xx
+        self.xs = xs
 
-def forward_kinematics_acc(mj_model, mj_data, q, link="ee"):
-    """
-    Compute the forward kinematics of the robots.
+        self.fig = plt.figure(500, figsize=(8, 8))
+        self.ax = self.fig.add_subplot(111)
 
-    IMPORTANT:
-        For the iiwa we assume that the universal joint at the end of the end-effector always leaves the mallet
-        parallel to the table and facing down. This assumption only makes sense for a subset of robot configurations
-        where the mallet can be parallel to the table without colliding with the rod it is mounted on. If this is the
-        case this function will return the wrong values.
+        self.line_width = 1.5
+        self.fontsize_labels = 14
+        self.x_r_1 = []
+        self.y_r_1 = []
+        self.r = r
 
-    Coordinate System:
-        All translations and rotations are in the coordinate frame of the Robot. The zero point is in the center of the
-        base of the Robot. The x-axis points forward, the z-axis points up and the y-axis forms a right-handed
-        coordinate system
+        self.Draw_MPC_point_stabilization_v1()
 
-    Args:
-        mj_model (mujoco.MjModel):
-            mujoco MjModel of the robot-only model
-        mj_data (mujoco.MjData):
-            mujoco MjData object generated from the model
-        q (np.array):
-            joint configuration for which the forward kinematics are computed
-        link (string, "ee"):
-            Link for which the forward kinematics is calculated. When using the iiwas the choices are
-            ["1", "2", "3", "4", "5", "6", "7", "ee"]. When using planar the choices are ["1", "2", "3", "ee"]
+    def Draw_MPC_point_stabilization_v1(self):
+        self.line_width = 1.5
+        self.fontsize_labels = 14
+        self.x_r_1 = []
+        self.x_r_traj = []
 
-    Returns
-    -------
-    position: numpy.ndarray, (3,)
-        Position of the link in robot's base frame
-    orientation: numpy.ndarray, (3, 3)
-        Orientation of the link in robot's base frame
-    """
+        anim = FuncAnimation(self.fig, self.update, frames=range(len(self.xx)), interval=50)
+        anim.save('./animation.gif', writer='PillowWriter')
+        # anim = animation.FuncAnimation(fig, animate, interval=100, blit=True)
+        plt.show()
 
-    return _mujoco_fk(q, link_to_xml_name(mj_model, link), mj_model, mj_data)
+    def update(self, frame):
+        # Clear previous plot contents
+        self.ax.clear()
+        k = frame
+        h_t = 0.14
+        w_t = 0.09
+        x1 = self.xs[k][0]
+        y1 = self.xs[k][1]
+        th1 = 0
+
+        x1_tri = [x1 + h_t * np.cos(th1), x1 + (w_t / 2) * np.cos((np.pi / 2) - th1),
+                  x1 - (w_t / 2) * np.cos((np.pi / 2) - th1)]
+        y1_tri = [y1 + h_t * np.sin(th1), y1 - (w_t / 2) * np.sin((np.pi / 2) - th1),
+                  y1 + (w_t / 2) * np.sin((np.pi / 2) - th1)]
+
+        self.x_r_traj.append(x1)
+        self.x_r_traj.append(y1)
+        ref_state = Circle((x1, y1), self.r, fill=False, linestyle='--', color='g')
+        ref_state_traj = Line2D(self.x_r_traj, self.x_r_traj, linewidth=self.line_width, color='r')
+
+        x1 = self.xx[k][0]
+        y1 = self.xx[k][1]
+        # th1 = xx[k,2]
+        th1 = 0
+        self.x_r_1.append(x1)
+        self.x_r_1.append(y1)
+        x1_tri = [x1 + h_t * np.cos(th1), x1 + (w_t / 2) * np.cos((np.pi / 2) - th1),
+                  x1 - (w_t / 2) * np.cos((np.pi / 2) - th1)]
+        y1_tri = [y1 + h_t * np.sin(th1), y1 - (w_t / 2) * np.sin((np.pi / 2) - th1),
+                  y1 + (w_t / 2) * np.sin((np.pi / 2) - th1)]
+        exhibited_traj = Line2D(self.x_r_1, self.x_r_1, linewidth=self.line_width, color='r')
+
+        robot_pos = Circle((x1, y1), self.r, fill=False, linestyle='--', color='r')
+
+        self.ax.add_patch(robot_pos)
+        self.ax.add_patch(ref_state)
+        # self.ax.add_line(exhibited_traj)
+        # self.ax.add_line(ref_state_traj)
+
+        self.ax.set_xlabel('$x$-position (m)', fontsize=self.fontsize_labels)
+        self.ax.set_ylabel('$y$-position (m)', fontsize=self.fontsize_labels)
+        self.ax.set_xlim([-1, 0])
+        self.ax.set_ylim([-0.5, 0.5])
+        self.ax.set_aspect('equal')
+
+        # Set plot title
+        self.ax.set_title(f"Frame {frame}")
+        # plt.show()
