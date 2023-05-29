@@ -1,7 +1,7 @@
 import numpy as np
 from mushroom_rl.algorithms.actor_critic import SAC
 
-from air_hockey_agent.actor_critic_network import SACCriticNetwork, SACActorNetwork
+# from air_hockey_agent.actor_critic_network import SACCriticNetwork, SACActorNetwork
 from air_hockey_challenge.utils.kinematics import inverse_kinematics
 from air_hockey_challenge.framework.agent_base import AgentBase
 from torch import optim

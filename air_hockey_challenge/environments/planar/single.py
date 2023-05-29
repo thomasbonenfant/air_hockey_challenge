@@ -2,6 +2,9 @@ import numpy as np
 import mujoco
 import os
 import yaml
+import pandas as pd
+import os
+
 
 from air_hockey_challenge.environments.planar import AirHockeyBase
 
@@ -45,6 +48,9 @@ class AirHockeySingle(AirHockeyBase):
 
         #self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6)  # white noise vector for puck's pos and vel
         self.var_env['noise_value'] = np.random.multivariate_normal(np.zeros(len(self.cov)), self.cov)
+
+        self.dataset = pd.DataFrame()
+        self.counter = 0
 
     def get_ee(self):
         """
@@ -103,7 +109,9 @@ class AirHockeySingle(AirHockeyBase):
         puck_pos = self._puck_2d_in_robot_frame(puck_pos, self.env_info['robot']['base_frame'][0])
 
         puck_vel = self._puck_2d_in_robot_frame(puck_vel, self.env_info['robot']['base_frame'][0], type='vel')
-
+        if self.counter < 500:
+            self.update_dataset(puck_pos, puck_vel)
+        self.counter += 1
         # Loss of tracking
         if self.var_env["is_track_lost"]:
             if np.random.uniform(0,1) < self.var_env['track_loss_prob'] or (self.last_puck_pos is None and self.last_puck_vel is None):
@@ -145,7 +153,7 @@ class AirHockeySingle(AirHockeyBase):
             self._data.joint("planar_robot_1/joint_" + str(i+1)).qpos = self.init_state[i]
             self.q_pos_prev[i] = self.init_state[i]
             self.q_vel_prev[i] = self._data.joint("planar_robot_1/joint_" + str(i + 1)).qvel
-
+        self.counter = 0
         mujoco.mj_fwdPosition(self._model, self._data)
         super().setup(state)
 
@@ -162,3 +170,49 @@ class AirHockeySingle(AirHockeyBase):
         yaw_angle = self.obs_helper.get_from_obs(obs, "puck_yaw_pos")
         self.obs_helper.get_from_obs(obs, "puck_yaw_pos")[:] = (yaw_angle + np.pi) % (2 * np.pi) - np.pi
         return obs
+
+    def update_dataset(self, puck_pos, puck_vel):
+
+        new_data = pd.DataFrame({'puck current pos X': [puck_pos[0]],
+                                 'puck current pos Y': [puck_pos[1]],
+                                 'puck current pos Yaw': [puck_pos[2]],
+                                 'puck current vel X': [puck_vel[0]],
+                                 'puck current vel Y': [puck_vel[1]],
+                                 'puck current vel Yaw': [puck_vel[2]]})
+        # self.dataset.append(new_data, ignore_index=True)
+        self.dataset = pd.concat([self.dataset, new_data], ignore_index=True)
+
+    def __del__(self):
+        if len(self.dataset) > 6:
+            folder_path = "Dataset/Labels"
+            files = os.listdir(folder_path)
+
+            files.sort(key=lambda x: os.path.getmtime(os.path.join(folder_path, x)), reverse=True)
+            if files:
+                last_file = files[0]  # Get the last file in the sorted list
+                # Extract the file name without the extension
+                base_name, _ = os.path.splitext(last_file)
+                # Increment the file name by 1
+
+                next_file_name = str(int(base_name) + 1)
+                next_file_name += ".csv"
+            else:
+                next_file_name = "1"  # If there are no files, start with 1
+                next_file_name += ".csv"
+            # Create the full path for the next file
+            next_file_path = os.path.join(folder_path, next_file_name)
+
+            # self.dataset.drop(index=self.dataset.index[-1], axis=0, inplace=True)
+            # Step 1: Identify rows with all zeros
+            all_zeros_mask = (self.dataset == 0).all(axis=1)
+
+            # Step 2: Find the index of the row(s) to be removed
+            indices_to_remove = all_zeros_mask[all_zeros_mask].index
+
+            # Step 3: Remove the row(s) and the subsequent row
+            self.dataset = self.dataset.drop(indices_to_remove).drop(indices_to_remove + 1)
+
+            self.dataset.to_csv(next_file_path, index=False)
+        else:
+            self.dataset = pd.DataFrame()
+
