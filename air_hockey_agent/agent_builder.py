@@ -100,11 +100,12 @@ class DataCollector(DummyAgent):
 
 
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
     # # Assuming you have a dataframe named 'df'
-    # file_path = 'D:\Research\\air_hockey_challenge\\Dataset\\Labels\\23.csv'
-    # df = pd.read_csv(file_path)
+    # file_path = 'D:\Research\\air_hockey_challenge\\Dataset\\Labels\\1.xlsx'
+    # df = pd.read_excel(file_path)
+    # print("slm")
     #
     # # Step 1: Identify rows with all zeros
     # all_zeros_mask = (df == 0).all(axis=1)
@@ -118,11 +119,12 @@ if __name__ == '__main__':
     # df.to_csv(file_path, index=False)
     # print("slm")
 
-    file_path = 'D:\Research\\air_hockey_challenge\\Dataset\\Labels\\1.csv'
-    df_label = pd.read_csv(file_path)
-    file_path = 'D:\Research\\air_hockey_challenge\\Dataset\\Noisy\\1.csv'
-    df_noisy = pd.read_csv(file_path)
+    # file_path = 'D:\Research\\air_hockey_challenge\\Dataset\\Labels\\1.csv'
+    # df_label = pd.read_csv(file_path)
+    # file_path = 'D:\Research\\air_hockey_challenge\\Dataset\\Noisy\\1.csv'
+    # df_noisy = pd.read_csv(file_path)
+    #
+    # print(df_label.equals(df_noisy))
+    # different = df_label.compare(df_noisy)
+    # print("ajab")
 
-    print(df_label.equals(df_noisy))
-    different = df_label.compare(df_noisy)
-    print("ajab")

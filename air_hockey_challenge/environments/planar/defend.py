@@ -165,6 +165,8 @@ class AirHockeyDefend(AirHockeySingle):
                                      'puck current vel Y': [0],
                                      'puck current vel Yaw': [0]})
             self.dataset = pd.concat([self.dataset, new_data], ignore_index=False)
+            self.datasets.append(self.dataset)
+            self.dataset = pd.DataFrame()
 
         return absorbing
 

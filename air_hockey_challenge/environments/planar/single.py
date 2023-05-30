@@ -21,7 +21,7 @@ class AirHockeySingle(AirHockeyBase):
         Constructor.
 
         """
-        self.init_state = np.array([-1.15570723,  1.30024401,  1.44280414])
+        self.init_state = np.array([-2.15570723,  1.30024401,  1.44280414])
         super().__init__(gamma=gamma, horizon=horizon, n_agents=1, viewer_params=viewer_params)
 
         self.gamma = gamma
@@ -51,6 +51,7 @@ class AirHockeySingle(AirHockeyBase):
 
         self.dataset = pd.DataFrame()
         self.counter = 0
+        self.datasets = []
 
     def get_ee(self):
         """
@@ -111,6 +112,10 @@ class AirHockeySingle(AirHockeyBase):
         puck_vel = self._puck_2d_in_robot_frame(puck_vel, self.env_info['robot']['base_frame'][0], type='vel')
         if self.counter < 500:
             self.update_dataset(puck_pos, puck_vel)
+        else:
+            self.datasets.append(self.dataset)
+            self.dataset = pd.DataFrame()
+
         self.counter += 1
         # Loss of tracking
         if self.var_env["is_track_lost"]:
@@ -183,7 +188,7 @@ class AirHockeySingle(AirHockeyBase):
         self.dataset = pd.concat([self.dataset, new_data], ignore_index=True)
 
     def __del__(self):
-        if len(self.dataset) > 6 * 20:
+        if len(self.datasets) > 0:
             folder_path = "Dataset/Labels"
             files = os.listdir(folder_path)
 
@@ -195,24 +200,76 @@ class AirHockeySingle(AirHockeyBase):
                 # Increment the file name by 1
 
                 next_file_name = str(int(base_name) + 1)
-                next_file_name += ".csv"
+                next_file_name += ".xlsx"
             else:
                 next_file_name = "1"  # If there are no files, start with 1
-                next_file_name += ".csv"
+                next_file_name += ".xlsx"
             # Create the full path for the next file
             next_file_path = os.path.join(folder_path, next_file_name)
 
             # self.dataset.drop(index=self.dataset.index[-1], axis=0, inplace=True)
             # Step 1: Identify rows with all zeros
-            all_zeros_mask = (self.dataset == 0).all(axis=1)
+            for i in range(len(self.datasets)):
+                all_zeros_mask = (self.datasets[i] == 0).all(axis=1)
+            #
+            # # Step 2: Find the index of the row(s) to be removed
+                indices_to_remove = all_zeros_mask[all_zeros_mask].index
+            #
+            # # Step 3: Remove the row(s) and the subsequent row
+                if len(indices_to_remove) != 0:
+                    self.datasets[i] = self.datasets[i].head(self.datasets[i].shape[0] - 1)
+                if i != (len(self.datasets) - 1) and len(indices_to_remove) != 0:
+                    self.datasets[i + 1] = self.datasets[i + 1].tail(-1)
 
-            # Step 2: Find the index of the row(s) to be removed
-            indices_to_remove = all_zeros_mask[all_zeros_mask].index
+            for i, df in enumerate(self.datasets, start=1):
+                if i == 1:
+                    with pd.ExcelWriter(next_file_path) as writer:
+                        sheet_name = f'df{i}'
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+                else:
+                    with pd.ExcelWriter(next_file_path, mode='a') as writer:
+                        sheet_name = f'df{i}'
+                        df.to_excel(writer, sheet_name=sheet_name, index=False)
+            # with pd.ExcelWriter('output.xlsx',
+            #                     mode='a') as writer:
+            #     self.dataset.to_excel(writer, sheet_name='Sheet_name_3')
 
-            # Step 3: Remove the row(s) and the subsequent row
-            self.dataset = self.dataset.drop(indices_to_remove).drop(indices_to_remove + 1)
+            # Preprocess of the noisy to fix it
+            folder_path = "Dataset/Noisy"
+            files = os.listdir(folder_path)
 
-            self.dataset.to_csv(next_file_path, index=False)
+            files.sort(key=lambda x: os.path.getmtime(os.path.join(folder_path, x)), reverse=True)
+            last_file = files[0]
+            last_file_path = os.path.join(folder_path, last_file)
+
+            noisy_df = pd.read_csv(last_file_path)
+
+            base_name, _ = os.path.splitext(last_file)
+
+            exel_file = base_name + ".xlsx"
+
+            exel_file_path = os.path.join(folder_path, exel_file)
+
+            for i, df in enumerate(self.datasets, start=1):
+                if i == 1:
+                    with pd.ExcelWriter(exel_file_path) as writer:
+                        sheet_name = f'df{i}'
+                        cut = df.shape[0]
+                        df_to_save = noisy_df.head(cut)
+                        noisy_df = noisy_df.iloc[cut:]
+                        df_to_save.to_excel(writer, sheet_name=sheet_name, index=False)
+                else:
+                    with pd.ExcelWriter(exel_file_path, mode='a') as writer:
+                        sheet_name = f'df{i}'
+                        cut = df.shape[0]
+                        df_to_save = noisy_df.head(cut)
+                        noisy_df = noisy_df.iloc[cut:]
+                        df_to_save.to_excel(writer, sheet_name=sheet_name, index=False)
+            os.remove(last_file_path)
+
+
+
+
         else:
             self.dataset = pd.DataFrame()
 

@@ -21,7 +21,7 @@ body_to_displace: ['body_3', 'body_2', 'body_1']  # the part of the robot to mis
 
 # Noise parameters for 'single', NOISE IN OBSERVATION
 is_track_lost: False  # loose the observation of the track
-is_obs_noisy: True   # add noise to the observations
+is_obs_noisy: False   # add noise to the observations
 track_loss_prob: 0.8  # probability of loosing the tracking at each observation
 cov_obs: [[0.001, 0],[0, 0.001]]    # variance of the observation noises, multivariate gaussian for position and velocity
 
