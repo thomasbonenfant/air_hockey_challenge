@@ -183,7 +183,7 @@ class AirHockeySingle(AirHockeyBase):
         self.dataset = pd.concat([self.dataset, new_data], ignore_index=True)
 
     def __del__(self):
-        if len(self.dataset) > 6:
+        if len(self.dataset) > 6 * 20:
             folder_path = "Dataset/Labels"
             files = os.listdir(folder_path)
 
