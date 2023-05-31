@@ -24,7 +24,7 @@ class AirHockeyHit(AirHockeySingle):
         self.init_velocity_range = (0, 0.5)  # Table Frame
         self.init_ee_range = np.array([[0.60, 1.25], [-0.4, 0.4]])  # Robot Frame
 
-    def setup(self, state=None, randomize_puck=False):
+    def setup(self, state=None, randomize_puck=True):
         # Initial position of the puck
 
         if randomize_puck:
@@ -57,9 +57,9 @@ class AirHockeyHit(AirHockeySingle):
         return 0
     
     def is_absorbing(self, obs):
-        _, puck_vel = self.get_puck(obs)
+        puck_pos, puck_vel = self.get_puck(obs)
         # Stop if the puck bounces back on the opponents wall
-        if puck_vel[0] < -0.6:
+        if (puck_vel[0] < -0.6 and puck_pos[0] > 0) or (puck_pos[0] > 0 and np.linalg.norm(puck_vel) < 1):
             return True
         return super(AirHockeyHit, self).is_absorbing(obs)
 
