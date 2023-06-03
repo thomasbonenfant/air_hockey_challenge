@@ -21,6 +21,7 @@ class AgentBase(Agent):
             super().__init__(env_info['rl_info'], None)
 
         self.env_info = env_info
+        print(f"env_info: {env_info}")
         self.agent_id = agent_id
         self.robot_model = copy.deepcopy(env_info['robot']['robot_model'])
         self.robot_data = copy.deepcopy(env_info['robot']['robot_data'])

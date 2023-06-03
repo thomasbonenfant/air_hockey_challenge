@@ -1,11 +1,11 @@
 import numpy as np
 from mushroom_rl.utils.spaces import Box
 
-from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
+from air_hockey_agent.agents.defend_agent_SAC import DefendAgent
 from air_hockey_challenge.utils import forward_kinematics, inverse_kinematics
 
 
-class HittingAgentSAC4ATACOM(HittingAgent):
+class DefendAgentSAC4ATACOM(DefendAgent):
 
     def __init__(self, env, **kwargs):
         """
@@ -64,7 +64,6 @@ class HittingAgentSAC4ATACOM(HittingAgent):
         return state
 
     def draw_action(self, observation):
-        print(f"\n\npreATACOM: obs : {observation}")
         return super().draw_action(observation)
 
     """def draw_action(self, observation):

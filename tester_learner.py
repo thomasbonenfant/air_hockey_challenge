@@ -9,9 +9,8 @@ from air_hockey_challenge.utils import robot_to_world
 from air_hockey_challenge.utils.kinematics import forward_kinematics
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper, ChallengeCore
 import torch
-from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
-from air_hockey_agent.agents.ATACOM_hit_agent import AtacomHittingAgent
-from air_hockey_agent.agents.hit_agent_SAC_for_ATACOM_env import HittingAgentSAC4ATACOM
+
+from air_hockey_agent.agents.defend_agent_SAC_for_ATACOM_env import DefendAgentSAC4ATACOM
 from air_hockey_agent.agents.ATACOM_challenge import ATACOMChallengeWrapper
 
 def main():
@@ -21,7 +20,7 @@ def main():
     torch.manual_seed(0)
     # env = AirHockeyChallengeWrapper(env="3dof-hit", action_type="position-velocity",
     #                                interpolation_order=3, debug=False, custom_reward_function=reward)
-    env = ATACOMChallengeWrapper(env="3dof-hit", action_type="position-velocity",
+    env = ATACOMChallengeWrapper(env="3dof-defend", action_type="position-velocity",
                                     interpolation_order=3, debug=False, custom_reward_function=reward)
 
     # MDP
@@ -29,9 +28,9 @@ def main():
 
     # Settings
     # number of initial iterations to fill the replay memory
-    initial_replay_size = 20000
+    initial_replay_size = 2000
 
-    agent = HittingAgentSAC4ATACOM(env.env_info)
+    agent = DefendAgentSAC4ATACOM(env.env_info)
     #agent = AtacomHittingAgent(env.env_info)
     #agent = AirHockeyPlanarAtacom(env.env_info, env.info, policy_class, policy_params, actor_params, actor_optimizer, critic_params,
     #        batch_size, initial_replay_size, max_replay_size, tau, task='H', gamma=gamma_eval)
@@ -46,7 +45,7 @@ def main():
     core = ChallengeCore(agent, env)
 
     # RUN
-    n_epochs = 100
+    n_epochs = 10
     n_steps = 5000
     n_steps_test = 5000
     history_J = []
@@ -59,7 +58,7 @@ def main():
         return None
 
     # Fill the replay memory with random samples
-    core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
+    #core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
 
     dataset = core.evaluate(n_steps=500, render=True)
     J = compute_J(dataset, gamma_eval)
@@ -67,12 +66,12 @@ def main():
     print('Epoch: 0')
     print('J: ', np.mean(J))
     plot_constraints(env.env_info, dataset, "air_hockey_agent/agents/log")
-    # this created the  directory log if not already existing
+    # this created the directory log if not already existing
 
     for n in range(n_epochs):
         print('\nEpoch: ', n + 1)
         dataset = core.learn(n_steps=n_steps, n_steps_per_fit=1)
-        dataset = core.evaluate(n_steps=500, render=True)
+        dataset = core.evaluate(n_steps=500, render=False)
         J = compute_J(dataset, gamma_eval)
         print('J: ', np.mean(J))
         history_J.append(np.mean(J))
@@ -90,12 +89,15 @@ def main():
 
 
 def reward(base_env, state, action, next_state, absorbing):
+    #print(f"reward:\n state: {state},\n action: {action},\n next_state: {next_state},\n absorbing: {absorbing}")
     rew = 0
     #if state[-1] == 0:
     #puck_pos, puck_vel = base_env.get_puck(next_state)  # get puck position and velocity
     #puck_pos = puck_pos[:2]
     puck_pos = np.array([1., 0.0])
-    ee_pos = forward_kinematics(base_env.env_info['robot']['robot_model'], base_env.env_info['robot']['robot_data'], action[0])[0][:2]
+    ee_pos = forward_kinematics(base_env.env_info['robot']['robot_model'],
+                                base_env.env_info['robot']['robot_data'],
+                                next_state[6:9])[0][:2]
     # compute distance between puck and end effector
     rew = - np.linalg.norm(puck_pos - ee_pos)
 

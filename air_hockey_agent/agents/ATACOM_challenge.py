@@ -112,7 +112,7 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
             assert np.shape(self.K_q)[0] == self.dims['q']
 
         self.alpha_max = np.ones(self.dims['null']) * self.acc_max.max()
-
+        print(f"alpha_max: {self.alpha_max}")
         self._act_a = None
         self._act_b = None
         self._act_err = None
@@ -125,15 +125,17 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
         self.first_step = True
         return self.base_env.reset(state)
 
-    def step(self, action, q, dq):
-        alpha = action * self.alpha_max
-        # Observe the qk, q˙k from sk
+    def set_q_dq(self, q, dq):
         self.q = q
         self.dq = dq
 
+    def step(self, action):
+        alpha = action * self.alpha_max
+        #print(f"preATACOM: {alpha}")
+
         if self.first_step:
-            self._compute_slack_variables()
             self.first_step = False
+            self._compute_slack_variables()
 
         # Compute Jc, k = Jc(qk, µk), ψk = ψ(qk, q˙k), ck = c(qk, q˙k, µk)
         Jc, psi = self._construct_Jc_psi(self.q, self.mu, self.dq)
@@ -158,15 +160,11 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
         ddq = self.acc_truncation(self.dq, ddq_ds[:self.dims['q']])
 
         ctrl_action = self.acc_to_ctrl_action(ddq)#.reshape((6,))
-
+        #print(f"postATACOM: {ctrl_action}")
         return super().step(ctrl_action)
 
     def acc_to_ctrl_action(self, ddq):
         # integrate acceleration because we do control the robot with a PD Controller
-        #self.robot_data.qacc[:] += ddq
-        #self.robot_data.qvel[:] = self.dq + self.robot_data.qacc[:] * self.time_step
-        #mujoco.mj_inverse(self.robot_model, self.robot_data)
-        #ddq = self.robot_data.qfrc_inverse[:]
 
         next_dq = self.dq + ddq * self.time_step
         next_q = self.q + self.dq * self.time_step + 0.5 * ddq * (self.time_step ** 2)

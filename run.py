@@ -116,6 +116,7 @@ if __name__ == "__main__":
     elif filtered_args["example"] == "baseline":
         from baseline.baseline_agent.baseline_agent import build_agent
     del filtered_args["example"]
+    from baseline.baseline_agent.baseline_agent import build_agent
 
     # Update config with command line args
     config.update(filtered_args)

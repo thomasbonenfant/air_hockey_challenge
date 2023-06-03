@@ -30,7 +30,8 @@ class ChallengeCore(Core):
         start_time = time.time()
         action = self.agent.draw_action(self._state)
         end_time = time.time()
-        next_state, reward, absorbing, step_info = self.mdp.step(action, q, dq)
+        #self.mdp.set_q_dq(q, dq)
+        next_state, reward, absorbing, step_info = self.mdp.step(action)
 #        next_state, reward, absorbing, step_info = self.mdp.step(action)
         step_info["computation_time"] = (end_time - start_time)
 
@@ -45,8 +46,9 @@ class ChallengeCore(Core):
 
         state = self._state
         next_state = self._preprocess(next_state.copy())
+        #print(f"postATACOM: obs: {next_state}")
         # added to compute reward
-        reward = self.mdp.base_env.reward(state, np.array([q, dq]), next_state, absorbing)
+        #reward = self.mdp.base_env.reward(state, None, next_state, absorbing)
         self._state = next_state
 
         return (state, action, reward, next_state, absorbing, last), step_info
