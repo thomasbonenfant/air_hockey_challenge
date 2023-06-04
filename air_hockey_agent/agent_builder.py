@@ -1,4 +1,6 @@
 from air_hockey_challenge.framework import AgentBase
+from air_hockey_agent.agents.policy_agent import PolicyAgent
+
 
 def build_agent(env_info, **kwargs):
     """
@@ -12,4 +14,8 @@ def build_agent(env_info, **kwargs):
          (AgentBase) An instance of the Agent
     """
 
-    raise NotImplementedError
+    # TODO might insert thetas here and pass them to the agent builder
+
+    agent = PolicyAgent(env_info, **kwargs)
+
+    return agent

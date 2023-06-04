@@ -36,15 +36,25 @@ class AirHockeySingle(AirHockeyBase):
             with open(path, 'r') as stream:
                 config = yaml.safe_load(stream)
 
-        # load options from configuration file
-        self.cov = config['cov_obs']  # std dev of the noise in the observations
-        self.var_env = dict()
-        self.var_env['is_track_lost'] = config['is_track_lost']     # True if we loose the track, does not affect the robot that much
-        self.var_env['is_obs_noisy'] = config['is_obs_noisy']       # True if there is noise in the measurements, effectively reduces performances
-        self.var_env['track_loss_prob'] = config['track_loss_prob'] # probability of loosing the tracking at each observation
+            # load options from configuration file
+            self.cov = config['cov_obs']  # std dev of the noise in the observations
+            self.var_env = dict()
+            self.var_env['is_track_lost'] = config['is_track_lost']     # True if we loose the track, does not affect the robot that much
+            self.var_env['is_obs_noisy'] = config['is_obs_noisy']       # True if there is noise in the measurements, effectively reduces performances
+            self.var_env['track_loss_prob'] = config['track_loss_prob'] # probability of loosing the tracking at each observation
 
-        #self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6)  # white noise vector for puck's pos and vel
-        self.var_env['noise_value'] = np.random.multivariate_normal(np.zeros(len(self.cov)), self.cov)
+            #self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6)  # white noise vector for puck's pos and vel
+            self.var_env['noise_value'] = np.random.multivariate_normal(np.zeros(len(self.cov)), self.cov)
+
+        else:
+            # load options from configuration file
+            self.cov = None  # std dev of the noise in the observations
+            self.var_env = dict()
+            self.var_env['is_track_lost'] = None
+            self.var_env['is_obs_noisy'] = None
+            self.var_env['track_loss_prob'] = None
+            #self.var_env['noise_value'] = np.random.multivariate_normal(np.zeros(2), self.cov)
+
 
     def get_ee(self):
         """
@@ -80,7 +90,7 @@ class AirHockeySingle(AirHockeyBase):
 
         Returns
         -------
-            ([puck_position, puck_velocities], [joint_position, joint_velocities], [ee_opponent_pos(if any)])
+            (puck_position, puck_velocities, joint_position, joint_velocities, ee_position, ee_velocities, has_hit)
         """
 
         joint_pos, joint_vel = self.get_joints(obs)

@@ -17,7 +17,7 @@ function parse_yaml {
 
 # Parse the Team Info
 eval $(parse_yaml $PARENT_DIR/air_hockey_agent/team_info.yml)
-typeset -l swr_server
-typeset -l team_name
+#typeset -l swr_server
+#typeset -l team_name
 swr_server=${swr_server// /-}
 team_name=${team_name// /-}
