@@ -1,15 +1,9 @@
-import os
-
 import numpy as np
-import scipy
 import sympy
 
-from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper
-from air_hockey_challenge.utils import forward_kinematics
 from air_hockey_agent.agents.atacom.utils.null_space_coordinate import rref, pinv_null
 from air_hockey_agent.agents.atacom.constraints import ViabilityConstraint, ConstraintsSet
-from mushroom_rl.utils.spaces import Box
 
 import mujoco
 from air_hockey_challenge.utils.kinematics import link_to_xml_name, inverse_kinematics
@@ -49,6 +43,7 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
 
         joint_vel_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.joint_vel_g, J=self.joint_vel_J_g,
                                               b=self.joint_vel_b_g, K=1.0)
+
         f = None
         g = ConstraintsSet(dim_q)
         g.add_constraint(ee_pos_g)
@@ -59,7 +54,6 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
         acc_max = self.env_info['robot']['joint_acc_limit'][1]
         vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1] # takes only positive constraints
         vel_max = np.squeeze(vel_max)
-        # vel_max = np.ones(dim_q) * 2.35619449
 
         self.robot_model = self.env_info['robot']['robot_model']
         self.robot_data = self.env_info['robot']['robot_data']
@@ -111,8 +105,6 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
             self.K_q = Kq
             assert np.shape(self.K_q)[0] == self.dims['q']
 
-        self.alpha_max = np.ones(self.dims['null']) * self.acc_max.max()
-        print(f"alpha_max: {self.alpha_max}")
         self._act_a = None
         self._act_b = None
         self._act_err = None
@@ -130,7 +122,9 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
         self.dq = dq
 
     def step(self, action):
-        alpha = action * self.alpha_max
+        alpha = action * self.acc_max
+        self.q = self.base_env.q_pos_prev
+        self.dq = self.base_env.q_vel_prev
         #print(f"preATACOM: {alpha}")
 
         if self.first_step:

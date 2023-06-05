@@ -2,7 +2,6 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-from mushroom_rl.core import Core
 from mushroom_rl.utils.dataset import compute_J
 
 from air_hockey_challenge.utils import robot_to_world
@@ -11,32 +10,39 @@ from air_hockey_challenge.framework import AirHockeyChallengeWrapper, ChallengeC
 import torch
 
 from air_hockey_agent.agents.defend_agent_SAC_for_ATACOM_env import DefendAgentSAC4ATACOM
+from air_hockey_agent.agents.hit_agent_SAC_for_ATACOM_env import HittingAgentSAC4ATACOM
+
 from air_hockey_agent.agents.ATACOM_challenge import ATACOMChallengeWrapper
 
 def main():
-    test = False
+    test = True
 
     np.random.seed(0)
     torch.manual_seed(0)
-    # env = AirHockeyChallengeWrapper(env="3dof-hit", action_type="position-velocity",
-    #                                interpolation_order=3, debug=False, custom_reward_function=reward)
-    env = ATACOMChallengeWrapper(env="3dof-defend", action_type="position-velocity",
+    #env_type = "3dof-defend"
+    env_type = "3dof-hit"
+    renderFirst = True
+    renderAll = False
+    env = ATACOMChallengeWrapper(env=env_type, action_type="position-velocity",
                                     interpolation_order=3, debug=False, custom_reward_function=reward)
 
-    # MDP
     gamma_eval = 0.999
 
-    # Settings
-    # number of initial iterations to fill the replay memory
     initial_replay_size = 2000
 
-    agent = DefendAgentSAC4ATACOM(env.env_info)
+    agent = None
+
+    if env_type == "3dof-hit":
+        agent = HittingAgentSAC4ATACOM(env.env_info)
+    #elif env_type == "3dof-defend":
+    else:
+        agent = DefendAgentSAC4ATACOM(env.env_info)
     #agent = AtacomHittingAgent(env.env_info)
     #agent = AirHockeyPlanarAtacom(env.env_info, env.info, policy_class, policy_params, actor_params, actor_optimizer, critic_params,
     #        batch_size, initial_replay_size, max_replay_size, tau, task='H', gamma=gamma_eval)
 
     if test:
-        agent.load("hit_agent.msh")
+        agent.load(f"{env_type}.msh")
 
     #agent.load("hit_agent.msh")
     obs = env.reset()
@@ -51,16 +57,16 @@ def main():
     history_J = []
     plt.plot(history_J)
     if test:
-        dataset = core.evaluate(n_steps=n_steps_test, render=False)
+        dataset = core.evaluate(n_steps=n_steps_test, render=True)
         J = compute_J(dataset, gamma_eval)
-        print('evaluatiom:')
+        print('evaluation:')
         print('J: ', np.mean(J))
         return None
 
     # Fill the replay memory with random samples
-    #core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
+    core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
 
-    dataset = core.evaluate(n_steps=500, render=True)
+    dataset = core.evaluate(n_steps=n_steps_test, render=renderFirst)
     J = compute_J(dataset, gamma_eval)
     history_J.append(np.mean(J))
     print('Epoch: 0')
@@ -71,12 +77,13 @@ def main():
     for n in range(n_epochs):
         print('\nEpoch: ', n + 1)
         dataset = core.learn(n_steps=n_steps, n_steps_per_fit=1)
-        dataset = core.evaluate(n_steps=500, render=False)
+        dataset = core.evaluate(n_steps=n_steps_test, render=renderAll)
         J = compute_J(dataset, gamma_eval)
         print('J: ', np.mean(J))
         history_J.append(np.mean(J))
         plt.plot(history_J)
         plt.savefig(os.path.join("air_hockey_agent/agents/log", "history_J"))
+        agent.save(f"{env_type}.msh")
 
     dataset = core.evaluate(n_steps=n_steps_test, render=False)
     J = compute_J(dataset, gamma_eval)
@@ -85,7 +92,7 @@ def main():
     history_J.append(np.mean(J))
     plt.plot(history_J)
     plt.show()
-    agent.save("hit_agent.msh")
+    agent.save(f"{env_type}.msh")
 
 
 def reward(base_env, state, action, next_state, absorbing):
@@ -94,7 +101,7 @@ def reward(base_env, state, action, next_state, absorbing):
     #if state[-1] == 0:
     #puck_pos, puck_vel = base_env.get_puck(next_state)  # get puck position and velocity
     #puck_pos = puck_pos[:2]
-    puck_pos = np.array([1., 0.0])
+    puck_pos = np.array([0.8, 0.0])
     ee_pos = forward_kinematics(base_env.env_info['robot']['robot_model'],
                                 base_env.env_info['robot']['robot_data'],
                                 next_state[6:9])[0][:2]

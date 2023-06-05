@@ -26,13 +26,11 @@ class ChallengeCore(Core):
             of the reached state and the last step flag.
 
         """
-        q, dq = self.agent.get_joint_pos(self._state), self.agent.get_joint_vel(self._state)
         start_time = time.time()
         action = self.agent.draw_action(self._state)
+        print(action)
         end_time = time.time()
-        #self.mdp.set_q_dq(q, dq)
         next_state, reward, absorbing, step_info = self.mdp.step(action)
-#        next_state, reward, absorbing, step_info = self.mdp.step(action)
         step_info["computation_time"] = (end_time - start_time)
 
         self._episode_steps += 1

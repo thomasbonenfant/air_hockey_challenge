@@ -1,11 +1,11 @@
 import numpy as np
 from mushroom_rl.utils.spaces import Box
 
-from air_hockey_agent.agents.hit_agent_SAC import HittingAgent
+from air_hockey_agent.agents.agent_SAC import AgentAirhockeySAC
 from air_hockey_challenge.utils import forward_kinematics, inverse_kinematics
 
 
-class HittingAgentSAC4ATACOM(HittingAgent):
+class HittingAgentSAC4ATACOM(AgentAirhockeySAC):
 
     def __init__(self, env, **kwargs):
         """
@@ -27,7 +27,7 @@ class HittingAgentSAC4ATACOM(HittingAgent):
         #env['rl_info'].observation_space = Box(np.append(env['rl_info'].observation_space.low, 0),
         #                                       np.append(env['rl_info'].observation_space.high, 1))
         super().__init__(env, **kwargs)
-        self.add_preprocessor(self.add_observation_preprocessors)
+        #self.add_preprocessor(self.add_observation_preprocessors)
         self.was_hit = 0
         self.time_step = 1/50
 
@@ -41,8 +41,8 @@ class HittingAgentSAC4ATACOM(HittingAgent):
         self.reset()
         super().episode_start()
 
-    def add_observation_preprocessors(self, state):
-        """mj_model = self.env_info['robot']['robot_model']
+    """def add_observation_preprocessors(self, state):
+        mj_model = self.env_info['robot']['robot_model']
         mj_data = self.env_info['robot']['robot_data']
         id_ee = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, link_to_xml_name(mj_model, 'ee'))
         print(mujoco.mj_collision(mj_model[id_ee], mj_data[id_ee]), mujoco.contact())
@@ -53,7 +53,7 @@ class HittingAgentSAC4ATACOM(HittingAgent):
         print(id_ee)
         #print(id_puck)
         # to use  mujoco.mjtObj.mjOBJ_SITE the value should be 6
-        print(mujoco.mj_collision(mj_model, mj_data))"""
+        print(mujoco.mj_collision(mj_model, mj_data))
         # TODO: implement better contact mechanism
         #if self.was_hit == 0:
         #    self.was_hit = 0 if np.sum(self.get_puck_vel(state)[:2]) == 0 else 1
@@ -61,10 +61,10 @@ class HittingAgentSAC4ATACOM(HittingAgent):
             #    print("HIT")
 
         #return np.append(state, self.was_hit)
-        return state
+        return state"""
 
     def draw_action(self, observation):
-        print(f"\n\npreATACOM: obs : {observation}")
+        #print(f"\n\npreATACOM: obs : {observation}")
         return super().draw_action(observation)
 
     """def draw_action(self, observation):
