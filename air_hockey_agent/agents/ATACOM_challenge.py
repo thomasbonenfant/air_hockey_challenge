@@ -11,8 +11,7 @@ from air_hockey_challenge.utils.kinematics import link_to_xml_name, inverse_kine
 
 class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
 
-    def __init__(self, env, action_type="position-velocity", interpolation_order=3, debug=False,
-                 custom_reward_function=None, **kwargs):
+    def __init__(self, env, interpolation_order=3, debug=False, custom_reward_function=None, **kwargs):
         """
         Constructor
         Args:
@@ -26,16 +25,17 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
             Kq (array, float): the scaling factor for the viability acceleration bound
             time_step (float): the step size for time discretization
         """
-
-        super().__init__(env=env, action_type=action_type, interpolation_order=interpolation_order, debug=debug,
+        #self.base_env.action_space = Box(low=-1, high=1, shape=(7,), dtype=np.float32)
+        super().__init__(env=env, interpolation_order=interpolation_order, debug=debug,
                          custom_reward_function=custom_reward_function, **kwargs)
+
 
         dim_q = self.env_info['robot']['n_joints']
         Kc = 200.
         timestamp = 1/50.
         # why dim out of 5?
         #ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.ee_pos_g, J=self.ee_pos_J_g, b=self.ee_pos_b_g, K=0.5)
-        ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.ee_pos_g, J=self.ee_pos_J_g,
+        ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.ee_pos_g, J=self.ee_pos_J_g,
                                        b=self.ee_pos_b_g, K=1.0)
 
         joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=dim_q, fun=self.joint_pos_g, J=self.joint_pos_J_g,
@@ -116,10 +116,6 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
     def reset(self, state=None):
         self.first_step = True
         return self.base_env.reset(state)
-
-    def set_q_dq(self, q, dq):
-        self.q = q
-        self.dq = dq
 
     def step(self, action):
         alpha = action * self.acc_max
@@ -242,7 +238,8 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
 
         ee_constr = self.env_info['constraints'].get('ee_constr')
         #print(ee_constr.fun(q, None)[:3])
-        return ee_constr.fun(q, None)[:3] # dq is not used, pick only the first 3 elements (do not need height constraint)
+
+        return ee_constr.fun(q, None)[:5] # dq is not used, pick only the first 3 elements (do not need height constraint)
 
     def ee_pos_J_g(self, q):
         """ Compute the constraint function g'(q) = 0 derivative of the end-effector """
@@ -252,7 +249,7 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
         
         ee_constr = self.env_info['constraints'].get('ee_constr')
 
-        return ee_constr.jacobian(q, None)[:3, :3] # dq is not used
+        return ee_constr.jacobian(q, None)[:5, :6] # dq is not used
 
     def ee_pos_b_g(self, q, dq):
         """ TODO: understand what this is: it should be dJ/dt * dq/dt  """
@@ -270,7 +267,6 @@ class ATACOMChallengeWrapper(AirHockeyChallengeWrapper):
         mujoco.mj_objectAcceleration(mj_model, mj_data, mujoco.mjtObj.mjOBJ_BODY, id, acc, 0)  # last 3 elements are linear acceleration
         acc = acc[3:]
         J_c = np.array([[-1., 0.], [0., -1.], [0., 1.]])
-
         return J_c @ acc[:2] # Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
 
     def joint_pos_g(self, q):

@@ -23,7 +23,7 @@ class HittingAgentSAC4ATACOM(AgentAirhockeySAC):
         """
 
         #env['rl_info'].action_space = Box(env['robot']['joint_acc_limit'][0], env['robot']['joint_acc_limit'][1])
-        env['rl_info'].action_space = Box(np.array([-1, -1, -1]), np.array([1, 1, 1]))
+        env['rl_info'].action_space = Box(np.array([-1, -1, -1, -1, -1, -1, -1]), np.array([1, 1, 1, 1, 1, 1, 1]))
         #env['rl_info'].observation_space = Box(np.append(env['rl_info'].observation_space.low, 0),
         #                                       np.append(env['rl_info'].observation_space.high, 1))
         super().__init__(env, **kwargs)

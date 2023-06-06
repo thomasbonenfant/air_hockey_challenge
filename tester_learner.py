@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mushroom_rl.utils.dataset import compute_J
 
+from air_hockey_agent.agents.ATACOM_agent import ATACOMAgent
 from air_hockey_challenge.utils import robot_to_world
 from air_hockey_challenge.utils.kinematics import forward_kinematics
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper, ChallengeCore
@@ -15,25 +16,24 @@ from air_hockey_agent.agents.hit_agent_SAC_for_ATACOM_env import HittingAgentSAC
 from air_hockey_agent.agents.ATACOM_challenge import ATACOMChallengeWrapper
 
 def main():
-    test = True
+    test = False
 
     np.random.seed(0)
     torch.manual_seed(0)
-    #env_type = "3dof-defend"
-    env_type = "3dof-hit"
+    #env_type = "7dof-defend"
+    env_type = "7dof-hit"
     renderFirst = True
     renderAll = False
-    env = ATACOMChallengeWrapper(env=env_type, action_type="position-velocity",
-                                    interpolation_order=3, debug=False, custom_reward_function=reward)
+    env = AirHockeyChallengeWrapper(env=env_type, interpolation_order=3, debug=False, custom_reward_function=reward)
 
     gamma_eval = 0.999
 
     initial_replay_size = 2000
 
-    agent = None
-
-    if env_type == "3dof-hit":
-        agent = HittingAgentSAC4ATACOM(env.env_info)
+    # Agent
+    if env_type == "7dof-hit":
+        # agent = HittingAgentSAC4ATACOM(env.env_info)
+        agent = ATACOMAgent(env.env_info)
     #elif env_type == "3dof-defend":
     else:
         agent = DefendAgentSAC4ATACOM(env.env_info)
@@ -64,7 +64,7 @@ def main():
         return None
 
     # Fill the replay memory with random samples
-    core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
+    #core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
 
     dataset = core.evaluate(n_steps=n_steps_test, render=renderFirst)
     J = compute_J(dataset, gamma_eval)

@@ -2,8 +2,7 @@ import numpy as np
 from mushroom_rl.algorithms.actor_critic import SAC
 
 from air_hockey_agent.actor_critic_network import SACCriticNetwork, SACActorNetwork
-from air_hockey_challenge.utils.kinematics import inverse_kinematics
-from air_hockey_challenge.framework.agent_base import AgentBase
+from air_hockey_challenge.utils.kinematics import forward_kinematics
 from torch import optim
 import torch.nn.functional as F
 
@@ -33,10 +32,6 @@ class AgentAirhockeySAC(SAC):
         self.new_start = True
         self.hold_position = None
 
-        self.path = kwargs['path'] if 'path' in kwargs else [[-0.8, 0, 0]]
-
-        self.steps_per_action = kwargs['steps_per_action'] if 'steps_per_action' in kwargs else 50
-
         self.x_shifter_lb = self.env_info["constraints"].get("ee_constr").x_lb
         self.x_shifter_ub = -self.env_info['robot']['base_frame'][0][0, 3]
         self.y_shifter_lb = self.env_info["constraints"].get("ee_constr").y_lb
@@ -46,7 +41,6 @@ class AgentAirhockeySAC(SAC):
 
         self.step = 0
         self.path_idx = 0
-        self.sigmoid = lambda x: 1 / (1 + np.exp(-x))
 
     def save(self, path, full_save=False):
         SAC.save(self, path, full_save)
@@ -70,6 +64,7 @@ class AgentAirhockeySAC(SAC):
                         initial_replay_size=5000, max_replay_size=200000, tau=1e-3,
                         warmup_transitions=10000, lr_alpha=3e-4, target_entropy=-6, use_cuda=False,
                         **kwargs):
+
         actor_mu_params = dict(network=SACActorNetwork,
                                input_shape=mdp_info.observation_space.shape,
                                output_shape=mdp_info.action_space.shape,

@@ -1,6 +1,7 @@
 import copy
-from mushroom_rl.core import Agent
+
 from air_hockey_challenge.utils.kinematics import forward_kinematics
+from mushroom_rl.core import Agent
 
 
 class AgentBase(Agent):
@@ -17,11 +18,8 @@ class AgentBase(Agent):
                 A dictionary contains agent related information.
 
         """
-        if 'no_initialization' not in kwargs:
-            super().__init__(env_info['rl_info'], None)
-
+        super().__init__(env_info['rl_info'], None)
         self.env_info = env_info
-        print(f"env_info: {env_info}")
         self.agent_id = agent_id
         self.robot_model = copy.deepcopy(env_info['robot']['robot_model'])
         self.robot_data = copy.deepcopy(env_info['robot']['robot_data'])
@@ -192,7 +190,7 @@ class AgentBase(Agent):
 
     def get_ee_pose(self, obs):
         """
-        Get the Opponent's End-Effector's Position from the observation.
+        Get the End-Effector's Position from the observation.
 
         Args
         ----
@@ -226,4 +224,3 @@ class DoubleAgentsWrapper(Agent):
     def episode_start(self):
         self.agent_1.episode_start()
         self.agent_2.episode_start()
-

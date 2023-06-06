@@ -1,7 +1,6 @@
 import copy
 import numpy as np
 from air_hockey_challenge.utils.kinematics import forward_kinematics, jacobian
-from air_hockey_challenge.utils import robot_to_world
 
 
 class Constraint:
@@ -156,7 +155,7 @@ class EndEffectorConstraint(Constraint):
         # 2 Dimension on z direction: z > z_lb, z < z_ub
         super().__init__(env_info, output_dim=5, **kwargs)
         self._name = "ee_constr"
-        tolerance = 0.02
+        tolerance = 0.0
 
         self.robot_model = copy.deepcopy(self._env_info['robot']['robot_model'])
         self.robot_data = copy.deepcopy(self._env_info['robot']['robot_data'])
@@ -177,11 +176,6 @@ class EndEffectorConstraint(Constraint):
 
     def _jacobian(self, q, dq):
         jac = jacobian(self.robot_model, self.robot_data, q)
-        dc_dx = np.array([[-1, 0., 0.],
-                          [0., -1., 0.],
-                          [0., 1., 0.],
-                          [0., 0., -1.],
-                          [0., 0., 1.]])
+        dc_dx = np.array([[-1, 0., 0.], [0., -1., 0.], [0., 1., 0.], [0., 0., -1.], [0., 0., 1.]])
         self._jac_value[:, :self._env_info['robot']['n_joints']] = dc_dx @ jac[:3, :self._env_info['robot']['n_joints']]
         return self._jac_value
-
