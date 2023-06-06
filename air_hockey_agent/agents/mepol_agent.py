@@ -10,11 +10,11 @@ from utils.trajectory_logger import TrajectoryLogger
 spec = {
     'hidden_sizes':[400,300],
     'activation': torch.nn.ReLU,
-    'log_std_init': -2.3,
+    'log_std_init': -0.5,
 }
 
-env = ErgodicEnv(GymAirHockey(task_space=True, task_space_vel=False, use_delta_pos=False, use_puck_distance=True,
-                              normalize_obs=False, scale_task_space_action=False))
+env = ErgodicEnv(GymAirHockey(task_space=True, task_space_vel=False, use_delta_pos=True, use_puck_distance=True,
+                              normalize_obs=False, scale_task_space_action=False, delta_dim=0.3))
 env = NormalizedBoxEnv(env)
 
 policy = GaussianPolicy(
@@ -26,7 +26,8 @@ policy = GaussianPolicy(
         use_tanh=True
     )
 
-policy.load_state_dict(torch.load('/home/thomas/Downloads/500-policy'))
+policy.load_state_dict(torch.load('/home/thomas/air_hockey_challenge/mepol/results/exploration/mepol/delta_0.3_on_policy_only_puck/1100-policy'))
+#policy.load_state_dict(torch.load('/home/thomas/air_hockey_challenge/mepol/results/exploration/mepol/delta_on_policy_0.4/3000-policy'))
 
 #Simulation
 obs = env.reset()
@@ -41,6 +42,7 @@ while True:
 
     env.render()
 
-    #if done or steps >= 400:
-    #    break
+    if done or steps >= 400:
+        env.reset()
+        steps = 0
 

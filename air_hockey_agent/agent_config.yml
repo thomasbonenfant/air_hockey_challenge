@@ -12,4 +12,13 @@ seed: null # Specify a seed, set null for no custom seed
 generate_score: "phase-1" # Generate the score for the leaderboard ranking, set null for no score
 
 # Agent Parameters
+hidden_sizes: [400, 300]
+delta_dim: 0.3
+log_std_init: -0.5
+task_space: True
+task_space_vel: False
+use_delta_pos: True
+use_puck_distance: True
+use_tanh: True
+init_policy: "/home/thomas/air_hockey_challenge/mepol/results/exploration/mepol/delta_0.3_on_policy_only_puck/1100-policy"
 # You can specify your own parameters here, they will be passed to the init of your Agent

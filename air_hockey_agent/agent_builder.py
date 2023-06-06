@@ -1,4 +1,5 @@
-from air_hockey_challenge.framework import AgentBase
+from air_hockey_agent.agents.custom_agent import CustomAgent
+
 
 def build_agent(env_info, **kwargs):
     """
@@ -12,4 +13,4 @@ def build_agent(env_info, **kwargs):
          (AgentBase) An instance of the Agent
     """
 
-    raise NotImplementedError
+    return CustomAgent(env_info, **kwargs)

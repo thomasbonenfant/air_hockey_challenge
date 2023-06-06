@@ -8,6 +8,7 @@ from datetime import datetime
 from mepol.src.envs.air_hockey import GymAirHockey
 from mepol.src.algorithms.trpo import trpo
 from mepol.src.policy import GaussianPolicy
+from utils.env_utils import NormalizedBoxEnv
 
 
 parser = argparse.ArgumentParser(description='Goal-Based Reinforcement Learning - TRPO')
@@ -84,7 +85,7 @@ Experiments specifications
 """
 exp_spec = {
     'AirHockey': {
-        'env_create': lambda: GymAirHockey(**env_parameters),
+        'env_create': lambda: NormalizedBoxEnv(GymAirHockey(**env_parameters)),
         'hidden_sizes': [400, 300],
         'activation': nn.ReLU,
         'log_std_init': args.log_std,
