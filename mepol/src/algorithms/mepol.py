@@ -229,7 +229,7 @@ def log_epoch_statistics(writer, log_file, csv_file_1, csv_file_2, epoch,
     # Log to Tensorboard
     writer.add_scalar("Loss", loss, global_step=epoch)
     writer.add_scalar("Entropy", entropy, global_step=epoch)
-    writer.add_scalar("Policy Log-std", np.linalg.norm(policy_log_std), global_step=epoch)
+    writer.add_scalar("Policy Log-std", np.mean(policy_log_std), global_step=epoch)
     writer.add_scalar("Execution time", execution_time, global_step=epoch)
     writer.add_scalar("Number off-policy iteration", num_off_iters, global_step=epoch)
     if full_entropy is not None:
