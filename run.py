@@ -8,8 +8,8 @@ Args:
             the environment_list, number_of_experiments and log_dir can be overriden with the args below
     -e --env "3dof":    Overrides the env parameter of the config. Specifies the environments
             which are evaluated. Multiple environments can be provided. All possible envs are: ["3dof-hit",
-             "3dof-defend", "7dof-hit", "7dof-defend", "7dof-prepare", "3dof", "7dof", "all"] where "3dof", "7dof" and
-              "all" are shortcuts
+             "3dof-defend", "7dof-hit", "7dof-defend", "7dof-prepare", "3dof", "7dof"] where "3dof" and "7dof"
+             are shortcuts
     -r --render: Set the flag to spawn a viewer which renders the simulation, Overrides the render param of the config
     -g --generate_score phase-1: Set to phase-1 or phase-2 to generate a score for the leaderboard ranking for phase one
             or two. Note that for the generation of the phase-1 score the 3dof-hit, 3dof-defend envs are required. For
@@ -32,19 +32,16 @@ Examples:
 
 """
 
-
-from air_hockey_challenge.framework.evaluate_agent import evaluate
-
+import os
 from argparse import ArgumentParser
 from pathlib import Path
 
 import yaml
-import os
+
+from air_hockey_challenge.framework.evaluate_agent import evaluate
+
 
 def convert_envs(env_list):
-    if "all" in env_list:
-        env_list = ["3dof-hit", "3dof-defend", "7dof-hit", "7dof-defend", "7dof-prepare"]
-
     if "3dof" in env_list:
         env_list.remove("3dof")
         env_list.extend(["3dof-hit", "3dof-defend"])
@@ -60,7 +57,7 @@ def get_args():
     parser = ArgumentParser()
     arg_test = parser.add_argument_group('override parameters')
 
-    env_choices = ["3dof-hit", "3dof-defend", "7dof-hit", "7dof-defend", "7dof-prepare", "3dof", "7dof", "all"]
+    env_choices = ["3dof-hit", "3dof-defend", "7dof-hit", "7dof-defend", "7dof-prepare", "3dof", "7dof"]
 
     arg_test.add_argument("-e", "--env", nargs='*',
                           choices=env_choices,
@@ -115,6 +112,8 @@ if __name__ == "__main__":
         from examples.control.defending_agent import build_agent
     elif filtered_args["example"] == "baseline":
         from baseline.baseline_agent.baseline_agent import build_agent
+    elif filtered_args["example"] == "sac":
+        from examples.rl.agent_loader import build_agent
     del filtered_args["example"]
 
     # Update config with command line args
@@ -123,4 +122,3 @@ if __name__ == "__main__":
     del config["env"]
 
     evaluate(build_agent, **config)
-

@@ -1,15 +1,22 @@
-# Air Hockey Challenge Polimi Team
+# Air Hockey Challenge 2023
 
 [ [Website] ](https://air-hockey-challenge.robot-learning.net/) [ [Documentation] ](https://air-hockey-challenges-docs.readthedocs.io/en/latest/)  [ [Discussion] ](https://github.com/AirHockeyChallenge/air_hockey_challenge/discussions)
 
 This is the source code for the Air Hockey Challenge.
 
-Branch `warm up` is a miror of the official current release of the challenge environment
+The current released version is **Warm Up**.
 
-Branch `custom_environment` is our development branch where we modify the original environment.
+Please see the [documentation](https://air-hockey-challenges-docs.readthedocs.io/en/latest/) for Installation and usage.
 
-## Custom Environment branch
-### Usage
-The `CustomEnvironmentWrapper` needs to be used with an agent submitting a size (3,) ndarray
+## Support
 
-Be aware that for now example agents and baseline cannot be used with this environment
+Please create github issues for technical questions and send email to
+[air-hockey-challenge@robot-learning.net](mailto:air-hockey-challenge@robot-learning.net) for organization questions
+
+## Authors and acknowledgment
+
+Puze Liu, Jonas Guenster, and Davide Tateo
+
+## License
+
+[MIT License](https://github.com/AirHockeyChallenge/air_hockey_challenge/blob/warm-up/LICENSE)

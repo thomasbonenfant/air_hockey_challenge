@@ -1,5 +1,5 @@
-from air_hockey_agent.agents.defend_agent import SimpleDefendingAgent
-from air_hockey_agent.agents.dummy_agent import DummyAgent
+from air_hockey_challenge.framework import AgentBase
+from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 
 
 def build_agent(env_info, **kwargs):
@@ -14,13 +14,8 @@ def build_agent(env_info, **kwargs):
          (AgentBase) An instance of the Agent
     """
 
-    agent = DummyAgent(env_info, **kwargs)
+    # TODO might insert thetas here and pass them to the agent builder
 
-    if 'agent' in kwargs:
-        if kwargs['agent'] == 'dummy-agent':
-            agent = DummyAgent(env_info, **kwargs)
-        elif kwargs['agent'] == 'defend-agent':
-            agent = SimpleDefendingAgent(env_info, **kwargs)
-
+    agent = PolicyAgent(env_info, **kwargs)
 
     return agent
