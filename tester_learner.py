@@ -8,6 +8,7 @@ from air_hockey_agent.agents.ATACOM_agent import ATACOMAgent
 from air_hockey_challenge.utils import robot_to_world
 from air_hockey_challenge.utils.kinematics import forward_kinematics
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper, ChallengeCore
+from air_hockey_agent.agents.doubleSAC import doubleSACLearner
 import torch
 
 from air_hockey_agent.agents.defend_agent_SAC_for_ATACOM_env import DefendAgentSAC4ATACOM
@@ -23,75 +24,78 @@ def main():
     #env_type = "7dof-defend"
     env_type = "7dof-hit"
     renderFirst = True
-    renderAll = False
+    renderAll = True
     env = AirHockeyChallengeWrapper(env=env_type, interpolation_order=3, debug=False, custom_reward_function=reward)
 
     gamma_eval = 0.999
 
-    initial_replay_size = 2000
+    initial_replay_size = 20000
 
     # Agent
     if env_type == "7dof-hit":
         # agent = HittingAgentSAC4ATACOM(env.env_info)
-        agent = ATACOMAgent(env.env_info)
+        # agent = ATACOMAgent(env.env_info)
+        agent = doubleSACLearner(env.env_info, use_cuda=True)
     #elif env_type == "3dof-defend":
     else:
-        agent = DefendAgentSAC4ATACOM(env.env_info)
+        agent = ATACOMAgent(env.env_info)
     #agent = AtacomHittingAgent(env.env_info)
     #agent = AirHockeyPlanarAtacom(env.env_info, env.info, policy_class, policy_params, actor_params, actor_optimizer, critic_params,
     #        batch_size, initial_replay_size, max_replay_size, tau, task='H', gamma=gamma_eval)
 
-    if test:
-        agent.load(f"{env_type}.msh")
+    # agent.save(f"{env_type}.msh")
+    agent.load(f"{env_type}.msh")
 
-    #agent.load("hit_agent.msh")
     obs = env.reset()
     agent.episode_start()
     # Algorithm
     core = ChallengeCore(agent, env)
 
     # RUN
-    n_epochs = 10
+    n_epochs = 1
     n_steps = 5000
-    n_steps_test = 5000
+    n_steps_test = 500
     history_J = []
     plt.plot(history_J)
     if test:
         dataset = core.evaluate(n_steps=n_steps_test, render=True)
-        J = compute_J(dataset, gamma_eval)
+        agent.plot_mover_J()
+        """J = compute_J(dataset, gamma_eval)
         print('evaluation:')
-        print('J: ', np.mean(J))
+        print('J: ', np.mean(J))"""
         return None
 
     # Fill the replay memory with random samples
-    #core.learn(n_steps=initial_replay_size, n_steps_per_fit=initial_replay_size)
+    core.learn(n_steps=initial_replay_size, n_steps_per_fit=1)
 
     dataset = core.evaluate(n_steps=n_steps_test, render=renderFirst)
-    J = compute_J(dataset, gamma_eval)
+    agent.plot_mover_J()
+    """J = compute_J(dataset, gamma_eval)
     history_J.append(np.mean(J))
     print('Epoch: 0')
     print('J: ', np.mean(J))
     plot_constraints(env.env_info, dataset, "air_hockey_agent/agents/log")
-    # this created the directory log if not already existing
+    """# this created the directory log if not already existing
 
     for n in range(n_epochs):
         print('\nEpoch: ', n + 1)
         dataset = core.learn(n_steps=n_steps, n_steps_per_fit=1)
         dataset = core.evaluate(n_steps=n_steps_test, render=renderAll)
-        J = compute_J(dataset, gamma_eval)
+        agent.plot_mover_J()
+        """J = compute_J(dataset, gamma_eval)
         print('J: ', np.mean(J))
         history_J.append(np.mean(J))
         plt.plot(history_J)
         plt.savefig(os.path.join("air_hockey_agent/agents/log", "history_J"))
-        agent.save(f"{env_type}.msh")
+        agent.save(f"{env_type}.msh")"""
 
-    dataset = core.evaluate(n_steps=n_steps_test, render=False)
-    J = compute_J(dataset, gamma_eval)
+    dataset = core.evaluate(n_steps=n_steps_test, render=True)
+    """J = compute_J(dataset, gamma_eval)
     print('J: ', np.mean(J))
     plot_constraints(env.env_info, dataset, "air_hockey_agent/agents/log")
     history_J.append(np.mean(J))
     plt.plot(history_J)
-    plt.show()
+    plt.show()"""
     agent.save(f"{env_type}.msh")
 
 

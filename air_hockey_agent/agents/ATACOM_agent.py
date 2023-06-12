@@ -27,32 +27,30 @@ class ATACOMAgent(AgentAirhockeySAC):
             Kq (array, float): the scaling factor for the viability acceleration bound
             time_step (float): the step size for time discretization
         """
-        env['rl_info'].action_space = Box(low=-1, high=1, shape=(6,))
+        self.n_ctrl_joint = 7
+        env['rl_info'].action_space = Box(low=-1, high=1, shape=(self.n_ctrl_joint-1,))
         super().__init__(env, **kwargs)
         dim_q = self.env_info['robot']['n_joints']
 
 
-        Kc = 200.
+        Kc = 50.
         timestamp = 1 / 50.
 
         ee_pos_g2 = ViabilityConstraint(dim_q=dim_q, dim_out=2, fun=self.ee_pose_f, J=self.ee_pose_J_f,
                                         b=self.ee_pos_b_f, K=1)
 
-
-
-
         ee_pos_f = ViabilityConstraint(dim_q=dim_q, dim_out=1, fun=self.ee_pose_f, J=self.ee_pose_J_f,
-                                       b=self.ee_pos_b_f, K=1)
+                                       b=self.ee_pos_b_f, K=0.1)
 
-        self.ee_pos_dim_out = 5
+        self.ee_pos_dim_out = 3
         # ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=5, fun=self.ee_pos_g, J=self.ee_pos_J_g, b=self.ee_pos_b_g, K=0.5)
         ee_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=self.ee_pos_dim_out, fun=self.ee_pos_g, J=self.ee_pos_J_g,
                                        b=self.ee_pos_b_g, K=0.5)
 
         joint_pos_g = ViabilityConstraint(dim_q=dim_q, dim_out=dim_q, fun=self.joint_pos_g, J=self.joint_pos_J_g,
-                                          b=self.joint_pos_b_g, K=1.0)
+                                          b=self.joint_pos_b_g, K=0.5)
 
-        joint_vel_g = ViabilityConstraint(dim_q=dim_q, dim_out=3, fun=self.joint_vel_g, J=self.joint_vel_J_g,
+        joint_vel_g = ViabilityConstraint(dim_q=dim_q, dim_out=dim_q, fun=self.joint_vel_g, J=self.joint_vel_J_g,
                                           b=self.joint_vel_b_g, K=1.0)
 
         f = ConstraintsSet(dim_q)
@@ -60,18 +58,18 @@ class ATACOMAgent(AgentAirhockeySAC):
         f.add_constraint(ee_pos_f)
         g.add_constraint(ee_pos_g)
         g.add_constraint(joint_pos_g)
-        #g.add_constraint(ee_pos_g2)
-        #g.add_constraint(joint_vel_g)
+        g.add_constraint(joint_vel_g)
+        self.joint_pos_limit = self.env_info['constraints'].get('joint_pos_constr').joint_limits[1][:self.n_ctrl_joint]
+        self.joint_vel_limit = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1][:self.n_ctrl_joint]
+        #acc_max = self.env_info['robot']['joint_acc_limit'][1]
 
-        # TODO: if we want to include the jerk we may want to create a accel constraint and put the value here
-        acc_max = self.env_info['robot']['joint_acc_limit'][1]
-        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1]  # takes only positive constraints
+        acc_max = np.ones(dim_q) * 10
+        vel_max = self.env_info['constraints'].get('joint_vel_constr').joint_limits[1][:dim_q]  # takes only positive constraints
         vel_max = np.squeeze(vel_max)
-
         self.robot_model = self.env_info['robot']['robot_model']
         self.robot_data = self.env_info['robot']['robot_data']
 
-        Kq = 2 * acc_max / vel_max
+        Kq = 4 * acc_max / vel_max
 
         self.env = env
         self.dims = {'q': dim_q, 'f': 0, 'g': 0}
@@ -128,19 +126,24 @@ class ATACOMAgent(AgentAirhockeySAC):
         self.mu = 0
         self.first_step = True
 
+    def episode_start(self):
+        self.first_step = True
+        self._compute_slack_variables()
+        super().episode_start()
+
     def reset(self):
         self.first_step = True
+        self._compute_slack_variables()
         super().reset()
 
     def draw_action(self, observation):
-        action = super().draw_action(observation)
+        action = super().draw_action(observation)[:self.n_ctrl_joint]
         alpha = action * self.alpha_max
-        self.q = self.get_joint_pos(observation)
-        self.dq = self.get_joint_vel(observation)
 
-        if self.first_step:
-            self.first_step = False
-            self._compute_slack_variables()
+        self.q_full = self.get_joint_pos(observation)
+        self.dq_full = self.get_joint_vel(observation)
+        self.q, self.dq = self.q_full[:self.n_ctrl_joint], self.dq_full[:self.n_ctrl_joint]
+
 
         # Compute Jc, k = Jc(qk, µk), ψk = ψ(qk, q˙k), ck = c(qk, q˙k, µk)
         Jc, psi = self._construct_Jc_psi(self.q, self.mu, self.dq)
@@ -150,7 +153,7 @@ class ATACOMAgent(AgentAirhockeySAC):
         Nc = rref(Nc[:, :self.dims['null']], row_vectors=False, tol=0.05)
         # Compute the tangent space acceleration [q¨k µ˙ k].T ← −J^†_c,k [K_cck + ψ_k] + N^R_c α_k
         self._act_a = -Jc_inv @ psi
-        print(f"\nalpha: {alpha.shape}\nNc:{Nc.shape}\nJc_inv:{Jc_inv.shape}\npsi:{psi.shape}\nact_a:{self._act_a.shape}")
+        #print(f"\nalpha: {alpha.shape}\nNc:{Nc.shape}\nJc_inv:{Jc_inv.shape}\npsi:{psi.shape}\nact_a:{self._act_a.shape}")
         self._act_b = Nc @ alpha
         self._act_err = self._compute_error_correction(self.q, self.dq, self.mu, Jc_inv)
         ddq_ds = self._act_a + self._act_b + self._act_err
@@ -161,14 +164,47 @@ class ATACOMAgent(AgentAirhockeySAC):
         ddq = self.acc_truncation(self.dq, ddq_ds[:self.dims['q']])
 
         ctrl_action = self.acc_to_ctrl_action(ddq)  # .reshape((6,))
-        print(f"ddq_ds: {ddq_ds.shape}\nact_err: {self._act_err.shape}\n")
+        # print(f"ddq_ds: {ddq_ds.shape}\nact_err: {self._act_err.shape}\n")
         return ctrl_action
+
+    def _compute_joint_7(self, joint_state):
+        q_cur = joint_state.copy()
+        q_cur_7 = q_cur[6]
+        q_cur[6] = 0.
+
+        f_cur = self.env_info['robot']["base_frame"]
+        z_axis = np.array([0., 0., -1.])
+
+        y_des = np.cross(z_axis, f_cur[:, 2])
+        y_des_norm = np.linalg.norm(y_des)
+        if y_des_norm > 1e-2:
+            y_des = y_des / y_des_norm
+        else:
+            y_des = f_cur[:, 2]
+
+        target = np.arccos(f_cur[:, 1].dot(y_des))
+
+        axis = np.cross(f_cur[:, 1], y_des)
+        axis_norm = np.linalg.norm(axis)
+        if axis_norm > 1e-2:
+            axis = axis / axis_norm
+        else:
+            axis = np.array([0., 0., 1.])
+
+        target = target * axis.dot(f_cur[:, 2])
+
+        if target - q_cur_7 > np.pi / 2:
+            target -= np.pi
+        elif target - q_cur_7 < -np.pi / 2:
+            target += np.pi
+
+        return np.atleast_1d(target)
 
     def acc_to_ctrl_action(self, ddq):
         # integrate acceleration because we do control the robot with a PD Controller
 
-        next_dq = self.dq + ddq * self.time_step
-        next_q = self.q + self.dq * self.time_step + 0.5 * ddq * (self.time_step ** 2)
+        next_dq = self.dq_full + ddq * self.time_step
+        next_q = self.q_full + self.dq_full * self.time_step + 0.5 * ddq * (self.time_step ** 2)
         return np.concatenate((next_q, next_dq)).reshape(2, self.dims['q'])
 
     def acc_truncation(self, dq, ddq):
@@ -183,7 +219,7 @@ class ATACOMAgent(AgentAirhockeySAC):
             mu_squared = np.maximum(-2 * self.g.fun(self.q, self.dq, origin_constr=False), 0)
             self.mu = np.sqrt(mu_squared)
 
-    def _construct_Jc_psi(self, q, s, dq):
+    def _construct_Jc_psi(self, q, mu, dq):
         Jc = np.zeros((self.dims['f'] + self.dims['g'], self.dims['q'] + self.dims['g']))
         psi = np.zeros(self.dims['c'])
         if self.dims['f'] > 0:
@@ -195,7 +231,7 @@ class ATACOMAgent(AgentAirhockeySAC):
             idx_0 = self.dims['f']
             idx_1 = self.dims['f'] + self.dims['g']
             Jc[idx_0:idx_1, :self.dims['q']] = self.g.K_J(q)
-            Jc[idx_0:idx_1, self.dims['q']:(self.dims['q'] + self.dims['g'])] = np.diag(s)
+            Jc[idx_0:idx_1, self.dims['q']:(self.dims['q'] + self.dims['g'])] = np.diag(mu)
             psi[idx_0:idx_1] = self.g.b(q, dq)
         return Jc, psi
 
@@ -239,7 +275,7 @@ class ATACOMAgent(AgentAirhockeySAC):
     def ee_pose_f(self, q):
         ee_pos_z = forward_kinematics(self.robot_model, self.robot_data, q)[0][2]
         # return np.atleast_1d(ee_pos_z - self.env.env_spec['universal_height'])
-        return np.atleast_1d(ee_pos_z)
+        return np.atleast_1d(ee_pos_z - self.env['robot']['ee_desired_height'])
         #return np.atleast_1d(np.array([-ee_pos_z, ee_pos_z]))
 
     def ee_pose_J_f(self, q):
@@ -306,10 +342,9 @@ class ATACOMAgent(AgentAirhockeySAC):
 
         # to use  mujoco.mjtObj.mjOBJ_SITE the value should be 6
         # TODO: check if this works
-        mujoco.mj_objectAcceleration(mj_model, mj_data, mujoco.mjtObj.mjOBJ_BODY, id, acc,
-                                     0)  # last 3 elements are linear acceleration
+        mujoco.mj_objectAcceleration(mj_model, mj_data, mujoco.mjtObj.mjOBJ_BODY, id, acc, 0)  # last 3 elements are linear acceleration
         acc = acc[3:]
-        J_c = np.array([[-1., 0., 0.], [0., -1., 0.], [0., 1., 0.], [0., 0., -1.], [0., 0., 1.]])
+        J_c = np.array([[-1., 0., 0.], [0., -1., 0.], [0., 1., 0.], [0., 0., -1.], [0., 0., 1.]])[:self.ee_pos_dim_out]
         return J_c @ acc  # Do not understand why acc is used. acc is in theory J * ddq + dJ * dq (it's like we omit the first term)
 
     def joint_pos_g(self, q):
@@ -317,7 +352,7 @@ class ATACOMAgent(AgentAirhockeySAC):
         # return np.array(q ** 2 - self.pino_model.upperPositionLimit ** 2)
         # g = self.env_info['constraints'].get('joint_pos_constr')
         # return g.fun(q, None)[:3]
-        return np.array(q ** 2 - self.env_info['constraints'].get('joint_pos_constr').joint_limits[1] ** 2)
+        return np.array(q ** 2 - self.joint_pos_limit ** 2)
 
     def joint_pos_J_g(self, q):
         """Compute constraint jacobian function J_g(q)"""
@@ -333,7 +368,7 @@ class ATACOMAgent(AgentAirhockeySAC):
 
     def joint_vel_g(self, dq):
         # g = self.env_info['constraints'].get('joint_vel_constr')
-        return np.array([dq ** 2 - self.env_info['constraints'].get('joint_vel_constr').joint_limits[1] ** 2])
+        return np.array([dq ** 2 - self.joint_vel_limit ** 2])
         # return g.fun(None, dq)
 
     def joint_vel_J_g(self, dq):
@@ -342,4 +377,4 @@ class ATACOMAgent(AgentAirhockeySAC):
         return 2 * np.diag(dq)
 
     def joint_vel_b_g(self, q, dq):
-        return np.zeros(3)
+        return np.zeros(self.n_ctrl_joint)

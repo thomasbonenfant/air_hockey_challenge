@@ -77,7 +77,6 @@ class ChallengeCore(Core):
             action = self.agent.draw_action(self._state)
             end_time = time.time()
             duration = (end_time - start_time)
-
             # If there is an index error here either the action shape does not match the interpolation type or
             # the custom action_idx is wrong
             next_state, reward, absorbing, step_info = self.mdp.step(action[self.action_idx])

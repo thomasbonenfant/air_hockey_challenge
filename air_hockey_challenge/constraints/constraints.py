@@ -169,6 +169,7 @@ class EndEffectorConstraint(Constraint):
 
     def _fun(self, q, dq):
         ee_pos, _ = forward_kinematics(self.robot_model, self.robot_data, q)
+
         self._fun_value = np.array([-ee_pos[0] + self.x_lb,
                                     -ee_pos[1] + self.y_lb, ee_pos[1] - self.y_ub,
                                     -ee_pos[2] + self.z_lb, ee_pos[2] - self.z_ub])
