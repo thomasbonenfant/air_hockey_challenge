@@ -13,8 +13,8 @@ from air_hockey_challenge.utils.transformations import robot_to_world, world_to_
 # Macros
 EE_HEIGHT = 0.0645
 PREV_BETA = 0   # FIXME: change this value
-FINAL = 20
-DEFAULT_POS = np.array([-0.8, 0, EE_HEIGHT])
+FINAL = 10
+DEFAULT_POS = np.array([-0.65, 0, EE_HEIGHT])
 DEFEND_LINE = -0.7
 BEST_PARAM = dict(
     hit=np.array([9.99302077e-02, 9.65953660e-03, 2.59815166e-05, 5.01348799e-02]),
@@ -58,6 +58,7 @@ class PolicyAgent(AgentBase):
         # angle between ee->puck and puck->goal lines 
         self.previous_beta = PREV_BETA 
         self.last_position = np.zeros(3)
+        self.last_action = np.zeros((2, 7))  # last action done, joint pos and vel
         self.final = FINAL
 
         # DEFEND: define initial values
@@ -86,6 +87,7 @@ class PolicyAgent(AgentBase):
         # Generic stuff
         self.previous_beta = PREV_BETA
         self.last_position = np.zeros(3)
+        self.last_action = np.zeros((2, 7))
         self.final = FINAL
         self.desired_from = None
         
@@ -98,8 +100,8 @@ class PolicyAgent(AgentBase):
     
     def draw_action(self, observation):
         """
-        Descriprion: 
-            This funciton draws an action given the observation and the task.
+        Description:
+            This function draws an action given the observation and the task.
 
         Args:
             observation (numpy.array([...])): see env
@@ -207,8 +209,8 @@ class PolicyAgent(AgentBase):
         # Post-process the action
         # at this point we have a desired ee_x and ee_y
         # keep ee_z <- 0
-        action_x = np.clip(action[0], -self.table_length / 2, self.table_length / 2)
-        action_y = np.clip(action[1], -self.table_width / 2, self.table_width / 2)
+        action_x = np.clip(action[0], -self.table_length / 2 + self.mallet_radius, self.table_length / 2 - self.mallet_radius)
+        action_y = np.clip(action[1], -self.table_width / 2 + self.mallet_radius, self.table_width / 2 - self.mallet_radius)
         action_z = EE_HEIGHT
         action = np.array([action_x, action_y, action_z])
         
@@ -217,12 +219,12 @@ class PolicyAgent(AgentBase):
         
         # apply inverse kinematics
         final_action = np.zeros((2, 7))
-        final_action[0] = self._apply_inverse_kinematics(
+        final_action[0], success = self._apply_inverse_kinematics(
             ee_pos_robot_frame=action,
             intial_q=self.state.r_joint_pos
         )
         final_action[1] = (final_action[0] - self.state.r_joint_pos) / self.env_info["dt"]
-        
+
         # Clip joint positions in the limits
         joint_pos_limits = self.env_info['robot']['joint_pos_limit']
         joint_vel_limits = self.env_info['robot']['joint_vel_limit']
@@ -230,7 +232,8 @@ class PolicyAgent(AgentBase):
         new_final_action = np.zeros((2, 7))
         new_final_action[0] = np.clip(final_action[0], joint_pos_limits[0], joint_pos_limits[1])
         new_final_action[1] = np.clip(final_action[1], joint_vel_limits[0], joint_vel_limits[1])
-        
+
+        self.last_action = final_action
         return new_final_action
     
     def hit_act(self):
@@ -245,12 +248,15 @@ class PolicyAgent(AgentBase):
         # Get useful info from the state
         puck_pos = self.state.w_puck_pos[:2]
         ee_pos = self.state.w_ee_pos[:2]
-        
+
         # Chek if there was a hit
-        # Naive apprach: check if the sign of puck_vel_x has changed 
+        # Naive approach: check if the sign of puck_vel_x has changed
         #if np.linalg.norm(self.state.w_puck_vel[:2]) > 0.1:
-        if self.init_sign_puck_vel * self.state.r_puck_vel[0] < 0 and not self.has_hit:
-            self.has_hit = True
+        #if self.init_sign_puck_vel * self.state.r_puck_vel[0] < 0 and not self.has_hit:
+        #    self.has_hit = True
+
+        #if self.init_sign_puck_vel == 0 and self.state.r_puck_vel[0] > 0 and not self.has_hit:
+        #    self.has_hit = True
 
         # Initialization of d_beta and ds
         d_beta = self.theta[0] + self.theta[1] * self.time
@@ -276,7 +282,18 @@ class PolicyAgent(AgentBase):
 
         # Convert the ee position and take the current radius
         ee_pos_puck = self.world_to_puck(ee_pos, puck_pos)
-        radius = np.sqrt(ee_pos_puck[0] ** 2 + ee_pos_puck[1] ** 2)
+        #radius = np.sqrt(ee_pos_puck[0] ** 2 + ee_pos_puck[1] ** 2)
+
+        radius = np.sqrt(
+            (ee_pos[0] - puck_pos[0]) ** 2 +
+            (ee_pos[1] - puck_pos[1]) ** 2
+        )
+
+        tolerance = 1e-2
+        # Check if there was a hit by looking at the distance between the ee and the puck
+        if radius - self.mallet_radius - self.puck_radius <= tolerance and not self.has_hit:
+            #print(radius - self.mallet_radius - self.puck_radius)
+            self.has_hit = True
 
         # Check if there was a hit
         if not self.has_hit or self.final:
@@ -290,9 +307,16 @@ class PolicyAgent(AgentBase):
                 # Update d_beta and ds
                 d_beta *= np.abs(180 - beta)
                 if not self.has_hit:
-                    ds *= self.time / radius
+                    ds *= self.time / (radius + self.mallet_radius + self.puck_radius)
+                    self.last_ds = ds
                 else:
-                    ds = self.theta[3] * 0.1
+                    # subtract something depending on the puck's speed
+                    ds = self.last_ds
+                    reduce = self.theta[3] * 0.05 #* np.linalg.norm(puck_vel)
+                    ds -= reduce
+                    if ds <= 0:
+                        ds = 1e-2
+                    self.last_ds = ds
 
                 # Check if d_beta needs to be inverted
                 if ee_pos_puck[1] < radius * np.sin(np.deg2rad(gamma + 180)):
@@ -308,9 +332,17 @@ class PolicyAgent(AgentBase):
                 # Update d_beta and ds
                 d_beta *= np.abs(beta - 180)
                 if not self.has_hit:
-                    ds *= self.time / radius
+                    ds *= self.time / (radius + self.mallet_radius + self.puck_radius)
+                    self.last_ds = ds
                 else:
-                    ds = self.theta[3] * 0.1
+                    # subtract something depending on the puck's speed
+                    ds = self.last_ds
+                    reduce = self.theta[3] * 0.05 #* np.linalg.norm(puck_vel)
+                    ds -= reduce
+                    if ds <= 0:
+                        ds = 1e-2
+                    self.last_ds = ds
+
 
                 # Check if d_beta needs to be inverted
                 if ee_pos_puck[1] > radius * np.sin(np.deg2rad(180 - gamma)):
@@ -323,7 +355,7 @@ class PolicyAgent(AgentBase):
                 self.last_position = action
         else:
             # Already hit, return to the initial position moving with a given step size (not optimized)
-            step_size = 0.1
+            step_size = 0.01
 
             target = self.default_action
 
@@ -331,7 +363,7 @@ class PolicyAgent(AgentBase):
             ds_y = (target[1] - ee_pos[1]) * step_size
 
             action = np.array([ee_pos[0] + ds_x, ee_pos[1] + ds_y])
-            action = self.last_position
+            #action = self.last_position
 
         return action
     
@@ -340,7 +372,10 @@ class PolicyAgent(AgentBase):
     
     def prepare_act(self, state):
         pass
-    
+
+    def return_act(self, state):
+        pass
+
     def _apply_forward_kinematics(self, joint_pos):
         # Paramaters
         mj_model = self.env_info['robot']['robot_model']
@@ -369,7 +404,12 @@ class PolicyAgent(AgentBase):
             initial_q=intial_q, 
             link="ee"
         )
-        return action_joints
+
+        if not success:
+            print("OH NO")
+            print(self.has_hit, '\n')
+            #self.has_hit = True
+        return action_joints, success
         
     def world_to_puck(self, point, puck_pos):
         return np.array((point - puck_pos))     
