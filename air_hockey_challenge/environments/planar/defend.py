@@ -157,7 +157,7 @@ class AirHockeyDefend(AirHockeySingle):
         # self.dataset.drop(index=self.dataset.index[-1], axis=0, inplace=True)
         absorbing = super().is_absorbing(state)
         if absorbing:
-            print("heeey")
+            # print("heeey")
             new_data = pd.DataFrame({'puck current pos X': [0],
                                      'puck current pos Y': [0],
                                      'puck current pos Yaw': [0],
