@@ -5,6 +5,10 @@ from air_hockey_challenge.constraints import *
 
 from copy import deepcopy
 
+from air_hockey_challenge.constraints import ConstraintList, JointPositionConstraint, \
+    JointVelocityConstraint, EndEffectorConstraint
+
+
 class AirHockeyHit(AirHockeySingle):
     """
     Class for the air hockey hitting task.
@@ -31,6 +35,8 @@ class AirHockeyHit(AirHockeySingle):
         # Initial position of the puck
         puck_pos = np.random.rand(2) * (self.hit_range[:, 1] - self.hit_range[:, 0]) + self.hit_range[:, 0]
 
+        #puck_pos = [-0.4, 0.2]  # TODO remove
+
         # self.init_state = np.array([-0.9273, 0.9273, np.pi / 2])
 
         self._write_data("puck_x_pos", puck_pos[0])
@@ -50,7 +56,7 @@ class AirHockeyHit(AirHockeySingle):
 
         super(AirHockeyHit, self).setup(state)
         
-    def reward(self, state, action, next_state, absorbing):
+    def old_reward(self, state, action, next_state, absorbing):
 
         """
         Custom reward function, it is in the form: r_tot = r_hit + alpha * r_const
@@ -129,7 +135,7 @@ class AirHockeyHit(AirHockeySingle):
                                                              state[self.env_info['joint_vel_ids']]))
 
         # import penalty weights from a dictionary in evaluate_agent
-        from air_hockey_challenge.framework.evaluate_agent import PENALTY_POINTS
+        from envs.air_hockey_challenge.air_hockey_challenge.framework.evaluate_agent import PENALTY_POINTS
         constraint_weights = PENALTY_POINTS
 
         # retrieve slack variables and multiply for penalty weights
@@ -172,6 +178,73 @@ class AirHockeyHit(AirHockeySingle):
         reward_constraints = - sum_slack / sum(constraint_weights.values())
 
         return (reward_hit + alpha * reward_constraints) / 2  # negative rewards should never go below -1
+
+    def reward(self, state, action, next_state, absorbing):
+        """
+            Unshaped reward function, it will return:
+
+             - big number: if success, a goal
+             - constraint*penalty_point : if a constraint is violated
+
+            the value of each negative reward will be clipped to -1
+        """
+        big_reward = 2500
+
+        puck_pos = state[0:2]
+
+        # Check for success
+        if (round(puck_pos[0], 3)+0.1 - self.env_info['table']['length'] / 2) >= 0 and \
+                (np.abs(puck_pos[1]) - self.env_info['table']['goal_width']) <= 0:
+            return big_reward
+
+        # Retrieve constraints
+        constraint_list = ConstraintList()
+        constraint_list.add(JointPositionConstraint(self.env_info))
+        constraint_list.add(JointVelocityConstraint(self.env_info))
+        constraint_list.add(EndEffectorConstraint(self.env_info))
+
+        self.env_info['constraints'] = constraint_list
+        constraints = self.env_info['constraints']
+
+        # Recompute constraints
+        info = dict()
+        info['constraints_value'] = deepcopy(constraints.fun(state[self.env_info['joint_pos_ids']],
+                                                             state[self.env_info['joint_vel_ids']]))
+
+        # import penalty weights from a dictionary in evaluate_agent
+        from air_hockey_challenge.framework.evaluate_agent import PENALTY_POINTS
+        constraint_weights = PENALTY_POINTS
+
+        # Retrieve slack variables and multiply them for penalty weights
+        # if slack_variable > 0 than the constraint is violated
+        slack_variables = info['constraints_value']
+
+        # retrieve limits for joint position and velocity
+        # they're the correction factor of the constraint's reward
+        # FIXME verificare che le costanti siano corrette
+        joint_pos_limit = self.env_info['robot']['joint_pos_limit']
+        joint_vel_limit = self.env_info['robot']['joint_vel_limit']
+        # the ee_limit is the table length/width
+
+        for key in slack_variables.keys():
+            if key in constraint_weights.keys():
+                slack_variables[key] = np.array(list(map(lambda x: x if x > 0 else 0, slack_variables[key])))  # take only positive values
+                slack_variables[key] *= constraint_weights[key]  # multiply by the penalty weights
+
+        slack_variables['joint_pos_constr'] = slack_variables['joint_pos_constr'] / joint_pos_limit.flatten()
+        slack_variables['joint_vel_constr'] = slack_variables['joint_vel_constr'] / joint_vel_limit.flatten()
+        slack_variables['ee_constr'][0] = slack_variables['ee_constr'][0] / self.env_info['table']['length']
+        slack_variables['ee_constr'][1:3] = slack_variables['ee_constr'][1:3] / self.env_info['table']['width']
+
+        #for key, value in slack_variables.items():
+        #    print(key, ' : ', value)
+        sum_slack = 0
+        for value in slack_variables.values():
+            sum_slack += sum(value)
+
+        reward_constraints = - sum_slack / sum(constraint_weights.values())
+        return reward_constraints
+
 
     def is_absorbing(self, obs):
         _, puck_vel = self.get_puck(obs)

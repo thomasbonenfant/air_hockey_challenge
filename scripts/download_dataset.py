@@ -30,6 +30,7 @@ def download_dataset(download_dir="downloads"):
 
     resp = obsClient.getObjectMetadata(bucketName, objectKey)
 
+    print('status',resp['status'])
     if resp['status'] != 200:
         raise Exception("Could not get download object: ", resp['reason'])
 

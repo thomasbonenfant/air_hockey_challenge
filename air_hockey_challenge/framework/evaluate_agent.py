@@ -1,4 +1,4 @@
-from air_hockey_challenge.framework.air_hockey_challenge_wrapper import AirHockeyChallengeWrapper
+from air_hockey_challenge.framework import AirHockeyChallengeWrapper
 from air_hockey_challenge.framework.challenge_core import ChallengeCore
 
 from mushroom_rl.core import Logger
