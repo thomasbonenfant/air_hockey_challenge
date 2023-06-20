@@ -49,6 +49,8 @@ class GymAirHockey(gym.Env):
         # to calculate joint velocity
         self.old_joint_pos = np.zeros(n_joints)
 
+        self.old_puck_vel = np.zeros(2)  # to check if puck was hit
+
         self.task_space = task_space
         self.task_space_vel = task_space_vel
         self.use_delta_pos = use_delta_pos
@@ -149,11 +151,17 @@ class GymAirHockey(gym.Env):
         return obs
 
     def reset(self):
-        obs =  self.challenge_env.reset()
+        obs = self.challenge_env.reset()
 
-        self.old_joint_pos = obs[self.challenge_env.env_info['joint_pos_ids']]
+        self.old_joint_pos = obs[self.env_info['joint_pos_ids']]
 
-        return self.convert_obs(obs)
+        obs = self.convert_obs(obs)
+
+        self.old_puck_vel = obs[[2,3]]
+        assert np.array_equal(self.old_puck_vel, [0,0])
+
+        return obs
+
     
     def step(self, action):
 
@@ -168,6 +176,16 @@ class GymAirHockey(gym.Env):
         self.old_joint_pos = obs[self.challenge_env.env_info['joint_pos_ids']]
 
         obs = self.convert_obs(obs)
+
+        puck_vel = obs[[2, 3]]
+
+        if np.array_equal(self.old_puck_vel, [0,0]) and not np.array_equal(puck_vel, [0,0]):
+            info['hit'] = True
+        else:
+            info['hit'] = False
+
+        # update old_puck_vel
+        self.old_puck_vel = puck_vel
 
         return obs, reward, done, False, info
 

@@ -78,6 +78,7 @@ def collect_particles(env_maker, seed, policy, num_traj, traj_len, state_filter,
     states = np.zeros((num_traj, traj_len + 1, env.num_features), dtype=np.float32)
     actions = np.zeros((num_traj, traj_len, env.action_space.shape[0]), dtype=np.float32)
     real_traj_lengths = np.zeros((num_traj, 1), dtype=np.int32)
+    hits = []
 
     for trajectory in range(num_traj):
         s = env.reset()
@@ -89,7 +90,11 @@ def collect_particles(env_maker, seed, policy, num_traj, traj_len, state_filter,
 
             actions[trajectory, t] = a
 
-            ns, _, done, _, _ = env.step(a)
+            ns, _, done, _, info = env.step(a)
+
+            # check hit count
+            if 'hit' in info:
+                hits.append(info['hit'])
 
             s = ns
 
@@ -118,8 +123,7 @@ def collect_particles(env_maker, seed, policy, num_traj, traj_len, state_filter,
 
         next_states = next_states[:, state_filter]
 
-
-    return states, actions, real_traj_lengths, next_states, next_states_fallback
+    return states, actions, real_traj_lengths, next_states, next_states_fallback, np.array(hits)
 
 
 def compute_importance_weights(behavioral_policy, target_policy, states, actions,
@@ -196,7 +200,7 @@ def collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj, tr
                                    traj_len, state_filter, fallback_state_filter)
         for _ in range(num_workers)
     )
-    states, actions, real_traj_lengths, next_states, next_states_fallback = [np.vstack(x) for x in zip(*res)]
+    states, actions, real_traj_lengths, next_states, next_states_fallback, hits = [np.vstack(x) for x in zip(*res)]
 
     distances, indices = compute_knn(k, next_states, num_workers)
 
@@ -208,7 +212,7 @@ def collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj, tr
     # distances = torch.tensor(distances, dtype=float_type)
     # indices = torch.tensor(indices, dtype=int_type)
 
-    return states, actions, real_traj_lengths, next_states, distances, indices, next_states_fallback
+    return states, actions, real_traj_lengths, next_states, distances, indices, next_states_fallback, hits
 
 
 def compute_knn(k, next_states, num_workers):
@@ -277,7 +281,7 @@ def log_epoch_statistics(writer, log_file, csv_file_1, csv_file_2, epoch,
 
 
 def log_off_iter_statistics(writer, csv_file_3, epoch, global_off_iter,
-                            num_off_iter, entropy, kl, lr):
+                            num_off_iter, entropy, kl, lr, n_hits):
     # Log to csv file 3
     csv_file_3.write(f"{epoch},{num_off_iter},{entropy},{kl},{lr}\n")
     csv_file_3.flush()
@@ -285,6 +289,7 @@ def log_off_iter_statistics(writer, csv_file_3, epoch, global_off_iter,
     # Also log to tensorboard
     writer.add_scalar("Off policy iter Entropy", entropy, global_step=global_off_iter)
     writer.add_scalar("Off policy iter KL", kl, global_step=global_off_iter)
+    writer.add_scalar("Number of hits", n_hits, global_step=global_off_iter)
 
 
 def policy_update(optimizer, behavioral_policy, target_policy, states, actions,
@@ -368,7 +373,7 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
     t0 = time.time()
 
     # Full entropy
-    states, actions, real_traj_lengths, next_states, distances, indices, _ = \
+    states, actions, real_traj_lengths, next_states, distances, indices, _, hits = \
         collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj * full_entropy_traj_scale,
                                           traj_len, state_filter, full_entropy_k, num_workers)
 
@@ -378,7 +383,7 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
                                        distances, indices, full_entropy_k, G, full_B, ns, eps)
 
     # Entropy
-    states, actions, real_traj_lengths, next_states, distances, indices, _ = \
+    states, actions, real_traj_lengths, next_states, distances, indices, _, hits = \
         collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj,
                                           traj_len, state_filter, k, num_workers)
 
@@ -436,9 +441,12 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
         num_off_iters = 0
 
         # Collect particles to optimize off policy
-        states, actions, real_traj_lengths, next_states, distances, indices, next_states_fallback = \
+        states, actions, real_traj_lengths, next_states, distances, indices, next_states_fallback, hits = \
                 collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj,
                                                   traj_len, state_filter, k, num_workers, state_filter_fallback)
+
+        # Count number of hits
+        n_hits = (hits == True).sum()
 
         if use_backtracking:
             learning_rate = original_lr
@@ -482,7 +490,7 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
 
                 # Log statistics for this off policy iteration
                 log_off_iter_statistics(writer, csv_file_3, epoch, global_num_off_iters,
-                                        num_off_iters - 1, entropy, kl, learning_rate)
+                                        num_off_iters - 1, entropy, kl, learning_rate, n_hits)
 
             else:
                 if use_backtracking:
@@ -548,7 +556,7 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
                             heatmap_image = None
 
                         # Full entropy
-                        states, actions, real_traj_lengths, next_states, distances, indices, _ = \
+                        states, actions, real_traj_lengths, next_states, distances, indices, _ , _= \
                             collect_particles_and_compute_knn(env_maker, behavioral_policy, num_traj * full_entropy_traj_scale,
                                                               traj_len, state_filter, full_entropy_k, num_workers)
 
