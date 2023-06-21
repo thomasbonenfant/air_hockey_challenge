@@ -13,8 +13,8 @@ class CustomEnvironmentWrapper(AirHockeyChallengeWrapper):
     It needs to be instanciated in air_hockey_challenge/framework/evaluate_agent.py in place of AirHockeyChallenge
     '''
 
-    def __init__(self, env):
-        super().__init__(env)
+    def __init__(self, env, **kwargs):
+        super().__init__(env, **kwargs)
 
         self.world2robot_transf = self.env_info['robot']['base_frame'][0]
         self.old_joint_pos = None
@@ -29,7 +29,6 @@ class CustomEnvironmentWrapper(AirHockeyChallengeWrapper):
 
             self.joint_pos = []
             self.joint_vel = []
-            self.joint_jerk = []
             self.joint_acc = []
 
             self.ee_pos = []
@@ -71,8 +70,6 @@ class CustomEnvironmentWrapper(AirHockeyChallengeWrapper):
             j_acc = (np.array(self.joint_vel[-1]) - np.array(self.joint_vel[-2])) / self.env_info['dt']
             self.joint_acc.append(j_acc.tolist())
 
-            self.joint_jerk.append(info['jerk'])
-
             self.ee_pos.append(self._apply_forward_kinematics(self.joint_pos[-1]))
             vel = (np.array(self.ee_pos[-1]) - np.array(self.ee_pos[-2])) / self.env_info['dt']
 
@@ -83,7 +80,7 @@ class CustomEnvironmentWrapper(AirHockeyChallengeWrapper):
             self.ee_acc.append(acc.tolist())
 
             if done or self.steps == self.info.horizon:
-                log_result = (self.joint_action, self.ee_action, self.joint_pos, self.joint_vel, self.joint_acc, self.ee_pos, self.ee_vel, self.ee_acc, self.joint_jerk)
+                log_result = (self.joint_action, self.ee_action, self.joint_pos, self.joint_vel, self.joint_acc, self.ee_pos, self.ee_vel, self.ee_acc)
                 curr_time = datetime.datetime.now()
                 with open(f'logs/custom_log_{curr_time.strftime("%Y-%m-%d_%H-%M-%S")}.pkl','wb') as f:
                     pickle.dump(log_result, f)
@@ -144,7 +141,6 @@ class CustomEnvironmentWrapper(AirHockeyChallengeWrapper):
         if self.log_data:
             self.joint_pos.append(self.old_joint_pos)
             self.joint_vel.append(np.zeros(self.env_info['robot']['n_joints']))
-            self.joint_jerk.append(np.zeros(self.env_info['robot']['n_joints']))
             self.joint_acc.append(np.zeros(self.env_info['robot']['n_joints']))
 
             self.ee_pos.append(self._apply_forward_kinematics(self.old_joint_pos))

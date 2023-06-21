@@ -22,6 +22,7 @@ class SimpleDefendingAgent(AgentEEBase):
         
         self.defend_line = -0.8
         self.traj_time = 1
+        self.ee_desired_height = env_info['robot']['ee_desired_height'] - 0.1
 
         self.v_min = -3
         self.v_max = 3
@@ -108,7 +109,7 @@ class SimpleDefendingAgent(AgentEEBase):
             y_traj = self._plan_trajectory(self.traj_time, dt, final_pos[1], final_vel[1], final_acc[1], initial_pos[1] ,\
                                             initial_vel[1], initial_acc[1])
 
-            self.trajectory = np.vstack((x_traj, y_traj, [0 for i in range(len(x_traj))])).T    
+            self.trajectory = np.vstack((x_traj, y_traj, [self.ee_desired_height for i in range(len(x_traj))])).T
 
         self.has_to_plan = False
         action = None
@@ -136,7 +137,6 @@ class SimpleDefendingAgent(AgentEEBase):
         # get puck pos from the environment and convert it to world coordinates
         puck_pos = robot_to_world(self.env_info['robot']['base_frame'][0], self.get_puck_pos(obs))[0][:2]
                         
-        #puck_velocities = robot_to_world(self.env_info['robot']['base_frame'][0], self.get_puck_vel(obs))[0][:2]
         puck_velocities = self.get_puck_vel(obs)[:2]
         
         # compute versor of the puck's velocity
