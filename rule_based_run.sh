@@ -1,0 +1,1 @@
+python run.py --n_cores 1 --n_episodes 10 --env 7dof-hit -r
