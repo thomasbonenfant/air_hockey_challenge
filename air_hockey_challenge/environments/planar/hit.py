@@ -1,4 +1,5 @@
 import numpy as np
+
 from air_hockey_challenge.environments.planar.single import AirHockeySingle
 
 
@@ -24,15 +25,9 @@ class AirHockeyHit(AirHockeySingle):
         self.init_velocity_range = (0, 0.5)  # Table Frame
         self.init_ee_range = np.array([[0.60, 1.25], [-0.4, 0.4]])  # Robot Frame
 
-    def setup(self, state=None, randomize_puck=True):
+    def setup(self, state=None):
         # Initial position of the puck
-
-        if randomize_puck:
-            puck_pos = np.random.rand(2) * (self.hit_range[:, 1] - self.hit_range[:, 0]) + self.hit_range[:, 0]
-        else:
-            puck_pos = np.array([-0.6,0,0])
-
-
+        puck_pos = np.random.rand(2) * (self.hit_range[:, 1] - self.hit_range[:, 0]) + self.hit_range[:, 0]
 
         # self.init_state = np.array([-0.9273, 0.9273, np.pi / 2])
 
@@ -41,7 +36,7 @@ class AirHockeyHit(AirHockeySingle):
 
         if self.moving_init:
             lin_vel = np.random.uniform(self.init_velocity_range[0], self.init_velocity_range[1])
-            angle = np.random.uniform(-np.pi/2 - 0.1, np.pi/2 + 0.1)
+            angle = np.random.uniform(-np.pi / 2 - 0.1, np.pi / 2 + 0.1)
             puck_vel = np.zeros(3)
             puck_vel[0] = -np.cos(angle) * lin_vel
             puck_vel[1] = np.sin(angle) * lin_vel
@@ -52,10 +47,10 @@ class AirHockeyHit(AirHockeySingle):
             self._write_data("puck_yaw_vel", puck_vel[2])
 
         super(AirHockeyHit, self).setup(state)
-        
+
     def reward(self, state, action, next_state, absorbing):
         return 0
-    
+
     def is_absorbing(self, obs):
         puck_pos, puck_vel = self.get_puck(obs)
         # Stop if the puck bounces back on the opponents wall

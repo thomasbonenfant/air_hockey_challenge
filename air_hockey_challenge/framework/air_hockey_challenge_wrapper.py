@@ -1,5 +1,7 @@
-from air_hockey_challenge.environments import position_control_wrapper as position
+from copy import deepcopy
+
 from air_hockey_challenge.constraints import *
+from air_hockey_challenge.environments import position_control_wrapper as position
 from air_hockey_challenge.utils import robot_to_world
 
 from mushroom_rl.core import Environment
@@ -7,8 +9,7 @@ from copy import deepcopy
 
 
 class AirHockeyChallengeWrapper(Environment):
-    def __init__(self, env, action_type="position-velocity", interpolation_order=3,
-                 custom_reward_function=None, **kwargs):
+    def __init__(self, env, custom_reward_function=None, interpolation_order=3, **kwargs):
         """
         Environment Constructor
 
@@ -22,16 +23,22 @@ class AirHockeyChallengeWrapper(Environment):
                 The order of the polynomial interpolator. **Do not change this value**
             custom_reward_function [callable]:
                 You can customize your reward function here.
-
+            interpolation_order (int, 3): Type of interpolation used, has to correspond to action shape. Order 1-5 are
+                    polynomial interpolation of the degree. Order -1 is linear interpolation of position and velocity.
+                    Set Order to None in order to turn off interpolation. In this case the action has to be a trajectory
+                    of position, velocity and acceleration of the shape (20, 3, n_joints)
         """
 
         env_dict = {
-            "3dof-hit": (position.PlanarPositionHit, {}),
-            "3dof-defend": (position.PlanarPositionDefend, {}),
+            "7dof-hit": position.IiwaPositionHit,
+            "7dof-defend": position.IiwaPositionDefend,
+            "7dof-prepare": position.IiwaPositionPrepare,
+
+            "3dof-hit": position.PlanarPositionHit,
+            "3dof-defend": position.PlanarPositionDefend
         }
 
-        self.base_env = env_dict[env][0](action_type=action_type, interpolation_order=interpolation_order,
-                                         **env_dict[env][1], **kwargs)
+        self.base_env = env_dict[env](interpolation_order=interpolation_order, **kwargs)
         self.env_name = env
         self.env_info = self.base_env.env_info
 
@@ -51,42 +58,30 @@ class AirHockeyChallengeWrapper(Environment):
 
         super().__init__(self.base_env.info)
 
-    def set_puck_pos(self, pos):
-        self.base_env._write_data("puck_x_pos", pos[0])
-        self.base_env._write_data("puck_y_pos", pos[1])
-        self.base_env._write_data("puck_x_vel", 0)
-        self.base_env._write_data("puck_y_vel", 0)
-
-
     def step(self, action):
         obs, reward, done, info = self.base_env.step(action)
 
-        if "opponent" in self.env_name:
-            action = self.base_env.action[:, :self.env_info['robot']["n_joints"]]
-        else:
-            action = self.base_env.action
-
-        if self.base_env.n_agents == 1:
-            info["constraints_value"] = deepcopy(self.env_info['constraints'].fun(obs[self.env_info['joint_pos_ids']],
-                                                                                  obs[self.env_info['joint_vel_ids']]))
-            info["jerk"] = self.base_env.jerk
-            info["success"] = self.check_success(obs)
-
-        if "competition" in self.env_name:
+        if "tournament" in self.env_name:
             info["constraints_value"] = list()
             info["jerk"] = list()
             for i in range(2):
-                obs_agent = obs[i * int(len(obs)/2): (i+1) * int(len(obs)/2)]
+                obs_agent = obs[i * int(len(obs) / 2): (i + 1) * int(len(obs) / 2)]
                 info["constraints_value"].append(deepcopy(self.env_info['constraints'].fun(
                     obs_agent[self.env_info['joint_pos_ids']], obs_agent[self.env_info['joint_vel_ids']])))
                 info["jerk"].append(
                     self.base_env.jerk[i * self.env_info['robot']['n_joints']:(i + 1) * self.env_info['robot'][
                         'n_joints']])
 
+            info["score"] = self.base_env.score
+
+        else:
+            info["constraints_value"] = deepcopy(self.env_info['constraints'].fun(obs[self.env_info['joint_pos_ids']],
+                                                                                  obs[self.env_info['joint_vel_ids']]))
+            info["jerk"] = self.base_env.jerk
+            info["success"] = self.check_success(obs)
+
         if done:
-            # self.set_puck_pos(np.array([-0.6,0,0]))
             obs = self.reset()
-            # obs, reward, done, info = self.step(action)
 
         return obs, reward, done, info
 
@@ -108,11 +103,11 @@ class AirHockeyChallengeWrapper(Environment):
                 success = 1
 
         elif "defend" in self.env_name:
-            if -0.8 < puck_pos[0] <= -0.29 and puck_vel[0] < 0.1:
+            if -0.8 < puck_pos[0] <= -0.2 and puck_vel[0] < 0.1:
                 success = 1
 
         elif "prepare" in self.env_name:
-            if -0.8 < puck_pos[0] <= -0.29 and puck_vel[0] < 0.1:
+            if -0.8 < puck_pos[0] <= -0.2 and np.abs(puck_pos[1]) < 0.39105 and puck_vel[0] < 0.1:
                 success = 1
         return success
 
