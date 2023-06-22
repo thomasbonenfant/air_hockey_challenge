@@ -9,14 +9,14 @@ from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_ki
 
 
 class GymAirHockey(gym.Env):
-    def __init__(self, action_type = 'position-velocity', interpolation_order=3, custom_reward_function=None,
-                 task_space=True, task_space_vel=True, use_delta_pos=True, delta_dim=0.1, use_puck_distance=True, normalize_obs=False,
-                 scale_task_space_action=False):
-        '''
+    def __init__(self, env_name, interpolation_order=3, custom_reward_function=None,
+                 task_space=True, task_space_vel=True, use_delta_pos=True, delta_dim=0.1, use_puck_distance=True):
+        """
         Args:
             task_space: if True changes the action space to x,y
-        '''
-        self.challenge_env = AirHockeyChallengeWrapper('3dof-hit', action_type=action_type,
+        """
+
+        self.challenge_env = AirHockeyChallengeWrapper(env_name,
                                                        interpolation_order=interpolation_order,
                                                        custom_reward_function=custom_reward_function)
 
@@ -26,6 +26,7 @@ class GymAirHockey(gym.Env):
         self.gamma = env_info['rl_info'].gamma
         self.large_reward = 1000
 
+        self.ee_desired_height = env_info['robot']['ee_desired_height'] - 0.1
         self.world2robot_transf = env_info['robot']['base_frame'][0]
         self.mj_model = copy.deepcopy(env_info['robot']['robot_model'])
         self.mj_data = copy.deepcopy(env_info['robot']['robot_data'])
@@ -43,8 +44,10 @@ class GymAirHockey(gym.Env):
         self.joint_min_vel = joint_min_vel = env_info['rl_info'].observation_space.low[joint_vel_ids]
         self.joint_max_vel = joint_max_vel = env_info['rl_info'].observation_space.high[joint_vel_ids]
 
-        self.max_ee_pos_action = np.array([0, table_width / 2])
-        self.min_ee_pos_action = np.array([-table_length / 2, -table_width / 2])
+        mallet_radius = env_info['mallet']['radius']
+
+        self.max_ee_pos_action = np.array([0, (table_width / 2) - mallet_radius])
+        self.min_ee_pos_action = np.array([(-table_length / 2) + mallet_radius, (-table_width / 2) + mallet_radius])
 
         # to calculate joint velocity
         self.old_joint_pos = np.zeros(n_joints)
@@ -57,8 +60,6 @@ class GymAirHockey(gym.Env):
         self.delta_dim = delta_dim
         self.use_puck_distance = use_puck_distance
         self.prev_ee_pos = None
-        self.normalize_obs = normalize_obs
-        self.scale_task_space_action = scale_task_space_action
 
         if self.task_space:
 
@@ -101,7 +102,7 @@ class GymAirHockey(gym.Env):
         ee_puck_dist_high = puck_pos_high - ee_pos_low
 
         if self.task_space:
-            self.num_features = 14 # puck_x, puck_y, dpuck_x, dpuck_y, joint_pos, joint_vel, ee_x, ee_y, deex, deey
+            self.num_features = 2*2 + 2*n_joints + 2*2 # puck_x, puck_y, dpuck_x, dpuck_y, joint_pos, joint_vel, ee_x, ee_y, deex, deey
             if self.use_puck_distance:
                 obs_low = np.hstack(
                     [puck_pos_low, puck_vel_low, joint_min_pos, joint_min_vel, ee_puck_dist_low, ee_vel_low])
@@ -112,7 +113,7 @@ class GymAirHockey(gym.Env):
                     [puck_pos_low, puck_vel_low, joint_min_pos, joint_min_vel, ee_pos_low, ee_vel_low])
                 obs_high = np.hstack([puck_pos_high, puck_vel_high, joint_max_vel, ee_pos_high, ee_vel_high])
         else:
-            self.num_features = 10
+            self.num_features = 2*2 + 2*n_joints
             obs_low = np.hstack([puck_pos_low, puck_vel_low, joint_min_pos, joint_min_vel])
             obs_high = np.hstack([puck_pos_high, puck_vel_high, joint_max_vel, joint_max_vel])
 
@@ -146,23 +147,20 @@ class GymAirHockey(gym.Env):
         else:
             obs = np.hstack((puck_pos, puck_vel, joint_pos, joint_vel))
 
-        # if self.normalize_obs:
-        #    obs = self.scale_obs(obs)
         return obs
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
         obs = self.challenge_env.reset()
 
         self.old_joint_pos = obs[self.env_info['joint_pos_ids']]
 
         obs = self.convert_obs(obs)
 
-        self.old_puck_vel = obs[[2,3]]
-        assert np.array_equal(self.old_puck_vel, [0,0])
+        self.old_puck_vel = obs[[2, 3]]
+        #assert np.array_equal(self.old_puck_vel, [0, 0])
 
         return obs
 
-    
     def step(self, action):
 
         action = self._convert_action(action)
@@ -179,7 +177,7 @@ class GymAirHockey(gym.Env):
 
         puck_vel = obs[[2, 3]]
 
-        if np.array_equal(self.old_puck_vel, [0,0]) and not np.array_equal(puck_vel, [0,0]):
+        if np.array_equal(self.old_puck_vel, [0, 0]) and not np.array_equal(puck_vel, [0, 0]):
             info['hit'] = True
         else:
             info['hit'] = False
@@ -227,19 +225,12 @@ class GymAirHockey(gym.Env):
 
                 ee_pos_action = self.prev_ee_pos + ee_pos_action
 
-            if self.scale_task_space_action:
-                if self.use_delta_pos: # reduces the square action
-                    min_action = self.delta_dim * np.array([-1, -1])
-                    max_action = self.delta_dim * np.array([1, 1])
-                    ee_pos_action = min_max_scaler(ee_pos_action, min_action, max_action)
-                else:
-                    ee_pos_action = min_max_scaler(ee_pos_action, self.min_ee_pos_action, self.max_ee_pos_action)
 
             # clip action inside table
             ee_pos_action = np.clip(ee_pos_action, a_min=self.min_ee_pos_action, a_max=self.max_ee_pos_action)
 
             # make action 3D
-            ee_pos_action = np.hstack((ee_pos_action, 0))
+            ee_pos_action = np.hstack((ee_pos_action, self.ee_desired_height))
 
             joint_pos_action = self._apply_inverse_kinematics(ee_pos_action)
 
@@ -255,69 +246,6 @@ class GymAirHockey(gym.Env):
             action = np.vstack((joint_pos_action, joint_vel_action))
 
         else:
-            action = np.reshape(action, (2, 3))
+            action = np.reshape(action, (2, self.env_info['robot']['n_joints']))
 
         return action
-
-    def scale_obs(self, obs):
-        """Normalizes state vector"""
-        puck_pos = obs[[0,1]]
-        puck_vel = obs[[2,3]]
-        joint_pos = obs[[4,5,6]]
-        joint_vel = obs[[7,8,9]]
-
-        puck_pos = unit_scaler(puck_pos, self.min_ee_pos_action, self.max_ee_pos_action)
-        puck_vel = unit_scaler(puck_vel, self.min_ee_pos_action, self.max_ee_pos_action, no_offset=True)
-        joint_pos = unit_scaler(joint_pos, self.joint_min_pos, self.joint_max_pos)
-        joint_vel = unit_scaler(joint_vel, self.joint_min_vel, self.joint_max_vel)
-
-        if self.task_space:
-            ee_vel = obs[[12,13]]
-            ee_vel = unit_scaler(ee_vel, self.min_ee_pos_action, self.max_ee_pos_action, no_offset=True)
-
-            if self.use_puck_distance:
-                dist_vector = obs[[10,11]]
-                dist_vector = unit_scaler(dist_vector, self.min_ee_pos_action, self.max_ee_pos_action, no_offset=True)
-                obs = np.hstack((puck_pos, puck_vel, joint_pos, joint_vel, dist_vector, ee_vel))
-            else:
-                ee_pos = obs[[10,11]]
-                ee_pos = unit_scaler(ee_pos, self.min_ee_pos_action, self.max_ee_pos_action)
-                obs = np.hstack((puck_pos, puck_vel, joint_pos, joint_vel, ee_pos, ee_vel))
-        else:
-            obs = np.hstack((puck_pos, puck_vel, joint_pos, joint_vel))
-
-        return obs
-
-
-def min_max_scaler(x, min_x, max_x):
-    """Converts a [-1,1] bounded vector in a [min_pos, max_pos] bounded vector"""
-
-    avg = 0.5 * (min_x + max_x)
-    scale = 0.5 * (max_x - min_x)
-
-    return avg + x * scale
-
-
-def unit_scaler(x, min_x, max_x, no_offset=False):
-    """Converts a [min, max] vector in [-1,1] vector or just scale it if no_offset=True"""
-
-    if no_offset:
-        avg = 0
-    else:
-        avg = 0.5 * (min_x + max_x)
-
-    scale = 0.5 * (max_x - min_x)
-
-    return (x - avg) / scale
-
-
-
-    
-
-
-    
-    
-
-
-
-        

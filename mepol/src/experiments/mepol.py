@@ -66,13 +66,12 @@ parser.add_argument('-f', action='append', type=int, help='Append State index to
 parser.add_argument('--flag_heatmap', type=int, required=True, choices=[0, 1])
 
 # environment parameters
+parser.add_argument('--env_name', type=str, required=True, choices=['3dof-hit', '7dof-hit'])
 parser.add_argument('--task_space', type=int, required=True, choices=[0, 1], help='Whether use task space actions')
 parser.add_argument('--task_space_vel', type=int, required=True, choices=[0, 1], help='Use inv kinematics for velocity')
 parser.add_argument('--use_delta_pos', type=int, required=True, choices=[0, 1], help='Use Delta Pos Actions')
 parser.add_argument('--delta_dim', type=float, default=0.1)
 parser.add_argument('--use_puck_distance', type=int, required=True, choices=[0, 1])
-parser.add_argument('--normalize_obs', type=int, required=True, choices=[0, 1])
-parser.add_argument('--scale_task_space_action', type=int, required=True, choices=[0, 1])
 
 #policy parameters
 parser.add_argument('--use_tanh', type=int, required=True, choices=[0, 1])
@@ -81,7 +80,8 @@ parser.add_argument('--log_std', type=float, required=False, default=-0.5)
 
 args = parser.parse_args()
 
-env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_delta_pos', 'delta_dim', 'use_puck_distance')}
+env_parameters = {k: vars(args)[k] for k in ('env_name', 'task_space', 'task_space_vel',
+                                             'use_delta_pos', 'delta_dim', 'use_puck_distance')}
 policy_parameters = {k: vars(args)[k] for k in ('use_tanh',)}
 
 

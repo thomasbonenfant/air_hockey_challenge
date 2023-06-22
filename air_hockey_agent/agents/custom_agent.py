@@ -17,6 +17,7 @@ class CustomAgent(AgentBase):
 
         n_joints = env_info['robot']['n_joints']
 
+        self.ee_desired_height = env_info['robot']['ee_desired_height'] - 0.1
         self.world2robot_transf = env_info['robot']['base_frame'][0]
         self.mj_model = copy.deepcopy(env_info['robot']['robot_model'])
         self.mj_data = copy.deepcopy(env_info['robot']['robot_data'])
@@ -88,7 +89,7 @@ class CustomAgent(AgentBase):
         ee_puck_dist_high = puck_pos_high - ee_pos_low
 
         if self.task_space:
-            self.num_features = 14  # puck_x, puck_y, dpuck_x, dpuck_y, joint_pos, joint_vel, ee_x, ee_y, deex, deey
+            self.num_features = 2 * 2 + 2 * n_joints + 2 * 2 # puck_x, puck_y, dpuck_x, dpuck_y, joint_pos, joint_vel, ee_x, ee_y, deex, deey
             if self.use_puck_distance:
                 obs_low = np.hstack(
                     [puck_pos_low, puck_vel_low, joint_min_pos, joint_min_vel, ee_puck_dist_low, ee_vel_low])
@@ -220,7 +221,8 @@ class CustomAgent(AgentBase):
             ee_pos_action = np.clip(ee_pos_action, a_min=self.min_ee_pos_action, a_max=self.max_ee_pos_action)
 
             # make action 3D
-            ee_pos_action = np.hstack((ee_pos_action, 0))
+            ee_pos_action = np.hstack((ee_pos_action, self.ee_desired_height))
+            print(ee_pos_action)
 
             joint_pos_action = self._apply_inverse_kinematics(ee_pos_action)
 
@@ -236,6 +238,6 @@ class CustomAgent(AgentBase):
             action = np.vstack((joint_pos_action, joint_vel_action))
 
         else:
-            action = np.reshape(action, (2, 3))
+            action = np.reshape(action, (2, self.env_info['robot']['n_joints']))
 
         return action
