@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 from datetime import datetime
-from mepol.src.envs.air_hockey import GymAirHockey
+from mepol.src.envs.air_hockey import GymAirHockey, GymAirHockeyAcceleration
 from utils.env_utils import NormalizedBoxEnv
 from mepol.src.envs.discretizer import Discretizer
 from mepol.src.envs.wrappers import ErgodicEnv
@@ -72,6 +72,7 @@ parser.add_argument('--task_space_vel', type=int, required=True, choices=[0, 1],
 parser.add_argument('--use_delta_pos', type=int, required=True, choices=[0, 1], help='Use Delta Pos Actions')
 parser.add_argument('--delta_dim', type=float, default=0.1)
 parser.add_argument('--use_puck_distance', type=int, required=True, choices=[0, 1])
+parser.add_argument('--max_acc', type=float, default=1, help='Max Acceleration for GymAirHockeyAcc')
 
 #policy parameters
 parser.add_argument('--use_tanh', type=int, required=True, choices=[0, 1])
@@ -81,7 +82,7 @@ parser.add_argument('--log_std', type=float, required=False, default=-0.5)
 args = parser.parse_args()
 
 env_parameters = {k: vars(args)[k] for k in ('env_name', 'task_space', 'task_space_vel',
-                                             'use_delta_pos', 'delta_dim', 'use_puck_distance')}
+                                             'use_delta_pos', 'delta_dim', 'use_puck_distance', 'max_acc')}
 policy_parameters = {k: vars(args)[k] for k in ('use_tanh',)}
 
 
@@ -120,6 +121,20 @@ exp_spec = {
         'heatmap_cmap': 'Blues',
         'heatmap_labels': ('Puck_X', 'Puck_Y')
     },
+    'AirHockeyAcc': {
+        'env_create': lambda: NormalizedBoxEnv(ErgodicEnv(GymAirHockeyAcceleration(**env_parameters))),
+        'discretizer_create': make_discretizer,
+        'hidden_sizes': [400, 300],
+        'activation': nn.ReLU,
+        'log_std_init': args.log_std,
+        'eps': 0,
+        'state_filter': args.s,
+        'fallback_state_filter': args.f,
+        'heatmap_interp': 'spline16',
+        'heatmap_cmap': 'Blues',
+        'heatmap_labels': ('Puck_X', 'Puck_Y')
+
+    }
 }
 
 spec = exp_spec.get(args.env)

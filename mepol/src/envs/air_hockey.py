@@ -249,3 +249,48 @@ class GymAirHockey(gym.Env):
             action = np.reshape(action, (2, self.env_info['robot']['n_joints']))
 
         return action
+
+class GymAirHockeyAcceleration(gym.Env):
+    def __init__(self, env_name, interpolation_order=3, custom_reward_function=None, max_acceleration=1, **kwargs):
+        self.wrapped_env = GymAirHockey(env_name,
+                                        interpolation_order=interpolation_order,
+                                        custom_reward_function=custom_reward_function,
+                                        delta_dim=1,
+                                        use_puck_distance=True,
+                                        task_space=True,
+                                        task_space_vel=False,
+                                        use_delta_pos=True)
+
+        self.max_acceleration = max_acceleration
+        self.curr_ee_vel = np.array([0,0])
+        self.dt = self.wrapped_env.env_info['dt']
+
+        low_acc = np.array([0,0])
+        high_acc = np.array([max_acceleration, 2*np.pi])
+        self.action_space = spaces.Box(low=low_acc, high=high_acc)
+        self.observation_space = self.wrapped_env.observation_space
+        self.num_features = self.wrapped_env.num_features
+
+    def reset(self, seed=None, options=None):
+        obs = self.wrapped_env.reset()
+
+        self.curr_ee_vel = obs[-2:]
+
+        return obs
+
+    def step(self, polar_action):
+
+        x_cart = polar_action[0]*np.cos(polar_action[1])
+        y_cart = polar_action[0]*np.sin(polar_action[1])
+        cartesian_acc = np.array([x_cart, y_cart])
+
+        delta_ee_pos = self.curr_ee_vel * self.dt + 0.5 * cartesian_acc * (self.dt ** 2)
+
+        obs, reward, done, truncated, info = self.wrapped_env.step(delta_ee_pos)
+
+        self.curr_ee_vel = obs[-2:]
+
+        return obs, reward, done, truncated, info
+
+    def render(self, mode='human'):
+        self.wrapped_env.render(mode)
