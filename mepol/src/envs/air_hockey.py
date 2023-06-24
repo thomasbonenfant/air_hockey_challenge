@@ -10,7 +10,7 @@ from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_ki
 
 class GymAirHockey(gym.Env):
     def __init__(self, env_name, interpolation_order=3, custom_reward_function=None,
-                 task_space=True, task_space_vel=True, use_delta_pos=True, delta_dim=0.1, use_puck_distance=True):
+                 task_space=True, task_space_vel=True, use_delta_pos=True, delta_dim=0.1, use_puck_distance=True, **kwargs):
         """
         Args:
             task_space: if True changes the action space to x,y
@@ -45,6 +45,7 @@ class GymAirHockey(gym.Env):
         self.joint_max_vel = joint_max_vel = env_info['rl_info'].observation_space.high[joint_vel_ids]
 
         mallet_radius = env_info['mallet']['radius']
+        puck_radius = env_info['puck']['radius']
 
         self.max_ee_pos_action = np.array([0, (table_width / 2) - mallet_radius])
         self.min_ee_pos_action = np.array([(-table_length / 2) + mallet_radius, (-table_width / 2) + mallet_radius])
@@ -89,10 +90,10 @@ class GymAirHockey(gym.Env):
 
         # observation space specification
 
-        puck_pos_low = np.array([-table_length / 2, -table_width / 2])
-        puck_pos_high = np.array([table_length / 2, table_width / 2])
-        ee_pos_low = np.array([-table_length / 2, -table_width / 2])
-        ee_pos_high = np.array([table_length / 2, table_width / 2])
+        puck_pos_low = np.array([-table_length / 2 + puck_radius, -table_width / 2 + puck_radius])
+        puck_pos_high = np.array([table_length / 2 - puck_radius, table_width / 2 - puck_radius])
+        ee_pos_low = np.array([-table_length / 2 + mallet_radius, -table_width / 2 + mallet_radius])
+        ee_pos_high = np.array([table_length / 2 - mallet_radius, table_width / 2 - mallet_radius])
         puck_vel_low = env_info['rl_info'].observation_space.low[puck_vel_ids][:2]
         puck_vel_high = env_info['rl_info'].observation_space.high[puck_vel_ids][:2]
         ee_vel_low = env_info['rl_info'].observation_space.low[puck_vel_ids][:2]

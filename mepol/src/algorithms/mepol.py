@@ -300,14 +300,20 @@ def policy_update(optimizer, behavioral_policy, target_policy, states, actions,
     loss = - compute_entropy(behavioral_policy, target_policy, states, actions,
                              num_traj, traj_len, distances, indices, k, G, B, ns, eps)
 
+    #numeric_error = torch.isinf(loss) or torch.isnan(loss)
+    if torch.isinf(loss) or torch.isnan(loss):
+        loss = torch.tensor([1000])
 
-    numeric_error = torch.isinf(loss) or torch.isnan(loss)
+    #if not numeric_error:
+    #    loss.backward()
+    #    optimizer.step()
 
-    if not numeric_error:
-        loss.backward()
-        optimizer.step()
+    loss.backward()
+    optimizer.step()
 
-    return loss, numeric_error
+    #return loss, numeric_error
+
+    return loss, False
 
 
 def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_policy, k, kl_threshold, max_off_iters,
@@ -526,9 +532,11 @@ def mepol(env, env_name, env_maker, state_filter, state_filter_fallback, create_
                                               states, actions, num_traj, real_traj_lengths,
                                               distances, indices, k, G, B, ns, eps)
 
-                if torch.isnan(entropy) or torch.isinf(entropy):
-                    print("Aborting because final entropy is nan or inf...")
-                    print("There is most likely a problem in knn aliasing. Use a higher k.")
+                if torch.isnan(entropy):
+                    print("Aborting because final entropy is nan...")
+                    exit()
+                elif torch.isinf(entropy):
+                    print("Aborting because final entropy is nan...")
                     exit()
                 else:
                     # End of epoch, prepare statistics to log
