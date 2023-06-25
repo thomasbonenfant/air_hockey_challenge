@@ -1,20 +1,17 @@
 import os
-import mujoco
-import yaml
 
+import mujoco
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+from air_hockey_challenge.environments.data.planar import __file__ as env_path
 from mushroom_rl.environments.mujoco import MuJoCo, ObservationType
 from mushroom_rl.utils.spaces import Box
-
-from air_hockey_challenge.environments.data.planar import __file__ as env_path
 
 
 class AirHockeyBase(MuJoCo):
     """
-    Abstract class for all AirHockey Environments that implements a model mismatch
-    by modifying the body "pos" after the model has been loaded
+    Abstract class for all AirHockey Environments.
 
     """
 
@@ -106,8 +103,8 @@ class AirHockeyBase(MuJoCo):
             "joint_vel_limit": np.array([[-np.pi / 2, -np.pi / 2, -np.pi * 2 / 3],
                                          [np.pi / 2, np.pi / 2, np.pi * 2 / 3]]),
 
-            "joint_acc_limit": np.array([[-2 * np.pi, -2 * np.pi, -2 * 4/3 * np.pi],
-                                         [2 * np.pi, 2 * np.pi, 2 * 4/3 * np.pi]]),
+            "joint_acc_limit": np.array([[-2 * np.pi, -2 * np.pi, -2 * 4 / 3 * np.pi],
+                                         [2 * np.pi, 2 * np.pi, 2 * 4 / 3 * np.pi]]),
             "base_frame": [],
             "control_frequency": 50,
         }
@@ -130,38 +127,12 @@ class AirHockeyBase(MuJoCo):
         robot_model = mujoco.MjModel.from_xml_path(
             os.path.join(os.path.dirname(os.path.abspath(env_path)), "planar_robot_1.xml"))
         robot_model.body('planar_robot_1/base').pos = np.zeros(3)
-        
-        # MODEL MISMATCH: access mujoco's model, in the super, and modify the position of the body to create a mismatch
-
-        # load configuration file
-        path = 'air_hockey_agent/environment_config.yml'
-        if os.path.exists(path):
-            with open(path, 'r') as stream:
-                config = yaml.safe_load(stream)
-                
-                if config['is_model_mismatched']:
-                    
-                    displacement_percentage = config['displacement_percentage'] # negative displacements tend to have a worse impact on the success rate
-                    body_to_displace = config['body_to_displace']
-                    robot = config['robot']
-
-                    # effectively degrades agent's performances but the render has a floating arm
-                    for k in body_to_displace:
-                        if k in ["body_1", "body_2", "body_3"]: # check if argument is valid
-                            if k == "body_1":
-                                self._model.body(robot + "/" + k).pos = (0, 0, 0.25*(1+displacement_percentage))
-                            elif k == "body_2":
-                                self._model.body(robot + "/" + k).pos = (0.55*(1+displacement_percentage), 0, 0)
-                            elif k == "body_3":
-                                self._model.body(robot + "/" + k).pos = (0.44*(1+displacement_percentage), 0, 0)
-                        else:
-                            print(f"Invalid argument '{k}' valid arguments are: \'body_1\', \'body_2\', \'body_3\'")
-                    
         robot_data = mujoco.MjData(robot_model)
 
         # Add env_info that requires mujoco models
         self.env_info['dt'] = self.dt
-        self.env_info["robot"]["joint_pos_limit"] = np.array([self._model.joint(f"planar_robot_1/joint_{i + 1}").range for i in range(3)]).T
+        self.env_info["robot"]["joint_pos_limit"] = np.array(
+            [self._model.joint(f"planar_robot_1/joint_{i + 1}").range for i in range(3)]).T
         self.env_info["robot"]["robot_model"] = robot_model
         self.env_info["robot"]["robot_data"] = robot_data
         self.env_info["rl_info"] = self.info
@@ -188,9 +159,9 @@ class AirHockeyBase(MuJoCo):
                                        for i in range(self.env_info['robot']['n_joints'])]),
                             *self.env_info['robot']['joint_vel_limit'][0]])
         obs_high = np.array([3.02, 1, np.pi, 20., 20., 100,
-                            *np.array([self._model.joint(f"planar_robot_1/joint_{i + 1}").range[1]
-                                       for i in range(self.env_info['robot']['n_joints'])]),
-                            *self.env_info['robot']['joint_vel_limit'][1]])
+                             *np.array([self._model.joint(f"planar_robot_1/joint_{i + 1}").range[1]
+                                        for i in range(self.env_info['robot']['n_joints'])]),
+                             *self.env_info['robot']['joint_vel_limit'][1]])
         if self.n_agents == 2:
             obs_low = np.concatenate([obs_low, [1.5, -1.5, -1.5]])
             obs_high = np.concatenate([obs_high, [4.5, 1.5, 1.5]])

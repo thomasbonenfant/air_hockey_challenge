@@ -1,5 +1,7 @@
 import copy
+
 import numpy as np
+
 from air_hockey_challenge.utils.kinematics import forward_kinematics, jacobian
 
 
@@ -178,4 +180,33 @@ class EndEffectorConstraint(Constraint):
         jac = jacobian(self.robot_model, self.robot_data, q)
         dc_dx = np.array([[-1, 0., 0.], [0., -1., 0.], [0., 1., 0.], [0., 0., -1.], [0., 0., 1.]])
         self._jac_value[:, :self._env_info['robot']['n_joints']] = dc_dx @ jac[:3, :self._env_info['robot']['n_joints']]
+        return self._jac_value
+
+
+class LinkConstraint(Constraint):
+    def __init__(self, env_info, **kwargs):
+        # 1 Dimension: wrist_z > minimum_height
+        # 2 Dimension: elbow_z > minimum_height
+        super().__init__(env_info, output_dim=2, **kwargs)
+        self._name = "link_constr"
+
+        self.robot_model = copy.deepcopy(self._env_info['robot']['robot_model'])
+        self.robot_data = copy.deepcopy(self._env_info['robot']['robot_data'])
+
+        self.z_lb = 0.25
+
+    def _fun(self, q, dq):
+        wrist_pos, _ = forward_kinematics(self.robot_model, self.robot_data, q, link="7")
+        elbow_pos, _ = forward_kinematics(self.robot_model, self.robot_data, q, link="4")
+        self._fun_value = np.array([-wrist_pos[2] + self.z_lb,
+                                    -elbow_pos[2] + self.z_lb])
+        return self._fun_value
+
+    def _jacobian(self, q, dq):
+        jac_wrist = jacobian(self.robot_model, self.robot_data, q, link="7")
+        jac_elbow = jacobian(self.robot_model, self.robot_data, q, link="4")
+        self._jac_value[:, :self._env_info['robot']['n_joints']] = np.vstack([
+            -jac_wrist[2, :self._env_info['robot']['n_joints']],
+            -jac_elbow[2, :self._env_info['robot']['n_joints']],
+        ])
         return self._jac_value

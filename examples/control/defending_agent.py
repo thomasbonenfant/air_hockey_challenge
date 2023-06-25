@@ -1,7 +1,9 @@
-import time
 import threading
+import time
+
 import numpy as np
 from scipy.interpolate import CubicSpline
+
 from air_hockey_challenge.framework.agent_base import AgentBase
 from baseline.baseline_agent import BezierPlanner, TrajectoryOptimizer, PuckTracker
 
@@ -171,7 +173,7 @@ def main():
     import matplotlib
     matplotlib.use("tkAgg")
 
-    env = AirHockeyChallengeWrapper(env="3dof-defend", debug=True)
+    env = AirHockeyChallengeWrapper(env="7dof-defend", interpolation_order=3, debug=True)
 
     agent = DefendingAgent(env.base_env.env_info)
 

@@ -1,11 +1,13 @@
-import time
 import copy
+import time
+
+import mujoco
+import nlopt
 import numpy as np
 import osqp
-import nlopt
 import scipy.linalg
 from scipy import sparse
-import mujoco
+
 from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_kinematics, jacobian, link_to_xml_name
 
 
@@ -54,9 +56,9 @@ class TrajectoryOptimizer:
         P = (N_J.T @ np.diag(self.anchor_weights) @ N_J) / 2
         q = (b - dq_anchor).T @ np.diag(self.anchor_weights) @ N_J
         A = N_J.copy()
-        u = np.minimum(self.env_info['robot']['joint_vel_limit'][1] * 0.92,
+        u = np.minimum(self.env_info['robot']['joint_vel_limit'][1] * 0.9,
                        (self.env_info['robot']['joint_pos_limit'][1] * 0.92 - q_cur) / self.env_info['dt']) - b
-        l = np.maximum(self.env_info['robot']['joint_vel_limit'][0] * 0.92,
+        l = np.maximum(self.env_info['robot']['joint_vel_limit'][0] * 0.9,
                        (self.env_info['robot']['joint_pos_limit'][0] * 0.92 - q_cur) / self.env_info['dt']) - b
 
         solver = osqp.OSQP()
@@ -99,7 +101,7 @@ class TrajectoryOptimizer:
         xopt = opt.optimize(x[:dim])
         return opt.last_optimize_result() > 0, xopt
 
-    def solve_hit_config_ik_null(self, x_des, v_des, q_0):
+    def solve_hit_config_ik_null(self, x_des, v_des, q_0, max_time=5e-3):
         t_start = time.time()
         reg = 0e-6
         dim = q_0.shape[0]
@@ -109,7 +111,7 @@ class TrajectoryOptimizer:
         progress_thresh = 20.0
         max_update_norm = 0.1
         i = 0
-        TIME_MAX = 5e-3
+        TIME_MAX = max_time
         success = False
 
         dtype = self.robot_data.qpos.dtype
@@ -188,4 +190,3 @@ def numerical_grad(fun, q):
         q_neg[i] -= eps
         grad[i] = (fun(q_pos, np.array([])) - fun(q_neg, np.array([]))) / 2 / eps
     return grad
-
