@@ -76,7 +76,7 @@ class BaselineAgent(AgentBase):
             if len(self.state.trajectory_buffer) > 0:
                 break
             else:
-                print("iterate")
+                # print("iterate")
                 pass
 
         self.state.q_cmd, self.state.dq_cmd = self.state.trajectory_buffer[0]

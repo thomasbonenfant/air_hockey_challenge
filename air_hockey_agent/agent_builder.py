@@ -1,6 +1,6 @@
 from air_hockey_challenge.framework.agent_base import AgentBase
 from baseline.baseline_agent.tactics import *
-
+import keras as tfk
 
 def build_agent(env_info, **kwargs):
     """
@@ -61,11 +61,63 @@ class BaselineAgent(AgentBase):
                                   Repel(self.env_info, self.agent_params, self.state, self.traj_generator),
                                   Smash(self.env_info, self.agent_params, self.state, self.traj_generator)]
 
+        self.lstm = tfk.models.load_model("LSTMwithScale")
+
+        self.min = np.array([0.0, -1.0, -3.14159265, -20.0, -20.0, -100.0])
+        self.max = np.array([3.02, 1.0, 3.14159265, 20.0, 20.0, 100.0])
+
+        self.sequence_length = 10
+        # 6 is the x,y and yaw of pos and vel
+        # self.last_seq = np.zeros(1, self.sequence_length, 6)
+        self.last_seq = np.empty((1, self.sequence_length, 6))
+        self.initial = True
+
+    def preprocess(self, puckpos, puckvel):
+        puckstate = np.concatenate((puckpos, puckvel), axis=0).reshape(1, 1, 6)
+        puckstate = (puckstate - self.min) / (self.max - self.min)
+
+
+        if self.initial:
+            self.last_seq = np.tile(puckstate, (1, self.sequence_length, 1))
+            self.initial = False
+        else:
+            self.last_seq = np.roll(self.last_seq, shift=-1, axis=1)
+            self.last_seq[:, -1, :] = puckstate
+        pred = self.lstm.predict([self.last_seq, puckstate], verbose=0)
+        # zeros = np.zeros((pred.shape[0], pred.shape[1], 4))
+        zeros = np.zeros((pred.shape[0], pred.shape[1], 3))
+
+        result = np.concatenate((pred, zeros), axis=-1)
+        denoised = (result * (self.max - self.min)) + self.min
+        puckposx = denoised[0, 0, 0]
+        puckposy = denoised[0, 0, 1]
+        puckposyaw = denoised[0, 0, 2]
+
+        return [puckposx, puckposy, puckposyaw]
+
     def reset(self):
         self.state.reset()
+        self.initial = True
+
+
+
 
     def draw_action(self, obs):
-        self.state.update_observation(self.get_joint_pos(obs), self.get_joint_vel(obs), self.get_puck_pos(obs))
+        puck_pos = self.get_puck_pos(obs)
+        puck_vel = self.get_puck_vel(obs)
+
+        # denoiser with only pos x and y as output
+        # puck_new_posx, puck_new_posy = self.preprocess(puck_pos, puck_vel)
+        # self.state.update_observation(self.get_joint_pos(obs), self.get_joint_vel(obs), [puck_new_posx,
+        #                                                                                  puck_new_posy,
+        #                                                                                  self.get_puck_pos(obs)[2]])
+
+        # denoiser with x, y and yaw as output
+        puck_state = self.preprocess(puck_pos, puck_vel)
+        self.state.update_observation(self.get_joint_pos(obs), self.get_joint_vel(obs), puck_state)
+
+        # without denoiser
+        # self.state.update_observation(self.get_joint_pos(obs), self.get_joint_vel(obs), self.get_puck_pos(obs))
 
         while True:
             self.tactics_processor[self.state.tactic_current.value].update_tactic()
@@ -76,7 +128,7 @@ class BaselineAgent(AgentBase):
             if len(self.state.trajectory_buffer) > 0:
                 break
             else:
-                print("iterate")
+                # print("iterate")
                 pass
 
         self.state.q_cmd, self.state.dq_cmd = self.state.trajectory_buffer[0]
