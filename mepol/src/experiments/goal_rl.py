@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 from datetime import datetime
-from mepol.src.envs.air_hockey import GymAirHockey
+from mepol.src.envs.air_hockey import GymAirHockey, GymAirHockeyAcceleration
 from mepol.src.algorithms.trpo import trpo
 from mepol.src.policy import GaussianPolicy
 from utils.env_utils import NormalizedBoxEnv
@@ -52,13 +52,14 @@ parser.add_argument('--tb_dir_name', type=str, default='goal_rl',
 parser.add_argument('--log_dir', type=str, default='/data/air_hockey/thomas')
 
 # environment parameters
+parser.add_argument('--env_name', type=str, required=True, choices=['3dof-hit', '7dof-hit'])
 parser.add_argument('--task_space', type=int, required=True, choices=[0, 1], help='Whether use task space actions')
 parser.add_argument('--task_space_vel', type=int, required=True, choices=[0, 1], help='Use inv kinematics for velocity')
 parser.add_argument('--use_delta_pos', type=int, required=True, choices=[0, 1], help='Use Delta Pos Actions')
 parser.add_argument('--delta_dim', type=float, default=0.1)
 parser.add_argument('--use_puck_distance', type=int, required=True, choices=[0, 1])
-parser.add_argument('--normalize_obs', type=int, required=True, choices=[0, 1])
-parser.add_argument('--scale_task_space_action', type=int, required=True, choices=[0, 1])
+parser.add_argument('--max_acc', type=float, default=1, help='Max Acceleration for GymAirHockeyAcc')
+
 
 #policy parameters
 parser.add_argument('--use_tanh', type=int, required=True, choices=[0, 1])
@@ -66,7 +67,7 @@ parser.add_argument('--log_std', type=float, required=False, default=-0.5)
 
 args = parser.parse_args()
 
-env_parameters = {k: vars(args)[k] for k in ('task_space', 'task_space_vel', 'use_delta_pos', 'delta_dim', 'use_puck_distance')}
+env_parameters = {k: vars(args)[k] for k in ('env_name', 'max_acc', 'task_space', 'task_space_vel', 'use_delta_pos', 'delta_dim', 'use_puck_distance')}
 policy_parameters = {k: vars(args)[k] for k in ('use_tanh',)}
 
 """
@@ -90,6 +91,12 @@ exp_spec = {
         'activation': nn.ReLU,
         'log_std_init': args.log_std,
     },
+    'AirHockeyAcc': {
+        'env_create': lambda: NormalizedBoxEnv(GymAirHockeyAcceleration(**env_parameters)),
+        'hidden_sizes': [400, 300],
+        'activation': nn.ReLU,
+        'log_std_init': args.log_std,
+    }
 
 }
 

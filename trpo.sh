@@ -1,10 +1,11 @@
 python -m mepol.src.experiments.goal_rl.py \
-    --env "AirHockey" \
-    --num_workers 10 \
+    --env "AirHockeyAcc" \
+    --env_name "3dof-hit" \
+    --num_workers 5 \
     --num_epochs 1000 \
     --batch_size 5000 \
     --traj_len 400 \
-    --gamma 0.995 \
+    --gamma 0.999 \
     --lambd 0.98 \
     --optimizer "adam" \
     --critic_lr 0.01 \
@@ -15,12 +16,10 @@ python -m mepol.src.experiments.goal_rl.py \
     --cg_damping 0.1 \
     --kl_thresh 0.01 \
     --task_space 1 \
-    --scale_task_space_action 0 \
     --task_space_vel 0 \
     --use_delta_pos 1 \
-    --delta_dim 0.3  \
+    --delta_dim 1 \
     --use_puck_distance 1 \
-    --normalize_obs 0 \
     --use_tanh 1 \
     --log_std -0.5 \
-    --policy_init "/data/air_hockey/thomas/exploration/mepol/exp_name=Delta Action only puck entropy 2,env=AirHockey,z_mu_start=1,k=500,kl_thresh=1.0,max_off_iters=1,num_traj=20,traj_len=400,lr=1e-05,opt=adam,fe_traj_sc=1,fe_k=500,use_bt=1,bt_coeff=2,max_bt_try=10__2023_06_03_12_25_40__5281/1100-policy"
+    --policy_init "/data/air_hockey/thomas/policies/50_max_acceleration-policy"

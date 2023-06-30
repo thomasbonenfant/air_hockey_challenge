@@ -301,8 +301,7 @@ def policy_update(optimizer, behavioral_policy, target_policy, states, actions,
                              num_traj, traj_len, distances, indices, k, G, B, ns, eps)
 
     #numeric_error = torch.isinf(loss) or torch.isnan(loss)
-    if torch.isinf(loss) or torch.isnan(loss):
-        loss = torch.tensor([1000])
+    loss = torch.clip(loss, min=None, max=1000)
 
     #if not numeric_error:
     #    loss.backward()

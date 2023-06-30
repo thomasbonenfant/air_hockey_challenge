@@ -202,6 +202,9 @@ class GymAirHockey(gym.Env):
                                                     position_robot_frame)
         return action_joints
 
+    def solve_QP(self):
+        pass
+
     def _apply_forward_velocity_kinematics(self, joint_pos, joint_vel):
 
         jac = jacobian(self.mj_model, self.mj_data, joint_pos)[:3]  # last part of the matrix is about rotation.
@@ -226,8 +229,10 @@ class GymAirHockey(gym.Env):
 
                 ee_pos_action = self.prev_ee_pos + ee_pos_action
 
+            # following flag is used to know if joint accelerations need to be set to 0 if we are going on border
+            has_to_clip = (ee_pos_action > self.min_ee_pos_action).all() and (ee_pos_action < self.max_ee_pos_action).all()
 
-            # clip action inside table
+            # clip action into table
             ee_pos_action = np.clip(ee_pos_action, a_min=self.min_ee_pos_action, a_max=self.max_ee_pos_action)
 
             # make action 3D
@@ -241,7 +246,10 @@ class GymAirHockey(gym.Env):
                 joint_vel_action = pinv(jac) @ ee_vel_action
 
             else:
-                joint_vel_action = (joint_pos_action - self.old_joint_pos) / self.challenge_env.env_info['dt']
+                if not has_to_clip:
+                    joint_vel_action = (joint_pos_action - self.old_joint_pos) / self.challenge_env.env_info['dt']
+                else:
+                    joint_vel_action = np.zeros((self.env_info['robot']['n_joints']))
 
             # creates (2,3) array
             action = np.vstack((joint_pos_action, joint_vel_action))
@@ -286,8 +294,12 @@ class GymAirHockeyAcceleration(gym.Env):
         cartesian_acc = np.array([x_cart, y_cart])
 
         delta_ee_pos = self.curr_ee_vel * self.dt + 0.5 * cartesian_acc * (self.dt ** 2)
+        next_ee_vel = self.curr_ee_vel + cartesian_acc * self.dt
 
-        obs, reward, done, truncated, info = self.wrapped_env.step(delta_ee_pos)
+        # action = np.hstack((delta_ee_pos, next_ee_vel))
+        action = delta_ee_pos
+
+        obs, reward, done, truncated, info = self.wrapped_env.step(action)
 
         self.curr_ee_vel = obs[-2:]
 
