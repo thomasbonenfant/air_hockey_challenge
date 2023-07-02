@@ -12,6 +12,7 @@ from air_hockey_challenge.framework.air_hockey_challenge_wrapper import AirHocke
 from air_hockey_challenge.framework.challenge_core import ChallengeCore
 from mushroom_rl.core import Logger
 from mushroom_rl.utils.dataset import compute_episodes_length
+import pickle
 
 PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, "computation_time_minor": 0.5,
                   "computation_time_middle": 1, "computation_time_major": 2}
@@ -185,7 +186,7 @@ def _evaluate(log_dir, env, agent_builder, init_states, quiet, render, episode_o
 
     eval_params = {"quiet": quiet, "render": render, "initial_states": init_states}
 
-    mdp = AirHockeyChallengeWrapper(env, interpolation_order=interpolation_order)
+    mdp = AirHockeyChallengeWrapper(env, interpolation_order=interpolation_order, **kwargs)
 
     agent = agent_builder(mdp.env_info, **kwargs)
     core = ChallengeCore(agent, mdp, is_tournament=False, init_state=mdp.base_env.init_state)
@@ -205,7 +206,7 @@ def _evaluate(log_dir, env, agent_builder, init_states, quiet, render, episode_o
 
 def compute_metrics(core, eval_params, episode_offset):
     dataset, dataset_info = core.evaluate(**eval_params, get_env_info=True)
-
+    filename = "memory.pkl"
     episode_length = compute_episodes_length(dataset)
     n_episodes = len(episode_length)
 
@@ -217,9 +218,23 @@ def compute_metrics(core, eval_params, episode_offset):
     current_idx = 0
     current_eps = episode_offset
     violations = defaultdict(list)
+    processed_len = 0
+    try:
+        with open(filename, 'rb') as file:
+            memory = pickle.load(file)
+            memory = memory.tolist()
+        print(f"Loaded memory {filename}")
+    except:
+        print("Couldn't load memory. Creating new one")
+        memory = []
 
     # Iterate over episodes
     for episode_len in episode_length:
+
+        dataset_info_partial = dataset_info['constraints_value'][:processed_len + episode_len]
+        memory.append([dataset[:processed_len + episode_len], dataset_info_partial])
+        processed_len += episode_len
+
         # Only check last step of episode for success
         success += dataset_info["success"][current_idx + episode_len - 1]
 
@@ -247,7 +262,9 @@ def compute_metrics(core, eval_params, episode_offset):
 
         current_idx += episode_len
         current_eps += 1
-
+    memory = np.array(memory)
+    with open(filename, "wb") as outp:
+        pickle.dump(memory, outp)
     success = success / n_episodes
 
     return dataset, success, penalty_sum, constraints_dict, dataset_info["computation_time"], violations
