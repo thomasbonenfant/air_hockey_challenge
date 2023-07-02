@@ -11,7 +11,7 @@ def build_agent(env_info, **kwargs):
     :return: Either Agent ot Policy
     """
     if "hit" in env_info["env_name"]:
-        return BaselineAgent(env_info, **kwargs, agent_id=1)
+        return BaselineAgent(env_info, percentage=0.1,  **kwargs, agent_id=1)
     if "defend" in env_info["env_name"]:
         return BaselineAgent(env_info, **kwargs, agent_id=1, only_tactic="defend")
     if "prepare" in env_info["env_name"]:
@@ -21,7 +21,7 @@ def build_agent(env_info, **kwargs):
 
 
 class BaselineAgent(AgentBase):
-    def __init__(self, env_info, agent_id=1, only_tactic=None, **kwargs):
+    def __init__(self, env_info, agent_id=1, only_tactic=None, percentage=0.0, **kwargs):
         super(BaselineAgent, self).__init__(env_info, agent_id, **kwargs)
 
         if self.env_info['robot']['n_joints'] == 3:
@@ -49,7 +49,7 @@ class BaselineAgent(AgentBase):
                              'defend_range': [0.8, 1.0],
                              'defend_width': 0.45,
                              'prepare_range': [0.8, 1.3]}
-
+        self.percentage = percentage
         self.state = SystemState(self.env_info, agent_id, self.agent_params)
         self.traj_generator = TrajectoryGenerator(self.env_info, self.agent_params, self.state)
 
@@ -83,6 +83,8 @@ class BaselineAgent(AgentBase):
         self.state.trajectory_buffer = self.state.trajectory_buffer[1:]
 
         self.state.x_cmd, self.state.v_cmd = self.state.update_ee_pos_vel(self.state.q_cmd, self.state.dq_cmd)
+
+
         return np.vstack([self.state.q_cmd, self.state.dq_cmd])
 
 
