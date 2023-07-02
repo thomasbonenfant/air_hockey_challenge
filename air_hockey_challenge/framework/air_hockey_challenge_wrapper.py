@@ -1,5 +1,7 @@
 from copy import deepcopy
 
+import numpy as np
+
 from air_hockey_challenge.constraints import *
 from air_hockey_challenge.environments import position_control_wrapper as position
 from air_hockey_challenge.utils import robot_to_world
@@ -75,6 +77,13 @@ class AirHockeyChallengeWrapper(Environment):
         self.t = 0
 
 
+
+
+
+        """"
+        until here
+        """
+
         super().__init__(self.base_env.info)
     def step(self, action):
         percentage = 0.1
@@ -100,10 +109,16 @@ class AirHockeyChallengeWrapper(Environment):
             info["success"] = self.check_success(obs)
         reward = self._reward(action, done, info)
 
+        # flag = np.random.uniform() < percentage
+        #
+        # if flag:
+        #     a, b = np.random.uniform(-1, 1, 2)
+        #     new_pos = self.pos_max * a
+        #     new_vel = self.vel_max * b
+        #     action = np.vstack([new_pos, new_vel])
+        #     next_state, reward, done, info = self.base_env.step(action)
+        #
 
-        flag = np.random.uniform() < percentage
-
-        if flag:
 
 
         return obs, reward, done, info
