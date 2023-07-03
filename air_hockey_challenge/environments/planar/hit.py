@@ -53,8 +53,8 @@ class AirHockeyHit(AirHockeySingle):
 
     def is_absorbing(self, obs):
         puck_pos, puck_vel = self.get_puck(obs)
-        # Stop if the puck bounces back on the opponents wall
-        if (puck_vel[0] < -0.6 and puck_pos[0] > 0) or (puck_pos[0] > 0 and np.linalg.norm(puck_vel) < 1):
+        # Stop if the puck is not hittable anymore
+        if (puck_pos[0] > 0 and np.linalg.norm(puck_vel) < 0.2):
             return True
         return super(AirHockeyHit, self).is_absorbing(obs)
 
@@ -78,7 +78,7 @@ if __name__ == '__main__':
         J += gamma * reward
         R += reward
         steps += 1
-        if done or steps > env.info.horizon:
+        if done:
             print("J: ", J, " R: ", R)
             R = 0.
             J = 0.

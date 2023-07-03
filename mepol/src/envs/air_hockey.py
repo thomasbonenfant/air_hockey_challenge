@@ -183,10 +183,30 @@ class GymAirHockey(gym.Env):
         else:
             info['hit'] = False
 
+        #check if the puck has hit the board
+        info['hit_board'] = self._check_hit_board(obs)
+
         # update old_puck_vel
         self.old_puck_vel = puck_vel
 
         return obs, reward, done, False, info
+
+    def _check_hit_board(self, obs):
+        puck_pos = obs[[0, 1]]
+        env_info = self.env_info
+        tolerance = 5e-3
+
+        puck_radius = env_info['puck']['radius']
+        table_length = env_info['table']['length']
+        table_width = env_info['table']['width']
+        goal_width = env_info['table']['goal_width']
+
+        x_constraint = np.abs(puck_pos[0]) - (table_length / 2 - puck_radius) + tolerance
+        y_constraint = np.abs(puck_pos[1]) - (table_width / 2 - puck_radius) + tolerance
+        goal_constraint = np.abs(puck_pos[1]) - (goal_width / 2 )
+
+
+        return (x_constraint >= 0 and goal_constraint > 0) or y_constraint >= 0
 
     def render(self, mode="human"):
         self.challenge_env.render()
