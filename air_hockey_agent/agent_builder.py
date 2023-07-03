@@ -113,11 +113,11 @@ class BaselineAgent(AgentBase):
         #                                                                                  self.get_puck_pos(obs)[2]])
 
         # denoiser with x, y and yaw as output
-        puck_state = self.preprocess(puck_pos, puck_vel)
-        self.state.update_observation(self.get_joint_pos(obs), self.get_joint_vel(obs), puck_state)
+        # puck_state = self.preprocess(puck_pos, puck_vel)
+        # self.state.update_observation(self.get_joint_pos(obs), self.get_joint_vel(obs), puck_state)
 
         # without denoiser
-        # self.state.update_observation(self.get_joint_pos(obs), self.get_joint_vel(obs), self.get_puck_pos(obs))
+        self.state.update_observation(self.get_joint_pos(obs), self.get_joint_vel(obs), self.get_puck_pos(obs))
 
         while True:
             self.tactics_processor[self.state.tactic_current.value].update_tactic()

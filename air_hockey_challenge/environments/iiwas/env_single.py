@@ -23,8 +23,8 @@ class AirHockeySingle(AirHockeyBase):
         self.q_pos_prev = np.zeros(self.env_info["robot"]["n_joints"])
         self.q_vel_prev = np.zeros(self.env_info["robot"]["n_joints"])
         # upper and lower bounds of the position and velocity of puck
-        upper_bound = self.env_info["rl_info"].observation_space.high[:6]
-        lower_bound = self.env_info["rl_info"].observation_space.low[:6]
+        upper_bound = self.env_info["rl_info"].observation_space.high
+        lower_bound = self.env_info["rl_info"].observation_space.low
 
         scales = upper_bound - lower_bound
         # previous position/velocity of the joints, used if one of them is broken or if we loose the tracking
@@ -130,32 +130,22 @@ class AirHockeySingle(AirHockeyBase):
             puck_pos = self.last_puck_pos
             puck_vel = self.last_puck_vel
 
+
+        self.obs_helper.get_from_obs(new_obs, "puck_x_pos")[:] = puck_pos[0]
+        self.obs_helper.get_from_obs(new_obs, "puck_y_pos")[:] = puck_pos[1]
+        self.obs_helper.get_from_obs(new_obs, "puck_yaw_pos")[:] = puck_pos[2]
+
+        self.obs_helper.get_from_obs(new_obs, "puck_x_vel")[:] = puck_vel[0]
+        self.obs_helper.get_from_obs(new_obs, "puck_y_vel")[:] = puck_vel[1]
+        self.obs_helper.get_from_obs(new_obs, "puck_yaw_vel")[:] = puck_vel[2]
+
         # Observation Noise
         if self.var_env["is_obs_noisy"]:
 
             # self.var_env['noise_value'] = np.random.normal(0, self.sigma, 6) # resample to add a different white noise at each observation
             self.var_env['noise_value'] = np.random.multivariate_normal(np.zeros(len(self.cov)), self.cov,
-                                                                        size=1)  # resample to add a different white noise at each observation
-
-            # print('\n', self.var_env['noise_value'], '\n')
-
-            self.obs_helper.get_from_obs(new_obs, "puck_x_pos")[:] = puck_pos[0] + self.var_env['noise_value'][0][0]
-            self.obs_helper.get_from_obs(new_obs, "puck_y_pos")[:] = puck_pos[1] + self.var_env['noise_value'][0][1]
-            self.obs_helper.get_from_obs(new_obs, "puck_yaw_pos")[:] = puck_pos[2] + self.var_env['noise_value'][0][2]
-
-            self.obs_helper.get_from_obs(new_obs, "puck_x_vel")[:] = puck_vel[0] + self.var_env['noise_value'][0][3]
-            self.obs_helper.get_from_obs(new_obs, "puck_y_vel")[:] = puck_vel[1] + self.var_env['noise_value'][0][4]
-            self.obs_helper.get_from_obs(new_obs, "puck_yaw_vel")[:] = puck_vel[2] + self.var_env['noise_value'][0][5]
-
-        else:
-            self.obs_helper.get_from_obs(new_obs, "puck_x_pos")[:] = puck_pos[0]
-            self.obs_helper.get_from_obs(new_obs, "puck_y_pos")[:] = puck_pos[1]
-            self.obs_helper.get_from_obs(new_obs, "puck_yaw_pos")[:] = puck_pos[2]
-
-            self.obs_helper.get_from_obs(new_obs, "puck_x_vel")[:] = puck_vel[0]
-            self.obs_helper.get_from_obs(new_obs, "puck_y_vel")[:] = puck_vel[1]
-            self.obs_helper.get_from_obs(new_obs, "puck_yaw_vel")[:] = puck_vel[2]
-
+                                                                        size=1).squeeze(axis=0) # resample to add a different white noise at each observation
+            new_obs[:23] += self.var_env['noise_value']
         return new_obs
 
     def setup(self, obs):
