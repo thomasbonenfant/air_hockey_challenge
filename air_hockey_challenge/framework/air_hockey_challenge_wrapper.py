@@ -63,7 +63,7 @@ class AirHockeyChallengeWrapper(Environment):
         added lines
         """
         # self.base_env.reward = lambda state, action, next_state, absorbing: self._reward(action, absorbing, info)
-        self.simple_reward = True
+        self.simple_reward = False
         self.shaped_reward = False
 
         if "hit" in env:
@@ -158,7 +158,7 @@ class AirHockeyChallengeWrapper(Environment):
         else:
             r = 0
             for constr in ['joint_pos_constr', 'joint_vel_constr', 'ee_constr']:
-                if np.any(np.array(info[constr] > 0)):
+                if np.any(np.array(info['constraints_value'][constr] > 0)):
                     r -= PENALTY_POINTS[constr]
             r += info["success"] * self.large_reward
         if done and not info["success"] and self.t < self.base_env._mdp_info.horizon:
