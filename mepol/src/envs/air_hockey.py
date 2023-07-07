@@ -60,7 +60,9 @@ class GymAirHockey(gym.Env):
         self.use_delta_pos = use_delta_pos
         self.delta_dim = delta_dim
         self.use_puck_distance = use_puck_distance
+
         self.prev_ee_pos = None
+        self.ee_z = None
 
         if self.task_space:
 
@@ -135,6 +137,7 @@ class GymAirHockey(gym.Env):
         if self.task_space:
             ee_pos, _ = forward_kinematics(self.mj_model, self.mj_data, joint_pos)
             ee_pos, _ = robot_to_world(self.world2robot_transf, ee_pos)
+            self.ee_z = ee_pos[2]  # for debug purposes
             ee_pos = ee_pos[:2]
 
             #saves ee_pos for delta pos calculation
@@ -230,7 +233,7 @@ class GymAirHockey(gym.Env):
                 ee_pos_action = self.prev_ee_pos + ee_pos_action
 
             # following flag is used to know if joint accelerations need to be set to 0 if we are going on border
-            has_to_clip = (ee_pos_action > self.min_ee_pos_action).all() and (ee_pos_action < self.max_ee_pos_action).all()
+            has_to_clip = False #(ee_pos_action > self.min_ee_pos_action).all() and (ee_pos_action < self.max_ee_pos_action).all()
 
             # clip action into table
             ee_pos_action = np.clip(ee_pos_action, a_min=self.min_ee_pos_action, a_max=self.max_ee_pos_action)

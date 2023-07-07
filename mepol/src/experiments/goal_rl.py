@@ -52,7 +52,7 @@ parser.add_argument('--tb_dir_name', type=str, default='goal_rl',
 parser.add_argument('--log_dir', type=str, default='/data/air_hockey/thomas')
 
 # environment parameters
-parser.add_argument('--env_name', type=str, required=True, choices=['3dof-hit', '7dof-hit'])
+parser.add_argument('--env_name', type=str, required=True, choices=['3dof-hit', '3dof-defend', '7dof-hit'])
 parser.add_argument('--task_space', type=int, required=True, choices=[0, 1], help='Whether use task space actions')
 parser.add_argument('--task_space_vel', type=int, required=True, choices=[0, 1], help='Use inv kinematics for velocity')
 parser.add_argument('--use_delta_pos', type=int, required=True, choices=[0, 1], help='Use Delta Pos Actions')
