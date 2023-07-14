@@ -24,7 +24,7 @@ def main():
     env_type = "7dof-hit"
     renderFirst = True
     renderAll = False
-    env = AirHockeyChallengeWrapper(env=env_type, interpolation_order=3, debug=False, custom_reward_function=reward)
+    env = AirHockeyChallengeWrapper(env=env_type, interpolation_order=-1, debug=False, custom_reward_function=reward)
 
     gamma_eval = 0.999
 

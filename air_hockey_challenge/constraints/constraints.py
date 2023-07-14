@@ -155,7 +155,7 @@ class EndEffectorConstraint(Constraint):
         # 2 Dimension on z direction: z > z_lb, z < z_ub
         super().__init__(env_info, output_dim=5, **kwargs)
         self._name = "ee_constr"
-        tolerance = 0.0
+        tolerance = 0.000001
 
         self.robot_model = copy.deepcopy(self._env_info['robot']['robot_model'])
         self.robot_data = copy.deepcopy(self._env_info['robot']['robot_data'])
@@ -164,8 +164,8 @@ class EndEffectorConstraint(Constraint):
                 self._env_info['table']['length'] / 2 - self._env_info['mallet']['radius'])
         self.y_lb = - (self._env_info['table']['width'] / 2 - self._env_info['mallet']['radius'])
         self.y_ub = (self._env_info['table']['width'] / 2 - self._env_info['mallet']['radius'])
-        self.z_lb = self._env_info['robot']['ee_desired_height'] - tolerance
-        self.z_ub = self._env_info['robot']['ee_desired_height'] + tolerance
+        self.z_lb = 0.0645 - tolerance
+        self.z_ub = 0.0645 + tolerance
 
     def _fun(self, q, dq):
         ee_pos, _ = forward_kinematics(self.robot_model, self.robot_data, q)
@@ -178,4 +178,6 @@ class EndEffectorConstraint(Constraint):
         jac = jacobian(self.robot_model, self.robot_data, q)
         dc_dx = np.array([[-1, 0., 0.], [0., -1., 0.], [0., 1., 0.], [0., 0., -1.], [0., 0., 1.]])
         self._jac_value[:, :self._env_info['robot']['n_joints']] = dc_dx @ jac[:3, :self._env_info['robot']['n_joints']]
+        print(self._jac_value.shape)
+        print(self._jac_value[:2])
         return self._jac_value
