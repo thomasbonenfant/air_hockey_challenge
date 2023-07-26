@@ -164,3 +164,4 @@ cython_debug/
 air_hockey_agent/agents/log/
 
 air_hockey_agent/agents/air_hockey_agent/agents/log/
+*.msh

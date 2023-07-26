@@ -46,6 +46,7 @@ class AirHockeyChallengeWrapper(Environment):
         constraint_list.add(JointPositionConstraint(self.env_info))
         constraint_list.add(JointVelocityConstraint(self.env_info))
         constraint_list.add(EndEffectorConstraint(self.env_info))
+        constraint_list.add(LinkConstraint(self.env_info))
 
         self.env_info['constraints'] = constraint_list
         self.env_info['env_name'] = self.env_name

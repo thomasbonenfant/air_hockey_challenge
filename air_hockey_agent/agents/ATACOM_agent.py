@@ -6,7 +6,7 @@ from air_hockey_agent.agents.atacom.utils.null_space_coordinate import rref, pin
 from air_hockey_agent.agents.atacom.constraints import ViabilityConstraint, ConstraintsSet
 
 import mujoco
-from air_hockey_challenge.utils.kinematics import link_to_xml_name, forward_kinematics, jacobian
+from air_hockey_challenge.utils.kinematics import link_to_xml_name, forward_kinematics, jacobian, inverse_kinematics
 
 
 class ATACOMAgent(AgentAirhockeySAC):
@@ -26,10 +26,11 @@ class ATACOMAgent(AgentAirhockeySAC):
             time_step (float): the step size for time discretization
         """
         self.n_non_controllable_joints = 0
-        self.n_equality_constraints = 1
+        self.n_equality_constraints = 0
         env['rl_info'].action_space = Box(low=-1, high=1, shape=(7-self.n_equality_constraints,))
         super().__init__(env, **kwargs)
-        dim_q = self.env_info['robot']['n_joints'] #- self.n_non_controllable_joints
+        #dim_q = self.env_info['robot']['n_joints'] #- self.n_non_controllable_joints
+        dim_q = 7 # - self.n_non_controllable_joints
 
         Kc = 50.
         timestamp = 1 / 50.
@@ -123,6 +124,8 @@ class ATACOMAgent(AgentAirhockeySAC):
         self.mu = 0
         self.first_step = True
 
+        self.joint_prev_position = np.zeros(self.dims['q'])
+
     def reset(self):
         self.first_step = True
         super().reset()
@@ -133,10 +136,16 @@ class ATACOMAgent(AgentAirhockeySAC):
     def draw_action(self, observation):
         action = super().draw_action(observation)
         alpha = action * self.alpha_max
+        """ee_des = np.concatenate([action, [0]])
+        if self.first_step:
+            self.q = forward_kinematics(self.robot_model, self.robot_data, self.get_joint_pos(observation))[0]
 
-        self.q = self.get_joint_pos(observation)[:self.dims['q']]
-        self.dq = self.get_joint_vel(observation)[:self.dims['q']]
+#        success, self.joint_prev_position = inverse_kinematics(self.robot_model, self.robot_data, ee_des, initial_q=self.joint_prev_position)
 
+        tmp_q = forward_kinematics(self.robot_model, self.robot_data, self.get_joint_pos(observation))[0]
+        self.dq = (tmp_q - self.q) / self.time_step
+        self.q = tmp_q
+"""
         if self.first_step:
             self.first_step = False
             self._compute_slack_variables()

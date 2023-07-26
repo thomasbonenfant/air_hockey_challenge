@@ -5,14 +5,20 @@ import numpy as np
 from mushroom_rl.utils.dataset import compute_J
 
 from air_hockey_agent.agents.ATACOM_agent import ATACOMAgent
+from air_hockey_agent.agents.agent_SAC import AgentAirhockeySAC
 from air_hockey_challenge.utils import robot_to_world
 from air_hockey_challenge.utils.kinematics import forward_kinematics
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper, ChallengeCore
 import torch
+import torch.optim as optim
+import torch.nn.functional as F
+from mushroom_rl.algorithms.actor_critic import SAC
+from mushroom_rl.utils.preprocessors import MinMaxPreprocessor
+from air_hockey_agent.actor_critic_network import SACActorNetwork, SACCriticNetwork
 
+from air_hockey_agent.agents.atacom.ATACOM_agent_wrapper import ATACOMAgent, build_ATACOM_Controller
 from air_hockey_agent.agents.defend_agent_SAC_for_ATACOM_env import DefendAgentSAC4ATACOM
 from air_hockey_agent.agents.hit_agent_SAC_for_ATACOM_env import HittingAgentSAC4ATACOM
-
 from air_hockey_agent.agents.ATACOM_challenge import ATACOMChallengeWrapper
 
 def main():
@@ -26,14 +32,23 @@ def main():
     renderAll = False
     env = AirHockeyChallengeWrapper(env=env_type, interpolation_order=-1, debug=False, custom_reward_function=reward)
 
+    init_agent = False
     gamma_eval = 0.999
-
-    initial_replay_size = 2000
+    if init_agent:
+        sac_agent = build_agent_SAC(env.env_info, alg="atacom-sac", actor_lr=3e-4, critic_lr=3e-4,
+                                    n_features=[64, 64], batch_size=64, initial_replay_size=5000,
+                                    max_replay_size=200000, tau=1e-3, warmup_transitions=10000,
+                                    lr_alpha=3e-4, target_entropy=-6, use_cuda=True, double_integration=False)
+        atacom = build_ATACOM_Controller(env.env_info, slack_type='soft_corner', slack_tol=1e-06, slack_beta=4)
+        agent = ATACOMAgent(env.env_info, double_integration=False, rl_agent=sac_agent, atacom_controller=atacom)
+        agent.save("air_hockey_agent/agents/7dof-hit-atacom.msh")
 
     # Agent
     if env_type == "7dof-hit":
-        # agent = HittingAgentSAC4ATACOM(env.env_info)
-        agent = ATACOMAgent(env.env_info)
+        #agent = HittingAgentSAC4ATACOM(env.env_info)
+        #agent = ATACOMAgent(env.env_info)
+        #agent = ATACOMAgent(env.env_info, double_integration=True, rl_agent=None, atacom_controller=None)
+        agent = ATACOMAgent.load_agent(path="air_hockey_agent/agents/7dof-hit-atacom.msh", env_info=env.env_info, agent_id=0)
     #elif env_type == "3dof-defend":
     else:
         agent = DefendAgentSAC4ATACOM(env.env_info)
@@ -257,6 +272,66 @@ def plot_constraints(env, dataset, save_dir="", suffix="", state_norm_processor=
             plt.close(fig2)
 
             state_list = list()
+
+def build_agent_SAC(env_info, alg, actor_lr, critic_lr, n_features, batch_size,
+                    initial_replay_size, max_replay_size, tau,
+                    warmup_transitions, lr_alpha, target_entropy, use_cuda,
+                    double_integration, **kwargs):
+    if type(n_features) is str:
+        n_features = list(map(int, n_features.split(" ")))
+
+    from mushroom_rl.utils.spaces import Box
+    if double_integration:
+        env_info['rl_info'].action_space = Box(*env_info["robot"]["joint_acc_limit"])
+    else:
+        env_info['rl_info'].action_space = Box(*env_info["robot"]["joint_vel_limit"])
+
+    if alg == "atacom-sac":
+        env_info['rl_info'].action_space = Box(-np.ones(env_info['robot']['n_joints']),
+                                               np.ones(env_info['robot']['n_joints']))
+        obs_low = np.concatenate([env_info['rl_info'].observation_space.low, -np.ones(env_info['robot']['n_joints'])])
+        obs_high = np.concatenate([env_info['rl_info'].observation_space.high, np.ones(env_info['robot']['n_joints'])])
+        env_info['rl_info'].observation_space = Box(obs_low, obs_high)
+
+    actor_mu_params = dict(network=SACActorNetwork,
+                           input_shape=env_info["rl_info"].observation_space.shape,
+                           output_shape=env_info["rl_info"].action_space.shape,
+                           n_features=n_features,
+                           use_cuda=use_cuda)
+    actor_sigma_params = dict(network=SACActorNetwork,
+                              input_shape=env_info["rl_info"].observation_space.shape,
+                              output_shape=env_info["rl_info"].action_space.shape,
+                              n_features=n_features,
+                              use_cuda=use_cuda)
+
+    actor_optimizer = {'class': optim.Adam,
+                       'params': {'lr': actor_lr}}
+    critic_params = dict(network=SACCriticNetwork,
+                         input_shape=(env_info["rl_info"].observation_space.shape[0] +
+                                      env_info["rl_info"].action_space.shape[0],),
+                         optimizer={'class': optim.Adam,
+                                    'params': {'lr': critic_lr}},
+                         loss=F.mse_loss,
+                         n_features=n_features,
+                         output_shape=(1,),
+                         use_cuda=use_cuda)
+
+    alg_params = dict(initial_replay_size=initial_replay_size,
+                      max_replay_size=max_replay_size,
+                      batch_size=batch_size,
+                      warmup_transitions=warmup_transitions,
+                      tau=tau,
+                      lr_alpha=lr_alpha,
+                      critic_fit_params=None,
+                      target_entropy=target_entropy,
+                      )
+
+    agent = SAC(env_info['rl_info'], actor_mu_params=actor_mu_params, actor_sigma_params=actor_sigma_params,
+                actor_optimizer=actor_optimizer, critic_params=critic_params, **alg_params)
+
+    prepro = MinMaxPreprocessor(env_info["rl_info"])
+    agent.add_preprocessor(prepro)
+    return agent
 
 
 if __name__ == '__main__':
