@@ -47,7 +47,7 @@ class Agent(AgentBase):
         obs_space = self.env_info["rl_info"].observation_space
         self.gamma = self.env_info["rl_info"].gamma
 
-
+        self.restart = True
 
         self.include_hit = True  # varient['include_hit'] #fixme
         self.high_level_action = varient['high_level_action']
@@ -345,6 +345,7 @@ class Agent(AgentBase):
         return ee_vel
 
     def reset(self):
+        self.restart = True
         self.t = 0
         self.has_hit = False
         self.hit_reward_given = False
@@ -563,18 +564,20 @@ class Agent(AgentBase):
 
         noisy_puck_pos = self.get_puck_pos(observation)
 
-        if self.t == 0:
+        if self.restart:
             self.puck_tracker.reset(noisy_puck_pos)
 
         self.puck_tracker.step(noisy_puck_pos)
 
-        puck_pos = self.puck_tracker.state[:3]
-        puck_vel = self.puck_tracker.state[3:]
+        puck_pos = self.puck_tracker.state[[0, 1, 4]].copy()
+        puck_vel = self.puck_tracker.state[[2, 3, 5]].copy()
 
         observation[self.env_info['puck_pos_ids']] = puck_pos
 
-        if self.t > 0:
+        if not self.restart:
             observation[self.env_info['puck_vel_ids']] = puck_vel
+
+        self.restart = False
 
         ##
 
