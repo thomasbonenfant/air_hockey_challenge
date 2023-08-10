@@ -1,0 +1,68 @@
+{
+    "Episode 0": [
+        "mean computation_time > 0.02s"
+    ],
+    "Episode 1": [
+        "mean computation_time > 0.02s"
+    ],
+    "Episode 2": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 3": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 4": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 5": [
+        "max computation_time > 0.2s"
+    ],
+    "Episode 6": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 7": [
+        "mean computation_time > 0.02s"
+    ],
+    "Episode 8": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 9": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 10": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 11": [
+        "joint_vel_constr violated",
+        "max computation_time > 0.02s"
+    ],
+    "Episode 12": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 13": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 14": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 15": [
+        "max computation_time > 0.2s"
+    ],
+    "Episode 16": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 17": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 18": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 19": [
+        "mean computation_time > 0.02s"
+    ],
+    "violation summary": {
+        "Computation Time": 20,
+        "joint_vel_constr": 1,
+        "Total": 21
+    }
+}

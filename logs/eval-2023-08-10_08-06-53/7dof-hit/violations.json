@@ -1,0 +1,72 @@
+{
+    "Episode 0": [
+        "ee_constr violated",
+        "mean computation_time > 0.02s"
+    ],
+    "Episode 1": [
+        "joint_vel_constr violated",
+        "max computation_time > 0.02s"
+    ],
+    "Episode 2": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 3": [
+        "ee_constr violated",
+        "max computation_time > 0.02s"
+    ],
+    "Episode 4": [
+        "ee_constr violated",
+        "max computation_time > 0.02s"
+    ],
+    "Episode 5": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 6": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 7": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 8": [
+        "ee_constr violated",
+        "max computation_time > 0.02s"
+    ],
+    "Episode 9": [
+        "mean computation_time > 0.02s"
+    ],
+    "Episode 10": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 11": [
+        "joint_vel_constr violated",
+        "max computation_time > 0.02s"
+    ],
+    "Episode 12": [
+        "ee_constr violated",
+        "max computation_time > 0.02s"
+    ],
+    "Episode 13": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 14": [
+        "max computation_time > 0.02s"
+    ],
+    "Episode 15": [
+        "joint_vel_constr violated",
+        "ee_constr violated",
+        "max computation_time > 0.02s"
+    ],
+    "Episode 16": [
+        "ee_constr violated",
+        "max computation_time > 0.02s"
+    ],
+    "Episode 17": [
+        "ee_constr violated"
+    ],
+    "violation summary": {
+        "ee_constr": 8,
+        "Computation Time": 17,
+        "joint_vel_constr": 3,
+        "Total": 28
+    }
+}
