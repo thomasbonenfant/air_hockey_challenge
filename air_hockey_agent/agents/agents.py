@@ -564,12 +564,7 @@ class Agent(AgentBase):
     def draw_action(self, observation):
         # Noise removal
 
-        noisy_puck_pos = self.get_puck_pos(observation) + np.random.normal(0, 1e-5, 3)
-
-        observation[self.env_info['joint_pos_ids']] += np.random.normal(0, 1e-4, 7)
-        observation[self.env_info['joint_vel_ids']] += np.random.normal(0, 1e-3, 7)
-
-        observation[self.env_info['puck_vel_ids']] += np.random.normal(0, 1e-5, 3)
+        noisy_puck_pos = self.get_puck_pos(observation)
 
         if self.restart:
             self.puck_tracker.reset(noisy_puck_pos)
@@ -585,8 +580,6 @@ class Agent(AgentBase):
             observation[self.env_info['puck_vel_ids']] = puck_vel
             observation[self.env_info['joint_pos_ids']] = self.last_joint_pos_action.copy()
             observation[self.env_info['joint_vel_ids']] = self.last_joint_vel_action.copy()
-
-
 
         self.restart = False
 

@@ -61,7 +61,6 @@ class PolicyAgent(AgentBase):
         super().__init__(env_info, agent_id, **kwargs)
 
         self.optimizer = TrajectoryOptimizer(self.env_info)  # optimize joint position of each trajectory point
-        self.motion_law_predictor = MotionLaw(self.env_info["dt"])  # predict the puck position using motion low
 
         # Kalman filters
         self.puck_tracker = PuckTracker(self.env_info, agent_id)
