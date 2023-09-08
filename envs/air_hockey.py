@@ -5,7 +5,6 @@ import scipy
 from scipy import sparse
 import osqp
 import copy
-from baseline.baseline_agent.baseline_agent import BaselineAgent
 
 from air_hockey_challenge.framework.air_hockey_challenge_wrapper import \
     AirHockeyChallengeWrapper
@@ -26,8 +25,7 @@ class AirHockeyEnv(gym.Env):
                  large_penalty=100, min_jerk=10000, max_jerk=10000, alpha_r=1., c_r=0., include_hit=True, history=0,
                  use_atacom=False, stop_after_hit=False, punish_jerk=False, acceleration=False, max_accel=0.2,
                  include_old_action=False, use_aqp=True, aqp_terminates=False, speed_decay=0.5, clip_vel=False,
-                 whole_game_reward=False, score_reward=10, fault_penalty=5, load_second_agent=False,
-                 dont_include_timer_in_states=False, action_persistence=1, **kwargs):
+                 **kwargs):
         self._env = AirHockeyChallengeWrapper(env=env, interpolation_order=interpolation_order, **kwargs)
         self.interpolation_order = interpolation_order
         self.env_label = env
@@ -59,7 +57,6 @@ class AirHockeyEnv(gym.Env):
         self.aqp_terminates = aqp_terminates
         self.aqp_failed = False
         self.include_joints = include_joints
-        self.dont_include_timer_in_states = dont_include_timer_in_states
         self.desired_height = self.env_info['robot']['ee_desired_height']
         self.low_position = np.array([0.54, -0.5, 0])
         self.high_position = np.array([1.5, 0.5, 0.3])
@@ -74,31 +71,6 @@ class AirHockeyEnv(gym.Env):
         self.punish_jerk = punish_jerk
         self.speed_decay = np.clip(speed_decay, 0.05, 0.95)
         self.clip_vel = clip_vel
-        self.whole_game_reward = whole_game_reward
-        self.score_reward = score_reward
-        self.fault_penalty = fault_penalty
-        self.last_scores = [0, 0]
-        self.last_faults = [0, 0]
-        self.action_persistence = action_persistence
-
-        self.tournament = self.env_label == "tournament"
-
-        # if load_second_agent:
-        #     print("must load") # TODO load the agent here
-        # else:
-
-        if load_second_agent:
-            # self.second_agent = build_agent_2(self._env.env_info, **agent_2_kwargs)
-            print("load second agent here")
-
-        else:
-            self.second_agent = BaselineAgent(self._env.env_info, 2)
-
-        self.second_agent_obs = None
-
-        self.action_idx = (np.arange(self._env.base_env.action_shape[0][0]),
-                           np.arange(self._env.base_env.action_shape[1][0]))
-
         joint_pos_ids = self.env_info["joint_pos_ids"]
         low_joints_pos = self.env_info["rl_info"].observation_space.low[joint_pos_ids]
         high_joints_pos = self.env_info["rl_info"].observation_space.high[joint_pos_ids]
@@ -133,8 +105,6 @@ class AirHockeyEnv(gym.Env):
         low_position = self.env_info["rl_info"].observation_space.low[puck_pos_ids]
         low_velocity = self.env_info["rl_info"].observation_space.low[puck_vel_ids]
         high_velocity = self.env_info["rl_info"].observation_space.high[puck_vel_ids]
-        low_timer = np.array([0.0])
-        high_timer = np.array([15.0])
         self.dim = 3 if "3" in self.env_label else 7
         self.max_vel = high_velocity[0]
         if self.high_level_action:
@@ -184,10 +154,6 @@ class AirHockeyEnv(gym.Env):
             low_state = np.concatenate([low_state, low_action])
             high_state = np.concatenate([high_state, high_action])
 
-        if not self.dont_include_timer_in_states:
-            low_state = np.concatenate([low_state, low_timer])
-            high_state = np.concatenate([high_state, high_timer])
-
         if self.history > 1:
             low_state = np.tile(low_state, self.history)
             high_state = np.tile(high_state, self.history)
@@ -198,7 +164,6 @@ class AirHockeyEnv(gym.Env):
             self.atacom_transformation = AtacomTransformation(env_info, False, atacom)
             #low_action = low_action[:self.atacom_transformation.ee_pos_dim_out]
             #high_action = high_action[:self.atacom_transformation.ee_pos_dim_out]
-
 
 
 
@@ -259,11 +224,10 @@ class AirHockeyEnv(gym.Env):
             joint_velocities = (new_joint_pos - self.joint_pos) / self.env_info['dt']
         if not success:
             self._fail_count += 1
-
         action = np.vstack([new_joint_pos, joint_velocities])
         return action
 
-    def _shaped_r_defend(self, action, info):
+    def _shaped_r_defend(self, action, info, done):
         """
                        Custom reward function, it is in the form: r_tot = r_hit + alpha * r_const
 
@@ -310,7 +274,7 @@ class AirHockeyEnv(gym.Env):
         #     print("slm")
         return final_reward  # negative rewards should never go below -1
 
-    def _shaped_r_prepare(self, action, info):
+    def _shaped_r_prepare(self, action, info, done=False):
         """
                        Custom reward function, it is in the form: r_tot = r_hit + alpha * r_const
 
@@ -354,7 +318,7 @@ class AirHockeyEnv(gym.Env):
         reward_constraints = self._reward_constraints(info)
         return (reward_hit + self.alpha_r * reward_constraints) / 2  # negative rewards should never go below -1
 
-    def _shaped_r_hit(self, action, info):
+    def _shaped_r_hit(self, action, info, done=False):
         """
                Custom reward function, it is in the form: r_tot = r_hit + alpha * r_const
 
@@ -398,44 +362,6 @@ class AirHockeyEnv(gym.Env):
         reward_constraints = self._reward_constraints(info)
         return (reward_hit + self.alpha_r * reward_constraints) / 2  # negative rewards should never go below -1
 
-
-    def _game_reward(self, action, info):
-        r = 0
-        scores = info['score']
-        faults = info['faults']
-        if self._score_changed(scores):
-            if scores[0] > self.last_scores[0]: # our agent scored
-                r += self.score_reward
-            elif scores[1] > self.last_scores[1]:
-                r -= self.score_reward
-        self.last_scores = scores
-
-        if self._fault_changed(faults):
-            if faults[0] > self.last_faults[0]:
-                r -= self.fault_penalty
-        self.last_faults = faults
-        r -= self.c_r * np.linalg.norm(action)
-        reward_constraints = self._reward_constraints(info)
-        return (r + self.alpha_r * reward_constraints) / 2
-
-
-    def _score_changed(self, scores):
-        previous_scores = self.last_scores
-        for i in range(len(scores)):
-            if previous_scores[i] != scores[i]:
-                # self.last_scores = scores
-                return True
-        # self.last_scores = scores
-        return False
-    def _fault_changed(self, faults):
-        previous_faults = self.last_faults
-        for i in range(len(faults)):
-            if previous_faults[i] != faults[i]:
-                # self.last_faults = faults
-                return True
-        # self.last_faults = faults
-        return False
-
     def _post_simulation(self, obs):
         self._obs = obs
         self.puck_pos = self.get_puck_pos(obs)
@@ -456,9 +382,9 @@ class AirHockeyEnv(gym.Env):
                 self.has_hit = True
 
     def _process_info(self, info):
-        info["joint_pos_constr"] = info["constraints_value"][0]["joint_pos_constr"]
-        info["joint_vel_constr"] = info["constraints_value"][0]["joint_vel_constr"]
-        info["ee_constr"] = info["constraints_value"][0]["ee_constr"]
+        info["joint_pos_constr"] = info["constraints_value"]["joint_pos_constr"]
+        info["joint_vel_constr"] = info["constraints_value"]["joint_vel_constr"]
+        info["ee_constr"] = info["constraints_value"]["ee_constr"]
         info.pop('constraints_value', None)
         return info
 
@@ -466,10 +392,8 @@ class AirHockeyEnv(gym.Env):
         if self.simple_reward:
             r = info["success"]
         elif self.shaped_reward:
-            r = self._shaped_r(action, info)
+            r = self._shaped_r(action, info, done)
             # r = self._shaped_r(action, info)
-        elif self.whole_game_reward:
-            r = self._game_reward(action, info)
 
         else:
             r = 0
@@ -481,9 +405,7 @@ class AirHockeyEnv(gym.Env):
                 r -= PENALTY_POINTS["jerk"] + \
                      np.clip(np.array(info["jerk"]), self.min_jerk, self.max_jerk).mean() / self.max_jerk
             r += info["success"] * self.large_reward
-        # if done and not info["success"] and self.t < self._env._mdp_info.horizon:
-        if done and self.t < self._env._mdp_info.horizon:
-
+        if done and not info["success"] and self.t < self._env._mdp_info.horizon:
             r -= self.large_penalty
         if self.high_level_action:
             if self.clipped_state:
@@ -547,7 +469,6 @@ class AirHockeyEnv(gym.Env):
                 #action = np.array([2., 1.])
                 ee_vel = self.ee_vel[:2] + self.dt * action[:2]
                 delta_pos = ee_vel * self.dt
-
                 action = ee_pos[:2] + delta_pos[:2]
             tolerance = 0.0065
             padding = np.array([self.puck_radius + tolerance, self.puck_radius + tolerance])
@@ -589,10 +510,6 @@ class AirHockeyEnv(gym.Env):
 
         if self.include_old_action:
             state = np.concatenate([state, self.old_action])
-
-        if self.tournament and not self.dont_include_timer_in_states:
-            state = np.concatenate([state, [self._env.base_env.timer]])
-
         if self.history > 1:
             self._state_queue.append(state)
             if self.t == 0:
@@ -732,11 +649,6 @@ class AirHockeyEnv(gym.Env):
             while not done and self.t <= self._env._mdp_info.horizon:
                 discount *= self.gamma
                 obs, reward, done, info = self._step(action)
-                obs_1, obs_2 = np.split(obs, 2)
-
-                obs = obs_1
-                self.second_agent_obs = obs_2
-
                 r += discount * reward
             reward = r
             done = True
@@ -753,65 +665,17 @@ class AirHockeyEnv(gym.Env):
             _action = action.flatten()
         else:
             _action = action
+        obs, reward, done, info = self._env.step(_action)
 
-        first_agent_action = _action
-        if self.tournament:
-            second_agent_action = self.second_agent.draw_action(self.second_agent_obs)
-            dual_action = (first_agent_action, second_agent_action)
-
-            obs, reward, done, info = self._env.step((dual_action[0][self.action_idx[0]],
-                                                  dual_action[1][self.action_idx[1]]))
-
-            obs_1, obs_2 = np.split(obs, 2)
-
-            obs = obs_1
-            self.second_agent_obs = obs_2
-        else:
-            obs, reward, done, info = self._env.step(first_agent_action)
-        #
-        # if info["success"] and not done:
-        #     info["success"] = 0
+        if info["success"] and not done:
+            info["success"] = 0
         self._post_simulation(obs)
         info = self._process_info(info)
         r = self._reward(action, done, info)
         obs = self._get_state(obs)
         self.state = obs
         self.t += 1
-
-        discount = 1
-        if self.action_persistence > 1:
-            k = 0
-            while not done and self.t <= self._env._mdp_info.horizon and k < self.action_persistence:
-
-                # discount *= self.gamma # fixme
-
-                first_agent_action = _action
-                second_agent_action = self.second_agent.draw_action(self.second_agent_obs)
-
-                dual_action = (first_agent_action, second_agent_action)
-
-                obs, _, done, info = self._env.step((dual_action[0][self.action_idx[0]],
-                                                          dual_action[1][self.action_idx[1]]))
-
-                obs_1, obs_2 = np.split(obs, 2)
-
-                obs = obs_1
-                self.second_agent_obs = obs_2
-                #
-                # if info["success"] and not done:
-                #     info["success"] = 0
-                self._post_simulation(obs)
-                info = self._process_info(info)
-                reward = self._reward(action, done, info)
-                obs = self._get_state(obs)
-                self.state = obs
-                self.t += 1
-
-                r += discount * reward
-                k += 1
-            reward = r
-
-        return obs, reward, done, info
+        return obs, r, done, info
 
     def reset(self):
         self.t = 0
@@ -820,21 +684,12 @@ class AirHockeyEnv(gym.Env):
         self._fail_count = 0
         self._state_queue = []
         self.old_action = np.zeros_like(self.old_action)
-
         obs = self._env.reset()
-
-        if self.env_label == "tournament":
-            obs_1, obs_2 = np.split(obs, 2)
-
-            obs = obs_1
-            self.second_agent_obs = obs_2
-
         self._post_simulation(obs)
         self.state = self._get_state(obs)
         if self.use_atacom:
             self.atacom_transformation.reset()
         return self.state
-
 
     def render(self, mode='human'):
         self._env.render()

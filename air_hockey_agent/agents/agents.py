@@ -447,7 +447,7 @@ class Agent(AgentBase):
             exp = load_gzip_pickle(experiment)
             trainer.restore_from_snapshot(exp['trainer'])
         elif baseline_agent:
-            from envs.air_hockey_challenge.examples.control.hitting_agent import build_agent
+            from examples.control.hitting_agent import build_agent
             trainer = build_agent(env.wrapped_env._env.env_info)
             # trainer = build_agent(env_info)
 
@@ -629,7 +629,7 @@ class Agent(AgentBase):
         """
 
 
-        if self.has_hit and not self.stopped:
+        '''if self.has_hit and not self.stopped:
             self.stopped = True
             self.stop_after_hit_ee_pos = self.get_ee_pose(observation)
 
@@ -639,7 +639,7 @@ class Agent(AgentBase):
 
         if self.stop_after_hit_ee_pos is not None:
             action = self.stop_after_hit_ee_pos
-            action = self._action_transform(action[:2])
+            action = self._action_transform(action[:2])'''
 
 
         if self.interpolation_order in [1, 2]:
