@@ -7,11 +7,12 @@ from envs.airhockeydoublewrapper import AirHockeyDouble
 
 class HierarchicalEnv(gym.Env):
     def __init__(self, env: AirHockeyDouble, steps_per_action: int, policies: list, policy_state_processors: dict, render_flag: bool,
-                 include_timer=False):
+                 include_timer=False, include_faults=False, large_reward=100, fault_risk_penalty=0.1, fault_penalty=33.33):
         self.env = env
         self.env_info = self.env.env_info
         self.render_flag = render_flag
         self.include_timer = include_timer
+        self.include_faults = include_faults
 
         obs_space = self.env.env_info['rl_info'].observation_space
 
@@ -22,6 +23,10 @@ class HierarchicalEnv(gym.Env):
             low_state = np.hstack([low_state, 0])
             high_state = np.hstack([high_state, 1])
 
+        if self.include_faults:
+            low_state = np.hstack([low_state, [0, 0]])
+            high_state = np.hstack([high_state, [2, 2]])
+
         self.observation_space = Box(low_state, high_state)
         self.policies = policies
         self.policy_state_processors = policy_state_processors
@@ -31,8 +36,9 @@ class HierarchicalEnv(gym.Env):
 
         self.state = None
 
-        self.reward = 1000
-        self.fault_risk_penalty = -1
+        self.reward = large_reward
+        self.fault_penalty = fault_penalty
+        self.fault_risk_penalty = fault_risk_penalty
         self.score = np.array([0, 0])
         self.faults = np.array([0, 0])
 
@@ -51,6 +57,9 @@ class HierarchicalEnv(gym.Env):
     def process_state(self, state, info):
         if self.include_timer:
             state = np.hstack([state, np.clip(self.env.base_env.timer / 15, a_min=0, a_max=1)])
+
+        if self.include_faults:
+            state = np.hstack([state, self.faults])
         return state
 
     def step(self, action: int):
@@ -78,7 +87,7 @@ class HierarchicalEnv(gym.Env):
 
             # penalty at every step if the puck is in our part of the table. Introduced for reducing faults
             if puck_pos[0] + self.env_info["robot"]["base_frame"][0][0, 3] <= 0:
-                reward += self.fault_risk_penalty
+                reward -= self.fault_risk_penalty
 
             if self.render_flag:
                 self.env.render()
@@ -87,7 +96,8 @@ class HierarchicalEnv(gym.Env):
 
         # large sparse reward for a goal
         reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
+        reward -= (np.array(info["faults"]) - self.faults) @ np.array([1, -1]) * self.fault_penalty
         self.score = np.array(info['score'])
-        #print(reward)
+        self.faults = np.array(info["faults"])
 
         return self.process_state(self.state, info), reward, done, False, info

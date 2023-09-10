@@ -23,6 +23,10 @@ def parse_args():
     parser.add_argument("--steps_per_action", type=int, default=100)
     parser.add_argument("--render", action="store_true")
     parser.add_argument("--include_timer", action="store_true")
+    parser.add_argument("--include_faults", action="store_true")
+    parser.add_argument("--large_reward", type=float, default=100)
+    parser.add_argument("--fault_penalty", type=float, default=33.33)
+    parser.add_argument("--fault_risk_penalty", type=float, default=0.1)
     parser.add_argument("--parallel", type=int, default=1)
 
     # ppo arguments
@@ -64,6 +68,10 @@ def parse_args():
     env_args['steps_per_action'] = variant.steps_per_action
     env_args['render'] = variant.render
     env_args['include_timer'] = variant.include_timer
+    env_args['include_faults'] = variant.include_faults
+    env_args['large_reward'] = variant.large_reward
+    env_args['fault_penalty'] = variant.fault_penalty
+    env_args['fault_risk_penalty'] = variant.fault_risk_penalty
 
     alg_args['learning_rate'] = variant.lr
     alg_args['policy'] = "MlpPolicy"
