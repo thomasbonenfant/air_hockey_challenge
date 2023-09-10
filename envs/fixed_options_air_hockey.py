@@ -2,17 +2,25 @@ import gymnasium as gym
 from gymnasium.spaces import Discrete, Box
 import numpy as np
 
+from envs.airhockeydoublewrapper import AirHockeyDouble
+
 
 class HierarchicalEnv(gym.Env):
-    def __init__(self, env, steps_per_action: int, policies: list, policy_state_processors: dict, render_flag: bool):
+    def __init__(self, env: AirHockeyDouble, steps_per_action: int, policies: list, policy_state_processors: dict, render_flag: bool,
+                 include_timer=False):
         self.env = env
         self.env_info = self.env.env_info
         self.render_flag = render_flag
+        self.include_timer = include_timer
 
         obs_space = self.env.env_info['rl_info'].observation_space
 
         low_state = obs_space.low
         high_state = obs_space.high
+
+        if self.include_timer:
+            low_state = np.hstack([low_state, 0])
+            high_state = np.hstack([high_state, 1])
 
         self.observation_space = Box(low_state, high_state)
         self.policies = policies
@@ -38,7 +46,12 @@ class HierarchicalEnv(gym.Env):
         for policy in self.policies:
             policy.reset()
 
-        return self.state, None
+        return self.process_state(self.state, None), None
+
+    def process_state(self, state, info):
+        if self.include_timer:
+            state = np.hstack([state, np.clip(self.env.base_env.timer / 15, a_min=0, a_max=1)])
+        return state
 
     def step(self, action: int):
         """
@@ -77,4 +90,4 @@ class HierarchicalEnv(gym.Env):
         self.score = np.array(info['score'])
         #print(reward)
 
-        return self.state, reward, done, False, info
+        return self.process_state(self.state, info), reward, done, False, info

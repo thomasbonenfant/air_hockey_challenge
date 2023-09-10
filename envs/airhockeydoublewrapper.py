@@ -1,6 +1,5 @@
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper
 from baseline.baseline_agent.baseline_agent import BaselineAgent
-import gym
 import numpy as np
 
 

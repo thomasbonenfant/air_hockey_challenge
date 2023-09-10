@@ -5,12 +5,12 @@ from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from envs.fixed_options_air_hockey import HierarchicalEnv
 
 
-def make_environment():
+def make_environment(steps_per_action=100, include_timer=False, render=False):
     env = AirHockeyDouble(interpolation_order=3)
     # env_info = env.env_info
 
     # load env_info of hit and defend environment
-    with open("../envs/env_info_single_agent/env_infos.pkl", "rb") as fp:
+    with open("envs/env_info_single_agent/env_infos.pkl", "rb") as fp:
         env_info_hit, env_info_defend = pickle.load(fp)
 
     filter_opponent_ee_obs = lambda state: state[:-3]
@@ -28,5 +28,10 @@ def make_environment():
         prepare_policy: null_filter
     }
 
-    env = HierarchicalEnv(env, 25, [hit_policy_oac, defend_policy], policy_state_processors, render_flag=False)
+    env = HierarchicalEnv(env=env,
+                          steps_per_action=steps_per_action,
+                          policies=[hit_policy_oac, defend_policy],
+                          policy_state_processors=policy_state_processors,
+                          render_flag=render,
+                          include_timer=include_timer)
     return env

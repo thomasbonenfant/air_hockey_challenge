@@ -68,7 +68,7 @@ policy_state_processors = {
     prepare_policy: null_filter
 }
 
-env = HierarchicalEnv(env, 100, [hit_policy_oac, hit_policy, defend_policy], policy_state_processors, render_flag=True)
+env = HierarchicalEnv(env, 100, [hit_policy_oac], policy_state_processors, render_flag=True, include_timer=True)
 for i in range(10):
     env.reset()
     done = False
@@ -76,5 +76,5 @@ for i in range(10):
     while not done:
         action = env.action_space.sample()
         s, r, done, truncated, info = env.step(action)
-        #print(r)
+        print(s[-1])
     print('episode done')
