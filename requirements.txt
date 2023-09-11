@@ -8,3 +8,8 @@ nlopt>=2.7.1
 mushroom-rl
 PyYAML>=6.0
 git+https://github.com/huaweicloud/huaweicloud-sdk-python-obs.git#egg=sdk-obs-python&subdirectory=src
+
+stable_baselines3
+tensorboard
+gymnasium
+gym

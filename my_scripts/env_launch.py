@@ -6,6 +6,8 @@ from envs.fixed_options_air_hockey import HierarchicalEnv
 from air_hockey_agent.agents.agents import DefendAgent, HitAgent, PrepareAgent
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 
+from stable_baselines3 import PPO
+
 env_args = {
     "env": 'tournament',
     "interpolation_order": 3,
@@ -68,13 +70,21 @@ policy_state_processors = {
     prepare_policy: null_filter
 }
 
-env = HierarchicalEnv(env, 100, [hit_policy_oac, defend_policy], policy_state_processors, render_flag=True, include_timer=True, include_faults=True)
+load_agent = False
+
+if load_agent:
+    agent = PPO.load("../models/ppo/hit_policy_rb_bugged&defend_oac/883813/model")
+
+env = HierarchicalEnv(env, 100, [defend_policy], policy_state_processors, render_flag=True, include_timer=True, include_faults=True, scale_obs=True, alpha_r=1)
 for i in range(10):
-    env.reset()
+    s, info = env.reset()
     done = False
 
     while not done:
-        action = env.action_space.sample()
+        if load_agent:
+            action, _ = agent.predict(observation=s, deterministic=True)
+        else:
+            action = env.action_space.sample()
         s, r, done, truncated, info = env.step(action)
         #print(s[-2:])
     print('episode done')

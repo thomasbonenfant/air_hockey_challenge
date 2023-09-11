@@ -23,6 +23,13 @@ class AirHockeyDouble(AirHockeyChallengeWrapper):
 
         return obs1
 
+    def filter_info(self, info):
+        constr_dict = info['constraints_value'][0]
+        for constr in constr_dict:
+            info[constr] = constr_dict[constr]
+        del info['constraints_value']
+        return info
+
     def step(self, action):
         second_agent_action = self.second_agent.draw_action(self.second_agent_obs)
         dual_action = (action, second_agent_action)
@@ -30,7 +37,7 @@ class AirHockeyDouble(AirHockeyChallengeWrapper):
         obs, reward, done, info = super().step(np.array((dual_action[0][self.action_idx[0]],
                                                          dual_action[1][self.action_idx[1]])))
 
-        return self.filter_observation(obs), reward, done, info
+        return self.filter_observation(obs), reward, done, self.filter_info(info)
 
     def render(self):
         super().render()

@@ -5,7 +5,9 @@ from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from envs.fixed_options_air_hockey import HierarchicalEnv
 
 
-def make_environment(steps_per_action=100, include_timer=False, render=False, large_reward=100, fault_penalty=33.33, fault_risk_penalty=0.1):
+def make_environment(steps_per_action=100, include_timer=False, include_faults=False,
+                     render=False, large_reward=100, fault_penalty=33.33, fault_risk_penalty=0.1,
+                     scale_obs=False, alpha_r=1.):
     env = AirHockeyDouble(interpolation_order=3)
     # env_info = env.env_info
 
@@ -34,7 +36,10 @@ def make_environment(steps_per_action=100, include_timer=False, render=False, la
                           policy_state_processors=policy_state_processors,
                           render_flag=render,
                           include_timer=include_timer,
+                          include_faults=include_faults,
                           large_reward=large_reward,
                           fault_penalty=fault_penalty,
-                          fault_risk_penalty=fault_risk_penalty)
+                          fault_risk_penalty=fault_risk_penalty,
+                          scale_obs=scale_obs,
+                          alpha_r=1.)
     return env

@@ -471,6 +471,7 @@ class PolicyAgent(AgentBase):
                 d_beta = (0.01 + 0.03 * self.time[self.phase] * self.env_info["dt"]) * correction
                 ds = 3e-4
                 self.last_ds = ds
+        self.can_hit = True
 
         # ACCELERATION: the ee is in the correct line, accelerate
         if self.phase == "acceleration":

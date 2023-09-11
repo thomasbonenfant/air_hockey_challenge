@@ -4,20 +4,60 @@ import numpy as np
 
 from envs.airhockeydoublewrapper import AirHockeyDouble
 
+PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, "jerk": 1, "computation_time_minor": 0.5,
+                  "computation_time_middle": 1,  "computation_time_major": 2}
+#contraints = PENALTY_POINTS.keys()
+
 
 class HierarchicalEnv(gym.Env):
     def __init__(self, env: AirHockeyDouble, steps_per_action: int, policies: list, policy_state_processors: dict, render_flag: bool,
-                 include_timer=False, include_faults=False, large_reward=100, fault_risk_penalty=0.1, fault_penalty=33.33):
+                 include_timer=False, include_faults=False, large_reward=100, fault_risk_penalty=0.1, fault_penalty=33.33,
+                 scale_obs=True, alpha_r=1.):
+
+        # Set Arguments
         self.env = env
         self.env_info = self.env.env_info
         self.render_flag = render_flag
         self.include_timer = include_timer
         self.include_faults = include_faults
+        self.scale_obs = scale_obs
+        self.reward = large_reward
+        self.fault_penalty = fault_penalty
+        self.fault_risk_penalty = fault_risk_penalty
+        self.score = np.array([0, 0])
+        self.faults = np.array([0, 0])
+        self.policies = policies
+        self.policy_state_processors = policy_state_processors
+        self.steps_per_action = steps_per_action
+        self.alpha_r = alpha_r
 
         obs_space = self.env.env_info['rl_info'].observation_space
 
         low_state = obs_space.low
         high_state = obs_space.high
+        self.obs_original_range = high_state - low_state
+        self._min_obs_original = low_state
+
+        # Constraints Scaling
+        low_position = np.array([0.54, -0.5, 0])
+        high_position = np.array([1.5, 0.5, 0.3])
+        ee_pos_norm = high_position - low_position
+        joint_pos_ids = self.env_info["joint_pos_ids"]
+        low_joints_pos = self.env_info["rl_info"].observation_space.low[joint_pos_ids]
+        high_joints_pos = self.env_info["rl_info"].observation_space.high[joint_pos_ids]
+        joint_pos_norm = high_joints_pos - low_joints_pos
+        joint_vel_ids = self.env_info["joint_vel_ids"]
+        low_joints_vel = self.env_info["rl_info"].observation_space.low[joint_vel_ids]
+        high_joints_vel = self.env_info["rl_info"].observation_space.high[joint_vel_ids]
+        joint_vel_norm = high_joints_vel - low_joints_vel
+
+        self._constr_scales = {
+            'joint_pos_constr': np.concatenate([joint_pos_norm, joint_pos_norm]),
+            'joint_vel_constr': np.concatenate([joint_vel_norm, joint_vel_norm]),
+            'ee_constr': np.concatenate([ee_pos_norm[:2], ee_pos_norm[:2], ee_pos_norm[:2]])[:5]
+        }
+
+        # Set observation Space and Action Space
 
         if self.include_timer:
             low_state = np.hstack([low_state, 0])
@@ -27,20 +67,19 @@ class HierarchicalEnv(gym.Env):
             low_state = np.hstack([low_state, [0, 0]])
             high_state = np.hstack([high_state, [2, 2]])
 
+        self.obs_original_range = high_state - low_state
+        self._min_obs_original = low_state
+
+        if self.scale_obs:
+            low_state = -1 * np.ones(low_state.shape)
+            high_state = np.ones(high_state.shape)
+
         self.observation_space = Box(low_state, high_state)
-        self.policies = policies
-        self.policy_state_processors = policy_state_processors
-        self.steps_per_action = steps_per_action
+
 
         self.action_space = Discrete(len(self.policies))
 
         self.state = None
-
-        self.reward = large_reward
-        self.fault_penalty = fault_penalty
-        self.fault_risk_penalty = fault_risk_penalty
-        self.score = np.array([0, 0])
-        self.faults = np.array([0, 0])
 
     def render(self, mode='human'):
         self.env.render()
@@ -60,7 +99,27 @@ class HierarchicalEnv(gym.Env):
 
         if self.include_faults:
             state = np.hstack([state, self.faults])
+
+        if self.scale_obs:
+            state = self._scale_obs(state)
+
         return state
+
+    def _scale_obs(self, obs):
+        return (obs - self._min_obs_original) / (self.obs_original_range) * 2 - 1
+
+    def _reward_constraints(self, info):
+        reward_constraints = 0
+        penalty_sums = 0
+        for constr in ['joint_pos_constr', 'joint_vel_constr', 'ee_constr']:
+            slacks = info[constr]
+            norms = self._constr_scales[constr]
+            slacks[slacks < 0] = 0
+            slacks /= norms
+            reward_constraints += PENALTY_POINTS[constr] * np.mean(slacks)
+            penalty_sums += PENALTY_POINTS[constr]
+        reward_constraints = - reward_constraints / penalty_sums
+        return reward_constraints
 
     def step(self, action: int):
         """
@@ -97,6 +156,8 @@ class HierarchicalEnv(gym.Env):
         # large sparse reward for a goal
         reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
         reward -= (np.array(info["faults"]) - self.faults) @ np.array([1, -1]) * self.fault_penalty
+        reward += self.alpha_r * self._reward_constraints(info)
+
         self.score = np.array(info['score'])
         self.faults = np.array(info["faults"])
 

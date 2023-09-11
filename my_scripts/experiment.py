@@ -1,5 +1,6 @@
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement
 from envs import make_environment
 from stable_baselines3 import PPO
 
@@ -19,6 +20,11 @@ def parse_args():
     parser.add_argument("--experiment_label", type=str, default="")
     parser.add_argument("--alg", type=str, default="ppo")
 
+    # eval args
+
+    parser.add_argument("--eval_freq", type=int, default=20480)
+    parser.add_argument("--n_eval_episodes", type=int, default=80)
+
     # env arguments
     parser.add_argument("--steps_per_action", type=int, default=100)
     parser.add_argument("--render", action="store_true")
@@ -27,6 +33,8 @@ def parse_args():
     parser.add_argument("--large_reward", type=float, default=100)
     parser.add_argument("--fault_penalty", type=float, default=33.33)
     parser.add_argument("--fault_risk_penalty", type=float, default=0.1)
+    parser.add_argument("--scale_obs", action="store_true")
+    parser.add_argument("--alpha_r", type=float, default=1.)
     parser.add_argument("--parallel", type=int, default=1)
 
     # ppo arguments
@@ -72,6 +80,8 @@ def parse_args():
     env_args['large_reward'] = variant.large_reward
     env_args['fault_penalty'] = variant.fault_penalty
     env_args['fault_risk_penalty'] = variant.fault_risk_penalty
+    env_args['scale_obs'] = variant.scale_obs
+    env_args['alpha_r'] = variant.alpha_r
 
     alg_args['learning_rate'] = variant.lr
     alg_args['policy'] = "MlpPolicy"
@@ -106,7 +116,6 @@ def parse_args():
 
 def create_log_directory(log_args, variant):
     # Generate a unique directory name based on experiment label and seed
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = os.path.join(log_args['save_model_dir'], f"{log_args['alg']}",f"{log_args['experiment_label']}",f"{variant.seed}")
 
     # Create the directory if it doesn't exist
@@ -120,19 +129,26 @@ def create_log_directory(log_args, variant):
     return log_dir
 
 
-
 def main():
     env_args, alg_args, learn_args, log_args, variant = parse_args()
 
     env_producer = lambda: make_environment(**env_args)
-
     env = VecMonitor(make_vec_env(env_producer, n_envs=variant.parallel, vec_env_cls=SubprocVecEnv))
-
     alg_args["env"] = env
 
     log_dir = create_log_directory(log_args, variant)
-
     learn_args["tb_log_name"] = log_dir
+
+    eval_env = VecMonitor(make_vec_env(env_producer, n_envs=variant.parallel, vec_env_cls=SubprocVecEnv))
+    stop_train_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=3, min_evals=5, verbose=1)
+    eval_callback = EvalCallback(n_eval_episodes=variant.n_eval_episodes,
+                                 eval_freq=variant.eval_freq,
+                                 deterministic=True,
+                                 log_path=log_dir,
+                                 best_model_save_path=log_dir,
+                                 eval_env=eval_env,
+                                 callback_after_eval=stop_train_callback)
+    learn_args['callback'] = eval_callback
 
     model = PPO(**alg_args)
     model.learn(**learn_args)
