@@ -31,6 +31,8 @@ class HierarchicalEnv(gym.Env):
         self.steps_per_action = steps_per_action
         self.alpha_r = alpha_r
 
+        self.action = 0 # need to save to detect a switch in the low level policy and reset the state of the new level policy
+
         obs_space = self.env.env_info['rl_info'].observation_space
 
         low_state = obs_space.low
@@ -131,6 +133,10 @@ class HierarchicalEnv(gym.Env):
 
         policy = self.policies[action]
 
+        if self.action != action:
+            self.action = action
+            policy.reset()
+
         steps = 0
         reward = 0
         done = False
@@ -147,6 +153,8 @@ class HierarchicalEnv(gym.Env):
             # penalty at every step if the puck is in our part of the table. Introduced for reducing faults
             if puck_pos[0] + self.env_info["robot"]["base_frame"][0][0, 3] <= 0:
                 reward -= self.fault_risk_penalty
+
+            reward += self.alpha_r * self._reward_constraints(info)
 
             if self.render_flag:
                 self.env.render()

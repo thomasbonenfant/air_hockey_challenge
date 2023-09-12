@@ -1,10 +1,13 @@
 python -m my_scripts.experiment \
+--seed=883813 \
 --save_model_dir="models" \
---experiment_label="hit_policy_rb_bugged&defend_oac" \
+--experiment_label="hit_policy_rb+defend_oac+constr" \
 --alg="ppo" \
---steps_per_action=10 \
+--steps_per_action= \
 --include_timer \
 --include_faults \
+--scale_obs \
+--alpha_r=1 \
 --large_reward=100 \
 --fault_penalty=33.33 \
 --fault_risk_penalty=0.1 \
@@ -23,7 +26,9 @@ python -m my_scripts.experiment \
 --stats_window_size=100 \
 --tensorboard_log="./" \
 --verbose=1 \
---total_timesteps=2048000
+--total_timesteps=1000000 \
+--eval_freq=20480 \
+--n_eval_episodes=50 \
 
 
 
