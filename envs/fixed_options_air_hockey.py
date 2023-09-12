@@ -183,7 +183,6 @@ class HierarchicalEnv(gym.Env):
         # large sparse reward for a goal
         reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
         reward -= (np.array(info["faults"]) - self.faults) @ np.array([1, -1]) * self.fault_penalty
-        reward += self.alpha_r * self._reward_constraints(info)
 
         self.score = np.array(info['score'])
         self.faults = np.array(info["faults"])
