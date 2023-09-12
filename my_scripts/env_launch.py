@@ -86,5 +86,5 @@ for i in range(10):
         else:
             action = env.action_space.sample()
         s, r, done, truncated, info = env.step(action)
-        #print(s[-2:])
+        print(s)
     print('episode done')

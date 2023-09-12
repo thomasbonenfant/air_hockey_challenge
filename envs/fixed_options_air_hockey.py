@@ -1,5 +1,5 @@
 import gymnasium as gym
-from gymnasium.spaces import Discrete, Box
+from gymnasium.spaces import Discrete, Box, MultiDiscrete, Dict
 import numpy as np
 
 from envs.airhockeydoublewrapper import AirHockeyDouble
@@ -12,7 +12,7 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 class HierarchicalEnv(gym.Env):
     def __init__(self, env: AirHockeyDouble, steps_per_action: int, policies: list, policy_state_processors: dict, render_flag: bool,
                  include_timer=False, include_faults=False, large_reward=100, fault_risk_penalty=0.1, fault_penalty=33.33,
-                 scale_obs=True, alpha_r=1.):
+                 scale_obs=True, alpha_r=1., use_history=False):
 
         # Set Arguments
         self.env = env
@@ -30,6 +30,9 @@ class HierarchicalEnv(gym.Env):
         self.policy_state_processors = policy_state_processors
         self.steps_per_action = steps_per_action
         self.alpha_r = alpha_r
+        self.use_history = False
+
+        self.low_level_history = []
 
         self.action = 0 # need to save to detect a switch in the low level policy and reset the state of the new level policy
 
@@ -37,8 +40,6 @@ class HierarchicalEnv(gym.Env):
 
         low_state = obs_space.low
         high_state = obs_space.high
-        self.obs_original_range = high_state - low_state
-        self._min_obs_original = low_state
 
         # Constraints Scaling
         low_position = np.array([0.54, -0.5, 0])
@@ -60,15 +61,6 @@ class HierarchicalEnv(gym.Env):
         }
 
         # Set observation Space and Action Space
-
-        if self.include_timer:
-            low_state = np.hstack([low_state, 0])
-            high_state = np.hstack([high_state, 1])
-
-        if self.include_faults:
-            low_state = np.hstack([low_state, [0, 0]])
-            high_state = np.hstack([high_state, [2, 2]])
-
         self.obs_original_range = high_state - low_state
         self._min_obs_original = low_state
 
@@ -76,8 +68,20 @@ class HierarchicalEnv(gym.Env):
             low_state = -1 * np.ones(low_state.shape)
             high_state = np.ones(high_state.shape)
 
-        self.observation_space = Box(low_state, high_state)
+        box_obs = Box(low_state, high_state)
+        obs_dict = {'orig_obs': box_obs}
 
+        # we don't want to scale the timer between -1 and 1, but between 0 and 1
+        if self.include_timer:
+            low_timer = 0
+            high_timer = 1
+            obs_dict['timer'] = Box(low_timer, high_timer)
+
+        if self.include_faults:
+            fault_obs = MultiDiscrete([3, 3])
+            obs_dict['faults'] = fault_obs
+
+        self.observation_space = Dict(obs_dict)
 
         self.action_space = Discrete(len(self.policies))
 
@@ -96,19 +100,25 @@ class HierarchicalEnv(gym.Env):
         return self.process_state(self.state, None), None
 
     def process_state(self, state, info):
-        if self.include_timer:
+        '''if self.include_timer:
             state = np.hstack([state, np.clip(self.env.base_env.timer / 15, a_min=0, a_max=1)])
 
         if self.include_faults:
             state = np.hstack([state, self.faults])
 
         if self.scale_obs:
-            state = self._scale_obs(state)
+            state = self._scale_obs(state)'''
+        obs = {'orig_obs': state}
+        if self.include_faults:
+            obs['faults'] = self.faults
+        if self.include_timer:
+            obs['timer'] = np.clip(self.env.base_env.timer / 15, a_min=0, a_max=1)
 
-        return state
+        return obs
 
     def _scale_obs(self, obs):
-        return (obs - self._min_obs_original) / (self.obs_original_range) * 2 - 1
+        obs['orig_obs'] = (obs['orig_obs'] - self._min_obs_original) / self.obs_original_range * 2 - 1
+        return obs
 
     def _reward_constraints(self, info):
         reward_constraints = 0
@@ -144,9 +154,14 @@ class HierarchicalEnv(gym.Env):
 
         # print(f"Policy: {action}")
 
+        if self.use_history:
+            self.low_level_history = []
+
         while steps < self.steps_per_action and not done:
             low_level_action = policy.draw_action(self.policy_state_processors[policy](self.state))
             self.state, r, done, info = self.env.step(low_level_action)
+
+            self.low_level_history.append(self.state)
 
             puck_pos = np.array(self.state[self.env_info["puck_pos_ids"]])
 
@@ -160,6 +175,10 @@ class HierarchicalEnv(gym.Env):
                 self.env.render()
 
             steps += 1
+
+        # fill history with last state if early termination
+        if self.use_history and done:
+            self.low_level_history.extend([self.state] * (self.steps_per_action - len(self.low_level_history)))
 
         # large sparse reward for a goal
         reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
