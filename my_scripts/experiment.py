@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument("--render", action="store_true")
     parser.add_argument("--include_timer", action="store_true")
     parser.add_argument("--include_faults", action="store_true")
+    parser.add_argument("--include_joints", action="store_true")
     parser.add_argument("--large_reward", type=float, default=100)
     parser.add_argument("--fault_penalty", type=float, default=33.33)
     parser.add_argument("--fault_risk_penalty", type=float, default=0.1)
@@ -82,6 +83,7 @@ def parse_args():
     env_args['fault_risk_penalty'] = variant.fault_risk_penalty
     env_args['scale_obs'] = variant.scale_obs
     env_args['alpha_r'] = variant.alpha_r
+    env_args['include_joints'] = variant.include_joints
 
     alg_args['learning_rate'] = variant.lr
     alg_args['policy'] = "MlpPolicy"

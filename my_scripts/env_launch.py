@@ -75,7 +75,9 @@ load_agent = False
 if load_agent:
     agent = PPO.load("../models/ppo/saved/best_model")
 
-env = HierarchicalEnv(env, 100, [hit_policy, defend_policy], policy_state_processors, render_flag=True, include_timer=True, include_faults=True, scale_obs=True, alpha_r=1)
+env = HierarchicalEnv(env, 100, [hit_policy, defend_policy], policy_state_processors, render_flag=True,
+                      include_timer=True, include_faults=True, scale_obs=True, alpha_r=1,
+                      include_joints=False)
 for i in range(10):
     s, info = env.reset()
     done = False

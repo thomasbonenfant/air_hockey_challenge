@@ -7,7 +7,7 @@ from envs.fixed_options_air_hockey import HierarchicalEnv
 
 def make_environment(steps_per_action=100, include_timer=False, include_faults=False,
                      render=False, large_reward=100, fault_penalty=33.33, fault_risk_penalty=0.1,
-                     scale_obs=False, alpha_r=1.):
+                     scale_obs=False, alpha_r=1., include_joints=False):
     env = AirHockeyDouble(interpolation_order=3)
     # env_info = env.env_info
 
@@ -35,6 +35,7 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
                           policies=[hit_policy, defend_policy],
                           policy_state_processors=policy_state_processors,
                           render_flag=render,
+                          include_joints=include_joints,
                           include_timer=include_timer,
                           include_faults=include_faults,
                           large_reward=large_reward,

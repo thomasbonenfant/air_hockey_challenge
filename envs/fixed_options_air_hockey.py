@@ -12,7 +12,7 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 class HierarchicalEnv(gym.Env):
     def __init__(self, env: AirHockeyDouble, steps_per_action: int, policies: list, policy_state_processors: dict, render_flag: bool,
                  include_timer=False, include_faults=False, large_reward=100, fault_risk_penalty=0.1, fault_penalty=33.33,
-                 scale_obs=True, alpha_r=1., use_history=False):
+                 scale_obs=True, alpha_r=1., use_history=False, include_joints=False, include_ee=False):
 
         # Set Arguments
         self.env = env
@@ -30,7 +30,8 @@ class HierarchicalEnv(gym.Env):
         self.policy_state_processors = policy_state_processors
         self.steps_per_action = steps_per_action
         self.alpha_r = alpha_r
-        self.use_history = False
+        self.use_history = use_history
+        self.include_joints = include_joints
 
         self.low_level_history = []
 
@@ -40,6 +41,10 @@ class HierarchicalEnv(gym.Env):
 
         low_state = obs_space.low
         high_state = obs_space.high
+
+        puck_pos_ids = self.env_info['puck_pos_ids']
+        puck_vel_ids = self.env_info['puck_vel_ids']
+        opponent_ee_ids = self.env_info['opponent_ee_ids']
 
         # Constraints Scaling
         low_position = np.array([0.54, -0.5, 0])
@@ -59,6 +64,14 @@ class HierarchicalEnv(gym.Env):
             'joint_vel_constr': np.concatenate([joint_vel_norm, joint_vel_norm]),
             'ee_constr': np.concatenate([ee_pos_norm[:2], ee_pos_norm[:2], ee_pos_norm[:2]])[:5]
         }
+
+        self.idx_to_delete = [puck_pos_ids[2], puck_vel_ids[2], opponent_ee_ids[2]] # remove puck's theta and dtheta and ee z
+
+        if not self.include_joints:
+            self.idx_to_delete = np.hstack([self.idx_to_delete, joint_pos_ids, joint_vel_ids])
+            low_state = np.delete(low_state, self.idx_to_delete, axis=0)
+            high_state = np.delete(high_state, self.idx_to_delete, axis=0)
+
 
         # Set observation Space and Action Space
         self.obs_original_range = high_state - low_state
@@ -108,7 +121,9 @@ class HierarchicalEnv(gym.Env):
 
         if self.scale_obs:
             state = self._scale_obs(state)'''
-        obs = {'orig_obs': state}
+
+        obs = np.delete(state, self.idx_to_delete, axis=0)
+        obs = {'orig_obs': obs}
         if self.include_faults:
             obs['faults'] = self.faults
         if self.include_timer:
@@ -179,10 +194,11 @@ class HierarchicalEnv(gym.Env):
         # fill history with last state if early termination
         if self.use_history and done:
             self.low_level_history.extend([self.state] * (self.steps_per_action - len(self.low_level_history)))
+            # TODO: complete history feature implementation
 
         # large sparse reward for a goal
         reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
-        reward -= (np.array(info["faults"]) - self.faults) @ np.array([1, -1]) * self.fault_penalty
+        reward -= np.clip((np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty, a_min=0)
 
         self.score = np.array(info['score'])
         self.faults = np.array(info["faults"])
