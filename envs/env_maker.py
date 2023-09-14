@@ -43,7 +43,7 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
                           fault_penalty=fault_penalty,
                           fault_risk_penalty=fault_risk_penalty,
                           scale_obs=scale_obs,
-                          alpha_r=1.)
+                          alpha_r=alpha_r)
 
     env = FlattenObservation(env)
 

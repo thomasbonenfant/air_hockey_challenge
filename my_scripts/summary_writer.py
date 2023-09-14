@@ -20,7 +20,7 @@ class SummaryWriterCallback(BaseCallback):
         fault_risk_penalty = []
         constr_penalty = []
 
-        for info in self.locals['info']:
+        for info in self.locals['infos']:
             reward = info['reward']
             large_reward.append(reward["log_large_reward"])
             fault_penalty.append(reward["log_fault_penalty"])

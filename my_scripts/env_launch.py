@@ -80,6 +80,7 @@ env = HierarchicalEnv(env, 100, [hit_policy, defend_policy], policy_state_proces
                       include_joints=False)
 for i in range(10):
     s, info = env.reset()
+    print(s)
     done = False
 
     while not done:
