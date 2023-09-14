@@ -69,9 +69,9 @@ class HierarchicalEnv(gym.Env):
 
         if not self.include_joints:
             self.idx_to_delete = np.hstack([self.idx_to_delete, joint_pos_ids, joint_vel_ids])
-            low_state = np.delete(low_state, self.idx_to_delete, axis=0)
-            high_state = np.delete(high_state, self.idx_to_delete, axis=0)
 
+        low_state = np.delete(low_state, self.idx_to_delete, axis=0)
+        high_state = np.delete(high_state, self.idx_to_delete, axis=0)
 
         # Set observation Space and Action Space
         self.obs_original_range = high_state - low_state
@@ -100,6 +100,13 @@ class HierarchicalEnv(gym.Env):
 
         self.state = None
 
+        # variables to log
+
+        self.log_constr_penalty = 0
+        self.log_fault_penalty = 0
+        self.log_fault_risk_penalty = 0
+        self.log_large_reward = 0
+
     def render(self, mode='human'):
         self.env.render()
         self.render_flag = True
@@ -124,6 +131,9 @@ class HierarchicalEnv(gym.Env):
 
         obs = np.delete(state, self.idx_to_delete, axis=0)
         obs = {'orig_obs': obs}
+
+        obs = self._scale_obs(obs)
+
         if self.include_faults:
             obs['faults'] = self.faults
         if self.include_timer:
@@ -167,6 +177,12 @@ class HierarchicalEnv(gym.Env):
         done = False
         info = None
 
+        # initialize variables to log
+        self.log_fault_penalty = 0
+        self.log_fault_risk_penalty = 0
+        self.log_constr_penalty = 0
+        self.log_large_reward = 0
+
         # print(f"Policy: {action}")
 
         if self.use_history:
@@ -183,8 +199,10 @@ class HierarchicalEnv(gym.Env):
             # penalty at every step if the puck is in our part of the table. Introduced for reducing faults
             if puck_pos[0] + self.env_info["robot"]["base_frame"][0][0, 3] <= 0:
                 reward -= self.fault_risk_penalty
+                self.log_fault_risk_penalty -= self.fault_risk_penalty
 
             reward += self.alpha_r * self._reward_constraints(info)
+            self.log_constr_penalty += self.alpha_r * self._reward_constraints(info)
 
             if self.render_flag:
                 self.env.render()
@@ -198,9 +216,18 @@ class HierarchicalEnv(gym.Env):
 
         # large sparse reward for a goal
         reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
-        reward -= np.clip((np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty, a_min=0)
+        self.log_large_reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
+
+        reward -= np.clip((np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty, a_min=0, a_max=None)
+        self.log_fault_penalty -= np.clip((np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty, a_min=0, a_max=None)
 
         self.score = np.array(info['score'])
         self.faults = np.array(info["faults"])
+
+        # add rewards in info
+        reward_dict = {'log_large_reward': self.log_large_reward, 'log_constr_penalty': self.log_constr_penalty,
+                       'log_fault_penalty': self.log_fault_penalty,
+                       'log_fault_risk_penalty': self.log_fault_risk_penalty}
+        info['reward'] = reward_dict
 
         return self.process_state(self.state, info), reward, done, False, info

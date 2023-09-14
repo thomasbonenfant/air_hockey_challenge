@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 import json
 import random
+from .summary_writer import SummaryWriterCallback
 
 
 def parse_args():
@@ -150,7 +151,10 @@ def main():
                                  best_model_save_path=log_dir,
                                  eval_env=eval_env,
                                  callback_after_eval=stop_train_callback)
-    learn_args['callback'] = eval_callback
+
+    summary_writer_callback = SummaryWriterCallback()
+
+    learn_args['callback'] = [eval_callback, summary_writer_callback]
 
     model = PPO(**alg_args)
     model.learn(**learn_args)

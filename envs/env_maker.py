@@ -3,6 +3,7 @@ from envs.airhockeydoublewrapper import AirHockeyDouble
 from air_hockey_agent.agents.agents import DefendAgent, HitAgent, PrepareAgent
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from envs.fixed_options_air_hockey import HierarchicalEnv
+from gymnasium.wrappers import FlattenObservation
 
 
 def make_environment(steps_per_action=100, include_timer=False, include_faults=False,
@@ -32,7 +33,7 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
 
     env = HierarchicalEnv(env=env,
                           steps_per_action=steps_per_action,
-                          policies=[hit_policy, defend_policy],
+                          policies=[hit_policy, hit_policy_oac, defend_policy, prepare_policy],
                           policy_state_processors=policy_state_processors,
                           render_flag=render,
                           include_joints=include_joints,
@@ -43,4 +44,7 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
                           fault_risk_penalty=fault_risk_penalty,
                           scale_obs=scale_obs,
                           alpha_r=1.)
+
+    env = FlattenObservation(env)
+
     return env
