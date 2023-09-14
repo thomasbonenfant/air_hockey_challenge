@@ -27,9 +27,9 @@ class SummaryWriterCallback(BaseCallback):
             fault_risk_penalty.append(reward["log_fault_risk_penalty"])
             constr_penalty.append(reward["log_constr_penalty"])
 
-        self.tb_formatter.writer.add_scalar("train/large_reward", np.sum(large_reward), self.num_timesteps)
-        self.tb_formatter.writer.add_scalar("train/fault_penalty", np.sum(fault_penalty), self.num_timesteps)
-        self.tb_formatter.writer.add_scalar("train/fault_risk_penalty", np.sum(fault_risk_penalty), self.num_timesteps)
-        self.tb_formatter.writer.add_scalar("train/log_constr_penalty", np.sum(constr_penalty), self.num_timesteps)
+        self.tb_formatter.writer.add_scalar("reward/large_reward", np.sum(large_reward), self.num_timesteps)
+        self.tb_formatter.writer.add_scalar("reward/fault_penalty", np.sum(fault_penalty), self.num_timesteps)
+        self.tb_formatter.writer.add_scalar("reward/fault_risk_penalty", np.sum(fault_risk_penalty), self.num_timesteps)
+        self.tb_formatter.writer.add_scalar("reward/log_constr_penalty", np.sum(constr_penalty), self.num_timesteps)
 
         return True

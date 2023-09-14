@@ -10,11 +10,11 @@ python -m my_scripts.experiment \
 --large_reward=1000 \
 --fault_penalty=333 \
 --fault_risk_penalty=1 \
---parallel=1 \
+--parallel=8 \
 --lr=3e-4 \
 --steps_per_update=256 \
---batch_size=64 \
---n_epochs=10 \
+--batch_size=256 \
+--n_epochs=100 \
 --gamma=0.997 \
 --gae_lambda=0.95 \
 --clip_range=0.2 \

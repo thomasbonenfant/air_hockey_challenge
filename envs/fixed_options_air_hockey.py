@@ -135,7 +135,7 @@ class HierarchicalEnv(gym.Env):
         obs = self._scale_obs(obs)
 
         if self.include_faults:
-            obs['faults'] = self.faults
+            obs['faults'] = self.faults % 3
         if self.include_timer:
             obs['timer'] = np.clip(self.env.base_env.timer / 15, a_min=0, a_max=1)
 
@@ -218,8 +218,8 @@ class HierarchicalEnv(gym.Env):
         reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
         self.log_large_reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
 
-        reward -= np.clip((np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty, a_min=0, a_max=None)
-        self.log_fault_penalty -= np.clip((np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty, a_min=0, a_max=None)
+        reward -= (np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty
+        self.log_fault_penalty -= (np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty
 
         self.score = np.array(info['score'])
         self.faults = np.array(info["faults"])

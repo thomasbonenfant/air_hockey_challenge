@@ -152,9 +152,9 @@ def main():
                                  eval_env=eval_env,
                                  callback_after_eval=stop_train_callback)
 
-    summary_writer_callback = SummaryWriterCallback()
+    #summary_writer_callback = SummaryWriterCallback()
 
-    learn_args['callback'] = [eval_callback, summary_writer_callback]
+    learn_args['callback'] = [eval_callback] #, summary_writer_callback]
 
     model = PPO(**alg_args)
     model.learn(**learn_args)
