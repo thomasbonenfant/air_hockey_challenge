@@ -25,8 +25,8 @@ def main():
                                  deterministic=True,
                                  log_path=log_dir,
                                  best_model_save_path=log_dir,
-                                 eval_env=eval_env,
-                                 callback_after_eval=stop_train_callback)
+                                 eval_env=eval_env)
+
 
     # summary_writer_callback = SummaryWriterCallback()
 

@@ -516,6 +516,7 @@ class PolicyAgent(AgentBase):
                 ds = self.last_ds / ((FINAL - self.final) * 2)
                 #ds = self.last_ds * 0.95
                 self.last_ds = ds
+            self.reset()
 
         # NEXT POINT COMPUTATION ----------------------------------------------
         if puck_pos[1] <= self.table_width / 2:

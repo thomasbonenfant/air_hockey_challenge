@@ -562,6 +562,10 @@ class Agent(AgentBase):
         return obs[self.env_info['opponent_ee_ids']]
 
     def draw_action(self, observation):
+
+        #if len(self.env_info['opponent_ee_ids']) == 0:
+        #    observation = observation[:-3]
+
         # Noise removal
 
         noisy_puck_pos = self.get_puck_pos(observation)
@@ -683,6 +687,9 @@ class HitAgent(Agent):
 class DefendAgent(Agent):
     def __init__(self, env_info, **kwargs):
         dir_path = os.path.dirname(os.path.abspath(__file__))
+
+        # modification to run with tournament env
+        env_info['opponent_ee_ids'] = []
 
         path = 'air_hockey_agent/agents/Agents/Defend_Agent'
         path = 'Agents/Defend_Agent'

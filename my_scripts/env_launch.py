@@ -5,6 +5,7 @@ from air_hockey_challenge.framework import AirHockeyChallengeWrapper
 from envs.fixed_options_air_hockey import HierarchicalEnv
 from air_hockey_agent.agents.agents import DefendAgent, HitAgent, PrepareAgent
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
+from gymnasium.wrappers import FlattenObservation
 
 from stable_baselines3 import PPO
 
@@ -49,10 +50,10 @@ env_args = {
 
 
 env = AirHockeyDouble(interpolation_order=3)
-# env_info = env.env_info
+env_info = env.env_info
 
 # load env_info of hit and defend environment
-with open("../envs/env_info_single_agent/env_infos.pkl", "rb") as fp:
+with open("envs/env_info_single_agent/env_infos.pkl", "rb") as fp:
     env_info_hit, env_info_defend = pickle.load(fp)
 
 filter_opponent_ee_obs = lambda state: state[:-3]
@@ -73,11 +74,11 @@ policy_state_processors = {
 load_agent = False
 
 if load_agent:
-    agent = PPO.load("../models/ppo/saved/best_model")
+    agent = PPO.load("/home/thomas/Downloads/best_model")
 
-env = HierarchicalEnv(env, 100, [defend_policy], policy_state_processors, render_flag=True,
-                      include_timer=True, include_faults=True, scale_obs=True, alpha_r=1,
-                      include_joints=False)
+env = FlattenObservation(HierarchicalEnv(env, 15, [defend_policy], policy_state_processors, render_flag=True,
+                      include_timer=True, include_faults=True, scale_obs=True, alpha_r=0,
+                      include_joints=False))
 for i in range(10):
     s, info = env.reset()
     print(s)

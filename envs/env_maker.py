@@ -10,7 +10,7 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
                      render=False, large_reward=100, fault_penalty=33.33, fault_risk_penalty=0.1,
                      scale_obs=False, alpha_r=1., include_joints=False):
     env = AirHockeyDouble(interpolation_order=3)
-    # env_info = env.env_info
+    env_info = env.env_info
 
     # load env_info of hit and defend environment
     with open("envs/env_info_single_agent/env_infos.pkl", "rb") as fp:
