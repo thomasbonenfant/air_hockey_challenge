@@ -1,5 +1,8 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 import random
+import json
+import os
+
 
 def parse_args():
     parser = ArgumentParser()
@@ -52,9 +55,17 @@ def parse_args():
     # learning args
 
     parser.add_argument("--total_timesteps", type=int, required=True)
-    #parser.add_argument("--tb_log_name", type=str)
+    # parser.add_argument("--tb_log_name", type=str)
 
     variant = parser.parse_args()
+
+    if not variant.seed:
+        variant.seed = random.randint(0, 999999)
+
+    return variant
+
+
+def variant_util(variant):
     env_args = {}
     alg_args = {}
     learn_args = {}
@@ -95,12 +106,16 @@ def parse_args():
     alg_args['tensorboard_log'] = variant.tensorboard_log
     alg_args['verbose'] = variant.verbose
 
-    if not variant.seed:
-        variant.seed = random.randint(0, 999999)
-
     alg_args['seed'] = variant.seed
 
     learn_args['total_timesteps'] = variant.total_timesteps
-    #learn_args['tb_log_name'] = variant.tb_log_name
+    # learn_args['tb_log_name'] = variant.tb_log_name
 
     return env_args, alg_args, learn_args, log_args, variant
+
+
+def load_variant(path):
+    with open(os.path.join(path, 'variant.json'), 'r') as fp:
+        variant = json.load(fp)
+
+    return Namespace(**variant)

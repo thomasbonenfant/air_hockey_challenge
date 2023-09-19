@@ -4,12 +4,12 @@ from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoMod
 from envs import make_environment
 from stable_baselines3 import PPO
 
-from my_scripts.utils import parse_args, create_log_directory
+from my_scripts.utils import parse_args, create_log_directory, variant_util
 import os
 
 
 def main():
-    env_args, alg_args, learn_args, log_args, variant = parse_args()
+    env_args, alg_args, learn_args, log_args, variant = variant_util(parse_args())
 
     env_producer = lambda: make_environment(**env_args)
     env = VecMonitor(make_vec_env(env_producer, n_envs=variant.parallel, vec_env_cls=SubprocVecEnv))

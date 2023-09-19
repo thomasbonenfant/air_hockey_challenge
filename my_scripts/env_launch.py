@@ -3,6 +3,8 @@ import pickle
 from envs.airhockeydoublewrapper import AirHockeyDouble
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper
 from envs.fixed_options_air_hockey import HierarchicalEnv
+from envs.env_maker import make_environment
+from my_scripts.utils import variant_util, load_variant
 from air_hockey_agent.agents.agents import DefendAgent, HitAgent, PrepareAgent
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from gymnasium.wrappers import FlattenObservation
@@ -48,9 +50,17 @@ env_args = {
 
 }
 
-
-env = AirHockeyDouble(interpolation_order=3)
-env_info = env.env_info
+env = make_environment(steps_per_action=15,
+                       include_joints=False,
+                       alpha_r=1.0,
+                       scale_obs=True,
+                       large_reward=1000,
+                       include_faults=True,
+                       fault_penalty=333,
+                       fault_risk_penalty=1,
+                       include_timer=True,
+                       render=True)
+'''env = AirHockeyDouble(interpolation_order=3)
 
 # load env_info of hit and defend environment
 with open("envs/env_info_single_agent/env_infos.pkl", "rb") as fp:
@@ -69,16 +79,17 @@ policy_state_processors = {
     hit_policy_oac: null_filter,
     hit_policy: null_filter,
     prepare_policy: null_filter
-}
+}'''
 
-load_agent = False
+load_agent = True
 
 if load_agent:
-    agent = PPO.load("/home/thomas/Downloads/best_model")
+    agent = PPO.load("/home/thomas/Downloads/876767/best_model")
 
-env = FlattenObservation(HierarchicalEnv(env, 15, [defend_policy], policy_state_processors, render_flag=True,
+'''env = FlattenObservation(HierarchicalEnv(env, 15, [hit_policy, hit_policy_oac, defend_policy, prepare_policy], policy_state_processors, render_flag=True,
                       include_timer=True, include_faults=True, scale_obs=True, alpha_r=0,
-                      include_joints=False))
+                      include_joints=False))'''
+
 for i in range(10):
     s, info = env.reset()
     print(s)
@@ -90,5 +101,3 @@ for i in range(10):
         else:
             action = env.action_space.sample()
         s, r, done, truncated, info = env.step(action)
-        print(s)
-    print('episode done')

@@ -15,7 +15,6 @@ def build_agent(env_info, **kwargs):
         env_info_hit, env_info_defend = pickle.load(fp)
 
     if "hit" in env_info["env_name"]:
-        print(env_info)
         return HitAgent(env_info_hit, **kwargs)
     if "defend" in env_info["env_name"]:
         return DefendAgent(env_info, **kwargs)

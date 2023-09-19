@@ -568,7 +568,7 @@ class Agent(AgentBase):
 
         # Noise removal
 
-        noisy_puck_pos = self.get_puck_pos(observation)
+        '''noisy_puck_pos = self.get_puck_pos(observation)
 
         if self.restart:
             self.puck_tracker.reset(noisy_puck_pos)
@@ -585,7 +585,7 @@ class Agent(AgentBase):
             observation[self.env_info['joint_pos_ids']] = self.last_joint_pos_action.copy()
             observation[self.env_info['joint_vel_ids']] = self.last_joint_vel_action.copy()
 
-        self.restart = False
+        self.restart = False'''
 
         ##
 

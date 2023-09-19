@@ -6,11 +6,11 @@ python -m my_scripts.experiment \
 --include_timer \
 --include_faults \
 --scale_obs \
---alpha_r=0.0 \
+--alpha_r=1.0 \
 --large_reward=1000 \
 --fault_penalty=333 \
 --fault_risk_penalty=1 \
---parallel=1 \
+--parallel=10 \
 --lr=3e-4 \
 --steps_per_update=256 \
 --batch_size=256 \
