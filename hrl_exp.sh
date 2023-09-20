@@ -1,10 +1,9 @@
 python -m my_scripts.experiment \
 --save_model_dir="models" \
---experiment_label="hit_rb+hit_oac+defend/constr" \
+--experiment_label="rule_based/constr" \
 --alg="ppo" \
 --steps_per_action=15 \
 --include_timer \
---include_faults \
 --scale_obs \
 --alpha_r=1.0 \
 --large_reward=1000 \
