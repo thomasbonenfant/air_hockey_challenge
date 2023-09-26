@@ -92,6 +92,7 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/463593'
     path = '/home/thomas/Downloads/299758'
     path = '/home/thomas/Downloads/172658'
+    path = '/home/thomas/Downloads/38050'
 
     launch(path, num_episodes=1, always_action=None)
     #eval_agent(path, 10, 2, always_action=None)

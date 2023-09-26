@@ -563,8 +563,8 @@ class Agent(AgentBase):
 
     def draw_action(self, observation):
 
-        #if len(self.env_info['opponent_ee_ids']) == 0:
-        #    observation = observation[:-3]
+        if len(self.env_info['opponent_ee_ids']) == 0:
+            observation = observation[:-3]
 
         # Noise removal
 

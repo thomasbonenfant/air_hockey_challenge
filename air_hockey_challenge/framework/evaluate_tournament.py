@@ -281,7 +281,7 @@ def _run_single_tournament(log_dir, agent_builder, name_1, name_2, n_steps, quie
     agent = agent_builder(mdp, i, **kwargs)
 
     core = ChallengeCore(agent, mdp, is_tournament=True, init_state=mdp.base_env.init_state,
-                         time_limit=0.02)
+                         time_limit=None)
 
     # dataset, score, faults, constraints_dict_1, constraints_dict_2, jerk[:, 0], jerk[:, 1], computation_time[:, 0], \
     #            computation_time[:, 1], penalty_sum_1, penalty_sum_2, violations_1, violations_2
