@@ -471,7 +471,6 @@ class PolicyAgent(AgentBase):
                 d_beta = (0.01 + 0.03 * self.time[self.phase] * self.env_info["dt"]) * correction
                 ds = 3e-4
                 self.last_ds = ds
-        self.can_hit = True
 
         # ACCELERATION: the ee is in the correct line, accelerate
         if self.phase == "acceleration":
@@ -483,9 +482,10 @@ class PolicyAgent(AgentBase):
             upper_bound_goal = self.env_info["table"]["goal_width"] / 2
 
             # check if adv_ee moved in around the bounds of the goal
-            if (adv_ee_pos[1] <= 0 and np.abs(adv_ee_pos[1] - lower_bound_goal) < 0.08) or \
-                    (adv_ee_pos[1] >= 0 and np.abs(adv_ee_pos[1] - upper_bound_goal) < 0.08):
-                self.can_hit = True
+            '''if (adv_ee_pos[1] <= 0 and np.abs(adv_ee_pos[1] - lower_bound_goal) < 0.08) or \
+                    (adv_ee_pos[1] >= 0 and np.abs(adv_ee_pos[1] - upper_bound_goal) < 0.08):'''
+            self.can_hit = True
+
 
             # (np.abs(radius - self.mallet_radius - self.puck_radius) <= 5e-3) and (self.state.w_puck_pos[0] > -0.6 or self.state.w_puck_vel[0] >= 0) violates less constraints but has a lower success rate
             if rounded_radius <= 1e-2 and (self.state.w_puck_pos[0] > - 0.5):  # and self.state.w_puck_vel[0] > 0) and not self.has_hit:
