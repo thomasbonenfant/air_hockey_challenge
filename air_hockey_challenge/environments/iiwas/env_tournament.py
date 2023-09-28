@@ -37,7 +37,6 @@ class AirHockeyTournament(AirHockeyDouble):
         self.hit_range = np.array([[-0.7, -0.2], [-hit_width, hit_width]])  # Table Frame
 
     def setup(self, obs):
-        self.start_side = -1
         # Initial position of the puck
         puck_pos = np.random.rand(2) * (self.hit_range[:, 1] - self.hit_range[:, 0]) + self.hit_range[:, 0]
 
@@ -53,7 +52,7 @@ class AirHockeyTournament(AirHockeyDouble):
         return 0
 
     def is_absorbing(self, obs):
-        '''puck_pos, puck_vel = self.get_puck(obs)
+        puck_pos, puck_vel = self.get_puck(obs)
 
         # Puck stuck on one side for more than 15s
         if np.sign(puck_pos[0]) == self.prev_side:
@@ -91,14 +90,7 @@ class AirHockeyTournament(AirHockeyDouble):
         # Puck stuck in the middle
         if np.abs(puck_pos[0]) < 0.15 and np.linalg.norm(puck_vel[0]) < 0.025:
             return True
-        return super(AirHockeyTournament, self).is_absorbing(obs)'''
-        puck_pos, puck_vel = self.get_puck(obs)
-        # If puck is over the middle line and moving towards opponent
-        if puck_pos[0] > 0 and puck_vel[0] > 0:
-            return True
-        if puck_pos[0] < 0 and np.linalg.norm(puck_vel[:2]) < 0.1:
-            return True
-        return super().is_absorbing(obs)
+        return super(AirHockeyTournament, self).is_absorbing(obs)
 
 
 if __name__ == '__main__':
