@@ -107,6 +107,12 @@ class HierarchicalEnv(gym.Env):
         self.log_fault_risk_penalty = 0
         self.log_large_reward = 0
 
+        # make default state processors
+
+        for policy in self.policies:
+            if policy not in self.policy_state_processors:
+                policy_state_processors[policy] = lambda x: x
+
     def render(self, mode='human'):
         self.env.render()
         self.render_flag = True

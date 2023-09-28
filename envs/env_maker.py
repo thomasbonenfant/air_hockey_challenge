@@ -13,24 +13,24 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
     env_info = env.env_info
 
     # load env_info of hit and defend environment
-    with open("envs/env_info_single_agent/env_infos.pkl", "rb") as fp:
-        env_info_hit, env_info_defend = pickle.load(fp)
+    #with open("envs/env_info_single_agent/env_infos.pkl", "rb") as fp:
+    #    env_info_hit, env_info_defend = pickle.load(fp)
 
     filter_opponent_ee_obs = lambda state: state[:-3]
-    null_filter = lambda state: state
+    #null_filter = lambda state: state
 
-    defend_policy_oac = DefendAgent(env_info_defend)
-    hit_policy_oac = HitAgent(env_info_hit)
-    hit_policy_rb = PolicyAgent(env_info_hit, agent_id=1, task="hit")
-    prepare_policy_rb = PolicyAgent(env_info_defend, agent_id=1, task="prepare")
+    #defend_policy_oac = DefendAgent(env_info)
+    hit_policy_oac = HitAgent(env_info)
+    hit_policy_rb = PolicyAgent(env_info, agent_id=1, task="hit", smash_line=-0.5)
+    prepare_policy_rb = PolicyAgent(env_info, agent_id=1, task="prepare")
     defend_rb = PolicyAgent(env_info, agent_id=1, task="defend")
 
     policy_state_processors = {
-        defend_policy_oac: filter_opponent_ee_obs,
-        hit_policy_oac: null_filter,
-        hit_policy_rb: null_filter,
-        prepare_policy_rb: null_filter,
-        defend_rb: null_filter
+        #defend_policy_oac: filter_opponent_ee_obs,
+        #hit_policy_oac: null_filter,
+        #hit_policy_rb: null_filter,
+        #prepare_policy_rb: null_filter,
+        #defend_rb: null_filter
     }
 
     env = HierarchicalEnv(env=env,
