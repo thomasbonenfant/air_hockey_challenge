@@ -1,5 +1,6 @@
 from air_hockey_challenge.framework import AgentBase
 from stable_baselines3 import PPO
+from gymnasium.spaces import Box, Dict, MultiDiscrete, flatten
 import os.path
 import numpy as np
 
@@ -21,7 +22,8 @@ class PPOAgent(AgentBase):
         self.include_joints = env_args['include_joints']
         self.include_timer = env_args['include_timer']
         self.include_faults = env_args['include_faults']
-        self.use_history = env_args['use_history'] # not implemented
+        #self.use_history = env_args['use_history'] # not implemented
+        self.scale_obs = env_args['scale_obs']
         self.low_level_history = []
 
         self.faults = 0
@@ -44,37 +46,40 @@ class PPOAgent(AgentBase):
 
         low_state = obs_space.low
         high_state = obs_space.high
-
-        # Constraints Scaling
-        low_position = np.array([0.54, -0.5, 0])
-        high_position = np.array([1.5, 0.5, 0.3])
-        ee_pos_norm = high_position - low_position
         joint_pos_ids = self.env_info["joint_pos_ids"]
-        low_joints_pos = self.env_info["rl_info"].observation_space.low[joint_pos_ids]
-        high_joints_pos = self.env_info["rl_info"].observation_space.high[joint_pos_ids]
-        joint_pos_norm = high_joints_pos - low_joints_pos
         joint_vel_ids = self.env_info["joint_vel_ids"]
-        low_joints_vel = self.env_info["rl_info"].observation_space.low[joint_vel_ids]
-        high_joints_vel = self.env_info["rl_info"].observation_space.high[joint_vel_ids]
-        joint_vel_norm = high_joints_vel - low_joints_vel
-
-        self._constr_scales = {
-            'joint_pos_constr': np.concatenate([joint_pos_norm, joint_pos_norm]),
-            'joint_vel_constr': np.concatenate([joint_vel_norm, joint_vel_norm]),
-            'ee_constr': np.concatenate([ee_pos_norm[:2], ee_pos_norm[:2], ee_pos_norm[:2]])[:5]
-        }
 
         self.idx_to_delete = [puck_pos_ids[2], puck_vel_ids[2],
                               opponent_ee_ids[2]]  # remove puck's theta and dtheta and ee z
 
+        if not self.include_joints:
+            self.idx_to_delete = np.hstack([self.idx_to_delete, joint_pos_ids, joint_vel_ids])
+
         low_state = np.delete(low_state, self.idx_to_delete, axis=0)
         high_state = np.delete(high_state, self.idx_to_delete, axis=0)
 
+        # Set observation Space and Action Space
         self.obs_original_range = high_state - low_state
         self._min_obs_original = low_state
 
-        if not self.include_joints:
-            self.idx_to_delete = np.hstack([self.idx_to_delete, joint_pos_ids, joint_vel_ids])
+        if self.scale_obs:
+            low_state = -1 * np.ones(low_state.shape)
+            high_state = np.ones(high_state.shape)
+
+        box_obs = Box(low_state, high_state)
+        obs_dict = {'orig_obs': box_obs}
+
+        # we don't want to scale the timer between -1 and 1, but between 0 and 1
+        if self.include_timer:
+            low_timer = 0
+            high_timer = 1
+            obs_dict['timer'] = Box(low_timer, high_timer)
+
+        if self.include_faults:
+            fault_obs = MultiDiscrete([3, 3])
+            obs_dict['faults'] = fault_obs
+
+        self.observation_space = Dict(obs_dict)
 
     def process_state(self, state):
         obs = np.delete(state, self.idx_to_delete, axis=0)
@@ -87,7 +92,7 @@ class PPOAgent(AgentBase):
         if self.include_timer:
             obs['timer'] = np.clip(self.timer / 15, a_min=0, a_max=1)
 
-        return obs
+        return flatten(self.observation_space, obs)
 
     def _scale_obs(self, obs):
         obs['orig_obs'] = (obs['orig_obs'] - self._min_obs_original) / self.obs_original_range * 2 - 1
@@ -104,8 +109,12 @@ class PPOAgent(AgentBase):
 
         if self.step % self.steps_per_action == 0 or self.policy is None:
             high_level_action, _ = self.agent.predict(high_level_obs, deterministic=True)
-            self.policy = self.policies[high_level_action]
-            self.policy.reset()
+            print(f'Step: {self.step}\t Action: {high_level_action}')
+            policy = self.policies[high_level_action]
+            if self.policy != policy:
+                self.policy = policy
+                #self.policy.reset()
+
 
         action = self.policy.draw_action(self.state_preprocessors[self.policy](observation))
 
@@ -119,3 +128,4 @@ class PPOAgent(AgentBase):
             self.timer = 0
 
         self.step += 1
+        return action

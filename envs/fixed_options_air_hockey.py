@@ -30,7 +30,7 @@ class HierarchicalEnv(gym.Env):
         self.policy_state_processors = policy_state_processors
         self.steps_per_action = steps_per_action
         self.alpha_r = alpha_r
-        self.use_history = use_history
+        self.use_history = use_history # not implemented
         self.include_joints = include_joints
 
         self.low_level_history = []

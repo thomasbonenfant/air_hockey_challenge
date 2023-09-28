@@ -22,6 +22,8 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
     #defend_policy_oac = DefendAgent(env_info)
     hit_policy_oac = HitAgent(env_info)
     hit_policy_rb = PolicyAgent(env_info, agent_id=1, task="hit", smash_line=-0.5)
+    hit_policy_rb_1 = PolicyAgent(env_info, agent_id=1, task="hit", smash_line=-0.4)
+    hit_policy_rb_2 = PolicyAgent(env_info, agent_id=1, task="hit", smash_line=-0.3)
     prepare_policy_rb = PolicyAgent(env_info, agent_id=1, task="prepare")
     defend_rb = PolicyAgent(env_info, agent_id=1, task="defend")
 

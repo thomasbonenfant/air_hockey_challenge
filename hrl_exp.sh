@@ -1,14 +1,14 @@
 python -m my_scripts.experiment \
---save_model_dir="models" \
---experiment_label="rule_based/constr" \
+--save_model_dir="/home/airhockey/thomas/data/hrl" \
+--experiment_label="rule_based/3_hit,1_defend/no_constr" \
 --alg="ppo" \
 --steps_per_action=15 \
 --include_timer \
 --scale_obs \
---alpha_r=1.0 \
+--alpha_r=0.0 \
 --large_reward=1000 \
---fault_penalty=333 \
---fault_risk_penalty=1 \
+--fault_penalty=1000 \
+--fault_risk_penalty=0 \
 --parallel=10 \
 --lr=3e-4 \
 --steps_per_update=256 \
