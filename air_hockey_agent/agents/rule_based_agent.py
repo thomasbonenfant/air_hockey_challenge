@@ -56,7 +56,7 @@ def build_agent(env_info, **kwargs):
 
 # Class implementing teh rule based policy
 class PolicyAgent(AgentBase):
-    def __init__(self, env_info, agent_id=1, task: str = "hit", **kwargs):
+    def __init__(self, env_info, agent_id=1, task: str = "hit", smash_line=-0.5, **kwargs):
         # Superclass initialization
         super().__init__(env_info, agent_id, **kwargs)
 
@@ -84,6 +84,7 @@ class PolicyAgent(AgentBase):
         self.last_action = np.zeros((2, 7))
         self.q_anchor = None
         self.final = FINAL
+        self.smash_line = smash_line
 
         # DEFEND: define initial values
         self.desired_from = None
@@ -488,7 +489,7 @@ class PolicyAgent(AgentBase):
 
 
             # (np.abs(radius - self.mallet_radius - self.puck_radius) <= 5e-3) and (self.state.w_puck_pos[0] > -0.6 or self.state.w_puck_vel[0] >= 0) violates less constraints but has a lower success rate
-            if rounded_radius <= 1e-2 and (self.state.w_puck_pos[0] > - 0.5):  # and self.state.w_puck_vel[0] > 0) and not self.has_hit:
+            if rounded_radius <= 1e-2 and (self.state.w_puck_pos[0] > self.smash_line):  # and self.state.w_puck_vel[0] > 0) and not self.has_hit:
                 self.phase = "smash"
                 self.has_hit = True
 
