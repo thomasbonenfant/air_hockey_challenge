@@ -75,6 +75,7 @@ class AirHockeyChallengeWrapper(Environment):
 
             info["score"] = self.base_env.score
             info["faults"] = self.base_env.faults
+            info["success"] = self.check_success(obs)
 
         else:
             info["constraints_value"] = deepcopy(self.env_info['constraints'].fun(obs[self.env_info['joint_pos_ids']],
@@ -108,6 +109,10 @@ class AirHockeyChallengeWrapper(Environment):
         elif "prepare" in self.env_name:
             if -0.8 < puck_pos[0] <= -0.2 and np.abs(puck_pos[1]) < 0.39105 and puck_vel[0] < 0.1:
                 success = 1
+
+        if puck_pos[0] - self.base_env.env_info['table']['length'] / 2 > 0 and \
+                np.abs(puck_pos[1]) - self.base_env.env_info['table']['goal_width'] / 2 < 0:
+            success = 1
 
         return success
 
