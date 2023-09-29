@@ -23,10 +23,20 @@ class AirHockeyDouble(AirHockeyBase):
 
     def _compute_init_state(self):
         init_state = np.array([0., -0.1961, 0., -1.8436, 0., 0.9704, 0.])
+        table_length = self.env_info['table']['length']
+        table_width = self.env_info['table']['width']
+        init_range = np.array([[-table_length/2 + 1.51, -0.3 + 1.51], [-table_width / 2, table_width / 2]])
+
+        ee_pos = np.random.rand(2) * (init_range[:, 1] - init_range[:, 0]) + init_range[:, 0]
 
         success, self.init_state = inverse_kinematics(self.env_info['robot']['robot_model'],
                                                       self.env_info['robot']['robot_data'],
                                                       np.array([0.65, 0., 0.1645]),
+                                                      R.from_euler('xyz', [0, 5 / 6 * np.pi, 0]).as_matrix(),
+                                                      initial_q=init_state)
+        success2, self.init_state2 = inverse_kinematics(self.env_info['robot']['robot_model'],
+                                                      self.env_info['robot']['robot_data'],
+                                                      np.array([ee_pos[0], ee_pos[1], 0.1645]),
                                                       R.from_euler('xyz', [0, 5 / 6 * np.pi, 0]).as_matrix(),
                                                       initial_q=init_state)
 
@@ -126,10 +136,10 @@ class AirHockeyDouble(AirHockeyBase):
     def setup(self, obs):
         for i in range(7):
             self._data.joint("iiwa_1/joint_" + str(i + 1)).qpos = self.init_state[i]
-            self._data.joint("iiwa_2/joint_" + str(i + 1)).qpos = self.init_state[i]
+            self._data.joint("iiwa_2/joint_" + str(i + 1)).qpos = self.init_state2[i]
 
             self.q_pos_prev[i] = self.init_state[i]
-            self.q_pos_prev[i + 7] = self.init_state[i]
+            self.q_pos_prev[i + 7] = self.init_state2[i]
             self.q_vel_prev[i] = self._data.joint("iiwa_1/joint_" + str(i + 1)).qvel
             self.q_vel_prev[i + 7] = self._data.joint("iiwa_2/joint_" + str(i + 1)).qvel
 
