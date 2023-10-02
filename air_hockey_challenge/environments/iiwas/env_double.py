@@ -3,7 +3,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 from air_hockey_challenge.environments.iiwas import AirHockeyBase
-from air_hockey_challenge.utils.kinematics import inverse_kinematics
+from air_hockey_challenge.utils.kinematics import inverse_kinematics, forward_kinematics
 
 
 class AirHockeyDouble(AirHockeyBase):
@@ -25,7 +25,7 @@ class AirHockeyDouble(AirHockeyBase):
         init_state = np.array([0., -0.1961, 0., -1.8436, 0., 0.9704, 0.])
         table_length = self.env_info['table']['length']
         table_width = self.env_info['table']['width']
-        init_range = np.array([[-table_length/2 + 1.51, -0.3 + 1.51], [-table_width / 2, table_width / 2]])
+        init_range = np.array([[-table_length/2 + 1.51, -0.45 + 1.51], [-table_width / 2, table_width / 2]])
 
         ee_pos = np.random.rand(2) * (init_range[:, 1] - init_range[:, 0]) + init_range[:, 0]
 
