@@ -16,14 +16,14 @@ class ConstAgent():
         return self.action, None
 
 
-def launch(path, num_episodes, always_action=None):
+def launch(path, num_episodes, always_action=None, best=False):
     env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
 
     env_args['render'] = True
     env = make_environment(**env_args)
 
     if always_action is None:
-        agent = PPO.load(os.path.join(path, 'best_model'))
+        agent = PPO.load(os.path.join(path, 'best_model' if best else 'model'))
     else:
         agent = ConstAgent(always_action)
 
@@ -64,12 +64,15 @@ def launch(path, num_episodes, always_action=None):
         fault_risk_penalty.append(cumulative_fault_risk_penalty)
 
     episode_reward = np.array(episode_reward)
+    fault_penalty = np.array(fault_penalty)
+    constr_penalty = np.array(constr_penalty)
+    fault_risk_penalty = np.array(fault_risk_penalty)
     print(f'Average Reward {np.mean(episode_reward)} +- {2 * np.std(episode_reward) / np.sqrt(episode_reward.shape[0])}')
 
-    print(f'Average Large Reward: {np.mean(episode_reward)}\t {np.mean(episode_reward) / np.mean(episode_reward)}')
-    print(f'Average Fault Penalty: {np.mean(fault_penalty)}\t {np.mean(fault_penalty) / np.mean(episode_reward)}')
-    print(f'Average Constr Penalty: {np.mean(constr_penalty)}\t {np.mean(constr_penalty) / np.mean(episode_reward)}')
-    print(f'Fault Risk Penalty: {np.mean(fault_risk_penalty)}\t {np.mean(fault_risk_penalty) / np.mean(episode_reward)}')
+    print(f'Average Large Reward: {np.mean(episode_reward)}\t {np.std(episode_reward) / np.sqrt(episode_reward.shape[0])}')
+    print(f'Average Fault Penalty: {np.mean(fault_penalty)}\t {np.std(fault_penalty) / np.sqrt(fault_penalty.shape[0])}')
+    print(f'Average Constr Penalty: {np.mean(constr_penalty)}\t {np.std(constr_penalty) / np.sqrt(constr_penalty.shape[0])}')
+    print(f'Fault Risk Penalty: {np.mean(fault_risk_penalty)}\t {np.std(fault_risk_penalty) / np.sqrt(fault_risk_penalty.shape[0])}')
 
     print('Actions Stats:')
     actions = np.array(actions)
@@ -93,6 +96,8 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/299758'
     path = '/home/thomas/Downloads/172658'
     path = '/home/thomas/Downloads/38050'
+    path = '/home/thomas/Downloads/246278'
+    path = '/home/thomas/Downloads/453204'
 
-    launch(path, num_episodes=1, always_action=None)
+    launch(path, num_episodes=5, always_action=None, best=False)
     #eval_agent(path, 10, 2, always_action=None)

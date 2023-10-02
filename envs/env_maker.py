@@ -37,7 +37,7 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
 
     env = HierarchicalEnv(env=env,
                           steps_per_action=steps_per_action,
-                          policies=[hit_policy_rb, defend_rb, prepare_policy_rb],
+                          policies=[hit_policy_rb, hit_policy_rb_1, hit_policy_rb_2, defend_rb, prepare_policy_rb],
                           policy_state_processors=policy_state_processors,
                           render_flag=render,
                           include_joints=include_joints,
