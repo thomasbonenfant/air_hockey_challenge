@@ -20,9 +20,10 @@ class AirHockeyDouble(AirHockeyBase):
         self.filter_ratio = 0.274
         self.q_pos_prev = np.zeros(self.env_info["robot"]["n_joints"] * self.env_info["n_agents"])
         self.q_vel_prev = np.zeros(self.env_info["robot"]["n_joints"] * self.env_info["n_agents"])
-        self.init_opponent_random = False
+
 
     def _compute_init_state(self):
+        self.init_opponent_random = False
         init_state = np.array([0., -0.1961, 0., -1.8436, 0., 0.9704, 0.])
         table_length = self.env_info['table']['length']
         table_width = self.env_info['table']['width']
