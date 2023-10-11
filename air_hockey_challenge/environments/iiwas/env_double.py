@@ -23,7 +23,7 @@ class AirHockeyDouble(AirHockeyBase):
 
 
     def _compute_init_state(self):
-        self.init_opponent_random = False
+        self.init_opponent_random = True
         init_state = np.array([0., -0.1961, 0., -1.8436, 0., 0.9704, 0.])
         table_length = self.env_info['table']['length']
         table_width = self.env_info['table']['width']
