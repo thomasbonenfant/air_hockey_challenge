@@ -1,0 +1,597 @@
+"""
+Agent working via a Rule-based Policy
+High-level action: control the end-effector
+"""
+# Libraries
+import math
+import select
+import time
+import pickle
+
+import numpy as np
+import osqp
+import scipy
+from scipy import sparse
+from scipy.interpolate import CubicSpline
+
+from air_hockey_challenge.framework.agent_base import AgentBase
+from air_hockey_agent.model import State
+from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_kinematics, jacobian
+from air_hockey_challenge.utils.transformations import robot_to_world, world_to_robot
+from air_hockey_agent.agents.kalman_filter import PuckTracker
+from air_hockey_agent.agents.optimizer import TrajectoryOptimizer
+
+from air_hockey_agent.agents.rule_based_agent import PolicyAgent
+from air_hockey_agent.agents.agents import DefendAgent
+
+# Macros
+EE_HEIGHT = 0.0645  # apparently 0.0646 works better then 0.0645
+WINDOW_SIZE = 200
+PREV_BETA = 0
+FINAL = 10
+DEFEND_LINE = -0.8
+DEFAULT_POS = np.array([DEFEND_LINE, 0, EE_HEIGHT])
+DES_ACC = 0.05
+best_hit_sample = np.array([0.993793, 3.008965, 3e-2, 0.01002]) / 100
+best_hit = np.array([0.01, 0.03, 3e-4, 1e-4])
+BEST_PARAM = dict(
+    hit=best_hit_sample,
+    defend=None,
+    prepare=None,
+    home=None
+)
+
+# Class implementing teh rule based policy
+class HierarchichalAgent(AgentBase):
+    def __init__(self, env_info, agent_id=1, task: str = "home", **kwargs):
+        # Superclass initialization
+        super().__init__(env_info, agent_id, **kwargs)
+
+        # Build the two agents
+        self.rule_based_agent = PolicyAgent(env_info, **kwargs)
+
+        #with open("env_info_single_agent/env_infos.pkl", "rb") as fp:
+        #    env_info_hit, env_info_defend = pickle.load(fp)
+        env_info_defend = env_info
+        #env_info_defend['opponent_ee_ids'] = []
+
+        self.defend_agent = DefendAgent(env_info_defend, **kwargs)
+
+        self.optimizer = TrajectoryOptimizer(self.env_info)  # optimize joint position of each trajectory point
+
+        # Kalman filters
+        self.puck_tracker = PuckTracker(self.env_info, agent_id)
+
+        self.reset_filter = True
+
+        # Task allocation
+        self.task = task
+        self.previous_task = task
+        self.task_change_counter = 1
+        self.changing_task = False
+
+        # Thetas
+        assert self.task in ["hit", "defend", "prepare", "home"], f"Illegal task: {self.task}"
+        self.theta = BEST_PARAM[self.task]
+
+        # HIT: define initial values
+        # angle between ee->puck and puck->goal lines
+        self.previous_beta = PREV_BETA
+        self.prev_side = None  # previous field side the puck was id
+        self.last_position = np.zeros(3)
+        self.last_r_puck_pos = np.zeros(3)  # puck pos at t-1
+        self.last_w_puck_vel = np.zeros(3)  # puck vel at t-1
+        self.last_action = np.zeros((2, 7))
+        self.q_anchor = None
+        self.final = FINAL
+
+        # DEFEND: define initial values
+        self.desired_from = None
+
+        # RETURN Position
+        self.default_action = DEFAULT_POS
+
+        # Environment specs
+        self.frame = self.env_info['robot']['base_frame'][0]
+        self.table_length = self.env_info['table']['length']
+        self.table_width = self.env_info['table']['width']
+        self.goal_pos = np.array([self.table_length / 2, 0])
+        self.mallet_radius = self.env_info['mallet']['radius']
+        self.puck_radius = self.env_info['puck']['radius']
+        self.defend_line = DEFEND_LINE
+
+        # Episode parameters
+        self.time = dict(
+            abs=0,
+            adjustment=0,
+            acceleration=0,
+            smash=0
+        )
+        self.timer = 0  # time for which the puck is in a given side, reset to 0 at each side change
+
+        self.done = False
+        self.has_hit = False
+        self.can_hit = False  # can hit considering enemy position
+        self.keep_hitting = False  # Whether to hit again or not in the prepare
+        self.state = State
+        self.last_ds = 0
+        self.phase = "wait"
+
+    def reset(self):
+        # Generic stuff
+        self.previous_beta = PREV_BETA
+        self.prev_side = None
+        self.last_position = np.zeros(3)
+        self.last_action = np.zeros((2, 7))
+        self.last_r_puck_pos = np.zeros(3)
+        self.last_w_puck_vel = np.zeros(3)
+        self.q_anchor = None
+        self.final = FINAL
+        self.desired_from = None
+        self.task_change_counter = 1
+        self.changing_task = False
+
+        # Kalman filter
+        self.reset_filter = True
+
+        # Episode parameters
+        self.done = None
+        self.has_hit = False
+        self.can_hit = False
+        self.keep_hitting = False
+        self.time = dict(
+            abs=0,
+            adjustment=0,
+            acceleration=0,
+            smash=0
+        )
+        self.timer = 0
+
+        self.state = State
+        self.last_ds = 0
+        self.last_ee = None
+        self.phase = "wait"
+
+    def draw_action(self, observation):
+        """
+        Description:
+            This function draws an action given the observation and the task.
+
+        Args:
+            observation (numpy.array([...])): see env
+
+        Returns:
+            numpy.array(2, 7): desired joint positions and velocities
+        """
+        # Increase the time step
+        # self.time += self.env_info["dt"]
+        self.time["abs"] += 1
+
+        # set the self.prev
+        if self.timer == 0:
+            self.prev_side = np.sign(self.get_puck_pos(observation)[0] - 1.51) * -1
+
+        # Get useful info from the state
+        self.state.r_puck_pos = observation[0:3]
+        self.state.r_puck_vel = observation[3:6]
+
+        if self.time["abs"] == 1:
+            self.state.r_joint_pos = observation[6:13]
+            self.state.r_joint_vel = observation[13:20]
+
+        if self.time["abs"] > 1:
+            self.state.r_joint_pos = self.last_action[0]
+            self.state.r_joint_vel = self.last_action[1]
+
+        self.state.r_adv_ee_pos = observation[-3:]  # adversary ee position in robot coordinates
+
+        # Compute EE pos
+        self.state.r_ee_pos = self._apply_forward_kinematics(joint_pos=self.state.r_joint_pos)
+
+        # KALMAN FILTER ----------------------------------------------------------
+        # reset filter with the initial positions
+        if self.reset_filter:
+            self.reset_filter = False
+            self.puck_tracker.reset(self.state.r_puck_pos)
+
+        # predict next state, step does a single prediction step
+        self.puck_tracker.step(self.state.r_puck_pos)
+
+        # Reduce noise with kalman filter
+        self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+        self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+
+        # Convert in WORLD coordinates 2D
+        self.state.w_puck_pos, _ = robot_to_world(base_frame=self.frame,
+                                                  translation=self.state.r_puck_pos)
+        self.state.w_ee_pos, _ = robot_to_world(base_frame=self.frame,
+                                                translation=self.state.r_ee_pos)
+        self.state.w_adv_ee_pos, _ = robot_to_world(base_frame=self.frame,
+                                                    translation=self.state.r_adv_ee_pos)
+
+        # PICK THE ACTION ----------------------------------------------------------
+        if not self.changing_task:
+            self.previous_task = self.task
+            self.task = self.simplified_pick_task()
+
+        if self.previous_task != self.task:
+            self.changing_task = True
+            #self.defend_agent.reset()
+            #self.rule_based_agent.reset()
+
+            '''if self.task == "prepare" and not self.rule_based_agent.keep_hitting:
+                self.rule_based_agent.reset()
+            elif self.task != "prepare":
+                self.rule_based_agent.reset()'''
+
+            #print(f'From {self.previous_task} --> {self.task}')
+
+        if self.changing_task:
+            action = self.change_action_smoothly(previous_task=self.previous_task, current_task=self.task,
+                                                 observation=observation, steps=10)
+        else:
+            if self.task == "defend":
+                action = self.defend_agent.draw_action(observation)
+                # action = self.rule_based_agent.draw_action(observation)
+            else:
+                self.rule_based_agent.set_task(self.task)
+                action = self.rule_based_agent.draw_action(observation)
+
+        if self.state.w_ee_pos[2] <= 0:
+            #self.reset()
+            print('WRONG EE POS, RESET')
+
+        # UPDATE TIMER
+        if np.sign(self.get_puck_pos(observation)[0] - 1.51) == self.prev_side:
+            self.timer += self.env_info['dt']
+            self.defend_agent.set_timer(self.timer)
+        else:
+            self.prev_side *= -1
+            self.timer = 0
+
+        return action
+
+    def simplified_pick_task(self):
+        """
+        Naïve version of the pick task but apparently te best one
+
+        Returns
+        -------
+            The task from which retrieve the action
+        """
+
+        picked_task = "home"
+        defend_vel_threshold = 0.6
+
+        w_puck_pos = self.state.w_puck_pos
+        r_puck_pos = self.state.r_puck_pos
+        r_puck_vel = self.state.r_puck_vel
+
+        # Stay home if the puck is the enemy side
+        if self.state.r_puck_pos[0] >= 1.36:  # don't go over the unreachable side
+            picked_task = "home"
+
+        else:
+            # Puck coming toward the agent
+            if r_puck_vel[0] < 0:
+                # fast puck
+                if np.linalg.norm(r_puck_vel[:2]) > defend_vel_threshold:
+                    picked_task = "defend"
+                else:
+                    if r_puck_pos[0] < 1.36:
+                        enough_space = self.check_enough_space()
+                        picked_task = "hit" if enough_space else "prepare"
+                    else:
+                        picked_task = "home"
+
+            elif r_puck_vel[0] >= 0:
+                if np.linalg.norm(r_puck_vel[:2]) < 0.6 and r_puck_pos[0] < 1.36:
+                    enough_space = self.check_enough_space()
+                    picked_task = "hit" if enough_space else "prepare"
+                else:
+                    picked_task = "home"
+
+        return picked_task
+
+    # todo remove, old
+    def updated_pick_task(self):
+        """
+        Description:
+            This function will retrieve the most proper task to perform among: hit, defend, prepare and home
+
+        Returns:
+            the most appropriate task
+        """
+
+        picked_task = None
+        defend_threshold = 0.05  # the line over the half in the enemy side to start defend
+        defend_vel_threshold = 0.1  # puck norm velocity at which start the defend
+        prepare_threshold = 0.05  # strip around borders to perform prepare
+
+        # Stay idle at the home if the puck is in the enemy side
+        if self.state.w_puck_pos[0] > defend_threshold:
+            return "home"
+
+        if self.state.w_puck_pos[0] < defend_threshold and \
+                np.linalg.norm(self.state.r_puck_vel[0:2]) > defend_vel_threshold and self.state.r_puck_vel[0] < 0:
+            picked_task = "defend"
+            if np.linalg.norm(self.state.r_puck_vel[0:2]) < 1:
+                picked_task = "prepare"
+
+            return picked_task
+
+        # Puck in agent's side, slow enough
+        # self.state.w_puck_pos[0] < 0
+        if np.linalg.norm(self.state.r_puck_vel[0:2]) < defend_vel_threshold:
+
+            # Check if there is enough space to perform a hit
+            puck_pos = self.state.w_puck_pos[:2]
+            ee_pos = self.state.w_ee_pos[:2]
+            # Beta computation
+            beta = self.get_angle(
+                self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
+                self.world_to_puck(ee_pos, puck_pos)
+            )
+
+            if puck_pos[1] <= self.table_width / 2:
+                gamma = self.get_angle(
+                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
+                    self.world_to_puck(self.goal_pos, puck_pos)
+                )
+                tot_angle = beta + gamma
+            else:
+                gamma = self.get_angle(
+                    self.world_to_puck(self.goal_pos, puck_pos),
+                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos)
+                )
+                tot_angle = beta - gamma
+
+            # todo should the check for enough space become a function?
+            enough_space = True
+            tolerance = 1.5 * (self.mallet_radius + self.puck_radius)
+
+            tolerance_coordinates = np.array([tolerance * np.cos(np.deg2rad(tot_angle)),
+                                              tolerance * np.sin(np.deg2rad(tot_angle))])
+
+            tolerance_coordinates = self.puck_to_world(tolerance_coordinates, puck_pos)
+
+            if (tolerance_coordinates[0] <= -self.table_length / 2) or \
+                    (tolerance_coordinates[1] >= self.table_width / 2 or tolerance_coordinates[
+                        1] <= -self.table_width / 2):
+                enough_space = False
+
+            # if np.abs(self.table_width/2 - self.state.w_puck_pos[1]) < prepare_threshold or not enough_space:
+            #    return "prepare"
+
+            # else:
+            #    return "hit"
+
+            # if self.state.r_puck_vel[0] > 0:
+            #    return "hit"
+
+            if enough_space:
+                return "hit"
+            else:
+                return "prepare"
+
+        return "home"
+
+    # todo remove, old
+    def pick_task(self):
+        """
+        Description:
+            This function will retrieve the correct task to perform among hit, defend and prepare
+
+        Returns:
+            the most appropriate task
+        """
+
+        if self.state.w_puck_pos[0] >= 0 * self.agent_id:
+            # stay idle if the puck is in the enemy field
+            return "home"
+
+        if self.state.w_puck_pos[0] <= 0 and self.state.r_puck_vel[0] < 0:
+            if np.linalg.norm(self.state.r_puck_vel[0:2]) > 0.2:
+                return "defend"
+
+        if np.linalg.norm(self.state.r_puck_vel[0:2]) > 1:  # the threshold is trainable
+            # if self.state.r_puck_vel[0] < 0:
+            #    return "defend"
+            # else:
+            if self.state.r_puck_vel[0] > 0:
+                self.reset()
+                self.phase = "wait"
+                self.final = FINAL
+                return "hit"
+        else:
+            puck_pos = self.state.w_puck_pos[:2]
+            ee_pos = self.state.w_ee_pos[:2]
+            # Beta computation
+            beta = self.get_angle(
+                self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
+                self.world_to_puck(ee_pos, puck_pos)
+            )
+
+            if puck_pos[1] <= self.table_width / 2:
+                gamma = self.get_angle(
+                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
+                    self.world_to_puck(self.goal_pos, puck_pos)
+                )
+                tot_angle = beta + gamma
+            else:
+                gamma = self.get_angle(
+                    self.world_to_puck(self.goal_pos, puck_pos),
+                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos)
+                )
+                tot_angle = beta - gamma
+
+            # todo should the check for enough space become a function?
+            enough_space = True
+            tolerance = 1.5 * (self.mallet_radius + self.puck_radius)
+
+            tolerance_coordinates = np.array([tolerance * np.cos(np.deg2rad(tot_angle)),
+                                              tolerance * np.sin(np.deg2rad(tot_angle))])
+
+            tolerance_coordinates = self.puck_to_world(tolerance_coordinates, puck_pos)
+
+            if (tolerance_coordinates[0] <= -self.table_length / 2) or \
+                    (tolerance_coordinates[1] >= self.table_width / 2 or tolerance_coordinates[
+                        1] <= -self.table_width / 2):
+                enough_space = False
+
+            if enough_space:
+                # self.phase = "wait"
+                # self.final = FINAL
+                return "hit"
+            else:
+                self.phase = "wait"
+                return "prepare"
+
+    def change_action_smoothly(self, previous_task, current_task, observation, steps=5):
+        """
+        Change the task smoothly to avoid too fast changes.
+
+        final_action = (weight * current_action) + (1 - weight) * previous_action
+
+        the weight will change step by step
+
+        Parameters
+        ----------
+        previous_task : the task the agent was doing
+        current_task : the task the agent will do
+        observation : the observation from the environment
+        steps : the number of steps used to perform the change
+
+        Returns
+        -------
+        A smoothed action, weighted mean of the the ones coming from previous and current task
+        """
+
+        # Reset agents the first time the task is changed
+        if self.task_change_counter == 1:
+            self.defend_agent.reset()
+            self.rule_based_agent.reset()
+            print(f'From {self.previous_task} --> {self.task}')
+
+        new_task_percentage = 100 / (steps * 100)
+        new_task_percentage *= self.task_change_counter
+
+        if previous_task == "defend":
+            previous_action = self.defend_agent.draw_action(observation)
+        else:
+            self.rule_based_agent.set_task(self.previous_task)
+            previous_action = self.rule_based_agent.draw_action(observation)
+
+        if current_task == "defend":
+            current_action = self.defend_agent.draw_action(observation)
+        else:
+            self.rule_based_agent.set_task(self.task)
+            current_action = self.rule_based_agent.draw_action(observation)
+
+        weighted_action = new_task_percentage * current_action + (1 - new_task_percentage) * previous_action
+
+        if self.task_change_counter == steps:
+            self.task_change_counter = 1
+            self.changing_task = False
+        else:
+            self.task_change_counter += 1
+
+        return weighted_action
+
+    def check_enough_space(self):
+        """
+        Checks if there is enough space to perform a hit, in that case no prepare is needed
+
+        Returns: True if there is enough space, False otherwise
+        """
+
+        puck_pos = self.state.w_puck_pos[:2]
+        side_tolerance = 0.06
+        enough_space = True
+
+        # compute the offset wrt table borders
+        x_tol = np.round(self.table_length / 2 - np.abs(puck_pos[0]), 5)
+        y_tol = np.round(((self.table_width / 2) - side_tolerance) - np.abs(puck_pos[1]), 5)
+
+        tolerance = self.puck_radius + 2 * self.mallet_radius
+
+        if y_tol < tolerance or x_tol < tolerance:
+            enough_space = False
+
+        return enough_space
+
+    def _apply_forward_kinematics(self, joint_pos):
+        # Paramaters
+        mj_model = self.env_info['robot']['robot_model']
+        mj_data = self.env_info['robot']['robot_data']
+
+        # Apply FW kinematics
+        ee_pos_robot_frame, rotation = forward_kinematics(
+            mj_model=mj_model,
+            mj_data=mj_data,
+            q=joint_pos,
+            link="ee"
+        )
+        return ee_pos_robot_frame
+
+    def _apply_inverse_kinematics(self, ee_pos_robot_frame, intial_q=None):
+        # Parameters
+        mj_model = self.env_info['robot']['robot_model']
+        mj_data = self.env_info['robot']['robot_data']
+
+        # Apply Inverse Kinemtics
+        success, action_joints = inverse_kinematics(
+            mj_model=mj_model,
+            mj_data=mj_data,
+            desired_position=ee_pos_robot_frame,
+            desired_rotation=None,
+            initial_q=intial_q,
+            link="ee"
+        )
+        return action_joints
+
+    def world_to_puck(self, point, puck_pos):
+        return np.array((point - puck_pos))
+
+    def puck_to_world(self, point, puck_pos):
+        """
+        Description:
+            This function returns the the coordinates of "point" wrt "puck_pos"
+
+        Args:
+            point (numpy.array([*, *])): the point we want to translate
+            puck_pos (numpy.array([*, *])): the new reference origin
+
+        Returns:
+            numpy.array([*, *]): new coordinates of point wrt puck_pos
+        """
+        world = - puck_pos  # world coordinates in the puck's space
+        return np.array((point - world))
+
+    def get_angle(self, v1, v2):
+        """
+        Description:
+            Compute the angle counterclockwise, the order of the two vectors matters.
+
+        Args:
+            v1 (numpy.array([*, *])): first vector from which start to compute the angle
+            v2 (numpy.array([*, *])): second vector to which compute the angle
+
+        Returns:
+            int: the angle between v1 and v2 in DEGREEs
+
+        Example:
+            v1 <- [1,0] and v2 <- [0,1] ==> 90
+            v1 <- [0,1] and v2 <- [1,0] ==> 270
+        """
+
+        ang1 = np.arctan2(v1[1], v1[0])
+        ang2 = np.arctan2(v2[1], v2[0])
+
+        angle = ang2 - ang1
+
+        if angle < 0:
+            angle = 2 * np.pi + angle
+
+        return np.rad2deg(angle)
+
