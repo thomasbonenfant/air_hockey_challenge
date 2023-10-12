@@ -7,11 +7,11 @@ import osqp
 import copy
 from baseline.baseline_agent.baseline_agent import BaselineAgent
 
+
 from air_hockey_challenge.framework.air_hockey_challenge_wrapper import \
     AirHockeyChallengeWrapper
 from air_hockey_challenge.utils.kinematics import forward_kinematics, inverse_kinematics, \
     jacobian
-# from envs.air_hockey_challenge.air_hockey_challenge.utils.transformations import world_to_robot
 from utils.ATACOM_transformation import AtacomTransformation, build_ATACOM_Controller
 from pathlib import Path
 import yaml
@@ -33,7 +33,8 @@ class AirHockeyEnv(gym.Env):
                  whole_game_reward=False, score_reward=10, fault_penalty=5, load_second_agent=False,
                  dont_include_timer_in_states=False, action_persistence=1, stop_when_puck_otherside=False,
                  curriculum_learning_step1=False, curriculum_learning_step2=False, curriculum_learning_step3=False
-                 , start_from_defend=False, original_env=False, **kwargs):
+                 , start_from_defend=False, original_env=False, start_curriculum_transition=3000,
+                 end_curriculum_transition=4000, curriculum_transition=False, **kwargs):
         self._env = AirHockeyChallengeWrapper(env=env, interpolation_order=interpolation_order, **kwargs)
         self.interpolation_order = interpolation_order
         self.env_label = env
@@ -101,24 +102,33 @@ class AirHockeyEnv(gym.Env):
         #     print("must load") # TODO load the agent here
         # else:
 
-        # if load_second_agent and original_env:
-        #     agent_config_path = Path(__file__).parent.joinpath(
-        #         "envs/air_hockey_challenge/air_hockey_agent/agent_config.yml")
-        #     agent_config_path = ("/home/amirhossein/Research codes/oac-explore/envs/air_hockey_challenge"
-        #                          "/air_hockey_agent/agent_config.yml")
-        #     with open(agent_config_path) as stream:
-        #         agent_config = yaml.safe_load(stream)
-        #
-        #     self.second_agent = build_agent(self._env.env_info, **agent_config)
-        #     print("load second agent here")
-        #
-        # else:
-        #     self.second_agent = BaselineAgent(self._env.env_info, 2)
-        #
-        # self.second_agent_obs = None
+        self.epoch_number = None
+        self.curriculum_transition = curriculum_transition
+        if self.curriculum_transition:
+            self.start_curriculum_transition = start_curriculum_transition
+            self.end_curriculum_transition = end_curriculum_transition
+            self.duration_curriculum_transition = end_curriculum_transition - start_curriculum_transition
+            # 9 is bcs of -4.5 and +4.5 for sigmoid function, which is 0.01 and 0.99 respectively
+            self.transition_step_size = 9 / self.duration_curriculum_transition
 
-        # self.action_idx = (np.arange(self._env.base_env.action_shape[0][0]),
-        #                    np.arange(self._env.base_env.action_shape[1][0]))
+        if load_second_agent and original_env:
+            agent_config_path = Path(__file__).parent.joinpath(
+                "envs/air_hockey_challenge/air_hockey_agent/agent_config.yml")
+            agent_config_path = ("/home/amirhossein/Research codes/oac-explore/envs/air_hockey_challenge"
+                                 "/air_hockey_agent/agent_config.yml")
+            with open(agent_config_path) as stream:
+                agent_config = yaml.safe_load(stream)
+
+            self.second_agent = build_agent(self._env.env_info, **agent_config)
+            print("load second agent here")
+
+        elif self.env_label == "tournament":
+            self.second_agent = BaselineAgent(self._env.env_info, 2)
+
+            self.second_agent_obs = None
+
+            self.action_idx = (np.arange(self._env.base_env.action_shape[0][0]),
+                               np.arange(self._env.base_env.action_shape[1][0]))
 
         joint_pos_ids = self.env_info["joint_pos_ids"]
         low_joints_pos = self.env_info["rl_info"].observation_space.low[joint_pos_ids]
@@ -254,7 +264,10 @@ class AirHockeyEnv(gym.Env):
         self._state_queue = []
         self.np_random = np.random
         self.old_action = np.zeros_like(low_action)
-        # self.state = self.reset()
+        self.state = self.reset()
+
+    def epoch_number_setter(self, value):
+        self.epoch_number = value
 
     def _reward_constraints(self, info):
         reward_constraints = 0
@@ -312,34 +325,41 @@ class AirHockeyEnv(gym.Env):
                            -------                             , if goal
                             1 - Ɣ
                        """
-        # compute table diagonal
-        table_length = self.env_info['table']['length']
-        table_width = self.env_info['table']['width']
-        table_diag = np.sqrt(table_length ** 2 + table_width ** 2)
+        r = 0
 
-        # get ee and puck position
-        ee_pos = self.ee_pos[:2]
-        puck_pos = self.puck_pos[:2]
-
-        ''' REWARD DEFEND '''
-        # goal case, default option
         if info["success"]:
-            reward_hit = self.large_reward
-        # no hit case
-        # elif not self.has_hit and not self.hit_reward_given:
-        #     reward_hit = - (np.linalg.norm(ee_pos[:2] - puck_pos) / (0.5 * table_diag))
-        elif self.has_hit and not self.hit_reward_given:
-            ee_x_vel = self.ee_vel[0]  # retrieve the linear x velocity
-            reward_hit = 100 - 10 * (ee_x_vel / self.max_vel)
-            self.hit_reward_given = True
+            r = self.large_reward
+
+        if not self.puck_is_in_otherside and self.shaped_reward:
+            # if not self.has_hit and not self.hit_reward_given:
+            #     r = - (np.linalg.norm(ee_pos[:2] - puck_pos) / (0.5 * table_diag))
+            if self.has_hit and not self.hit_reward_given:
+                # ee_x_vel = np.abs(self.ee_vel[0])  # retrieve the linear x velocity
+                puck_vel_norm = np.linalg.norm(self.puck_vel[:2])
+                max_norm = 28.5
+                # r += 1000 - 10 * (ee_x_vel / self.max_vel)
+                # r += 1000 + (10 * (self.max_vel - 20 * ee_x_vel))
+                # r += 50 + 300 * puck_vel_norm
+                r += 50 + 500 * self.puck_vel[0]
+
+                self.hit_reward_given = True
+
+        # in case of goal #fixme all must be like this
+        if (np.abs(self.puck_pos[1]) - self.env_info['table']['goal_width'] / 2) <= 0:
+            if (self.puck_pos[0] - 1.51) > self.env_info['table']['length'] / 2:
+                if not self.start_from_defend:
+                    # r += self.score_reward
+                    r += self.large_reward
+            if (self.puck_pos[0] - 1.51) < -self.env_info['table']['length'] / 2:
+                if self.curriculum_learning_step2 or self.start_from_defend:
+                    r -= self.large_reward
+
+        if self.curriculum_learning_step3:  # fixme add the variable before the rewards to shift slowly
+            r -= self.c_r * np.linalg.norm(action)
+            reward_constraints = self._reward_constraints(info)
         else:
-            reward_hit = 0
-        reward_hit -= self.c_r * np.linalg.norm(action)
-        reward_constraints = self._reward_constraints(info)
-        final_reward = (reward_hit + self.alpha_r * reward_constraints) / 2
-        # if final_reward > 0:
-        #     print("slm")
-        return final_reward  # negative rewards should never go below -1
+            reward_constraints = 0
+        return (r + self.alpha_r * reward_constraints) / 2
 
     def _shaped_r_prepare(self, action, info):
         """
@@ -632,57 +652,63 @@ class AirHockeyEnv(gym.Env):
         # self.last_faults = faults
         return False
 
-    # def _post_simulation(self, obs):
-    #     self._obs = obs
-    #     self.puck_pos = self.get_puck_pos(obs)
-    #     self.pre_previous_vel = self.previous_vel if self.t > 1 else None
-    #     self.previous_vel = self.puck_vel if self.t > 0 else None
-    #     self.puck_vel = self.get_puck_vel(obs)
-    #     self.joint_pos = self.get_joint_pos(obs)
-    #     self.joint_vel = self.get_joint_vel(obs)
-    #     self.previous_ee_pos = self.ee_pos if self.t > 0 else None
-    #     self.ee_pos = self.get_ee_pose(obs)
-    #     if self.opponent:
-    #         self.opponent_ee_pos = self.get_opponent_ee_pose(obs)
-    #     self.ee_vel = self._apply_forward_velocity_kinematics(self.joint_pos, self.joint_vel)
-    #     # if self.previous_vel is not None:
-    #     #     previous_vel_norm = np.linalg.norm(self.previous_vel[:2])
-    #     #     current_vel_norm = np.linalg.norm(self.puck_vel[:2])
-    #     #     distance = np.linalg.norm(self.puck_pos[:2] - self.ee_pos[:2])
-    #     #
-    #     #     # if previous_vel_norm <= current_vel_norm and distance <= (self.puck_radius + self.mallet_radius) * 1.1:
-    #     #     #     self.has_hit = True
-    #     #     if np.abs(previous_vel_norm - current_vel_norm) > 0.4 and distance <= (self.puck_radius + self.mallet_radius) * 1.1:
-    #     #         self.has_hit = True
-    #
-    #     if self.pre_previous_vel is not None:
-    #         previous_vel_norm = np.linalg.norm(self.previous_vel[:2])
-    #         current_vel_norm = np.linalg.norm(self.puck_vel[:2])
-    #         distance = np.linalg.norm(self.puck_pos[:2] - self.ee_pos[:2])
-    #
-    #         previous_delta_vel = np.sign(self.previous_vel[:2] - self.pre_previous_vel[:2])
-    #         current_delta_vel = np.sign(self.puck_vel[:2] - self.previous_vel[:2])
-    #
-    #         if (np.abs(previous_vel_norm - current_vel_norm) > 0.4 or
-    #             not np.array_equal(previous_delta_vel, current_delta_vel)) and distance <= (self.puck_radius + self.mallet_radius) * 1.2:
-    #             self.has_hit = True
-    #             # print("hit True")
-    #
-    #     if self.puck_pos[0] < 1.51 and (self.puck_is_in_otherside or self.t == 0):  # puck is in our side
-    #         self.puck_is_in_otherside = False
-    #         self.hit_reward_given = False
-    #         self.defend_reward_given = False
-    #         self.has_hit = False
-    #     elif self.puck_pos[0] < 1.51:
-    #         self.puck_is_in_otherside = False
-    #     else:
-    #         self.puck_is_in_otherside = True
+    def _post_simulation(self, obs):
+        self._obs = obs
+        self.puck_pos = self.get_puck_pos(obs)
+        self.pre_previous_vel = self.previous_vel if self.t > 1 else None
+        self.previous_vel = self.puck_vel if self.t > 0 else None
+        self.puck_vel = self.get_puck_vel(obs)
+        self.joint_pos = self.get_joint_pos(obs)
+        self.joint_vel = self.get_joint_vel(obs)
+        self.previous_ee_pos = self.ee_pos if self.t > 0 else None
+        self.ee_pos = self.get_ee_pose(obs)
+        if self.opponent:
+            self.opponent_ee_pos = self.get_opponent_ee_pose(obs)
+        self.ee_vel = self._apply_forward_velocity_kinematics(self.joint_pos, self.joint_vel)
+        # if self.previous_vel is not None:
+        #     previous_vel_norm = np.linalg.norm(self.previous_vel[:2])
+        #     current_vel_norm = np.linalg.norm(self.puck_vel[:2])
+        #     distance = np.linalg.norm(self.puck_pos[:2] - self.ee_pos[:2])
+        #
+        #     # if previous_vel_norm <= current_vel_norm and distance <= (self.puck_radius + self.mallet_radius) * 1.1:
+        #     #     self.has_hit = True
+        #     if np.abs(previous_vel_norm - current_vel_norm) > 0.4 and distance <= (self.puck_radius + self.mallet_radius) * 1.1:
+        #         self.has_hit = True
+
+        if self.pre_previous_vel is not None:
+            previous_vel_norm = np.linalg.norm(self.previous_vel[:2])
+            current_vel_norm = np.linalg.norm(self.puck_vel[:2])
+            distance = np.linalg.norm(self.puck_pos[:2] - self.ee_pos[:2])
+
+            previous_delta_vel = np.sign(self.previous_vel[:2] - self.pre_previous_vel[:2])
+            current_delta_vel = np.sign(self.puck_vel[:2] - self.previous_vel[:2])
+
+            if (np.abs(previous_vel_norm - current_vel_norm) > 0.4 or
+                not np.array_equal(previous_delta_vel, current_delta_vel)) and distance <= (self.puck_radius + self.mallet_radius) * 1.2:
+                self.has_hit = True
+                # print("hit True")
+
+        if self.puck_pos[0] < 1.51 and (self.puck_is_in_otherside or self.t == 0):  # puck is in our side
+            self.puck_is_in_otherside = False
+            self.hit_reward_given = False
+            self.defend_reward_given = False
+            self.has_hit = False
+        elif self.puck_pos[0] < 1.51:
+            self.puck_is_in_otherside = False
+        else:
+            self.puck_is_in_otherside = True
 
     def _process_info(self, info):
-        info["joint_pos_constr"] = info["constraints_value"][0]["joint_pos_constr"]
-        info["joint_vel_constr"] = info["constraints_value"][0]["joint_vel_constr"]
-        info["ee_constr"] = info["constraints_value"][0]["ee_constr"]
-        info.pop('constraints_value', None)
+        if self.env_label == "tournament":
+            info["joint_pos_constr"] = info["constraints_value"][0]["joint_pos_constr"]
+            info["joint_vel_constr"] = info["constraints_value"][0]["joint_vel_constr"]
+            info["ee_constr"] = info["constraints_value"][0]["ee_constr"]
+            info.pop('constraints_value', None)
+        else:
+            info["joint_pos_constr"] = info["constraints_value"]["joint_pos_constr"]
+            info["joint_vel_constr"] = info["constraints_value"]["joint_vel_constr"]
+            info["ee_constr"] = info["constraints_value"]["ee_constr"]
+            info.pop('constraints_value', None)
         return info
 
     def _reward(self, action, done, info):
@@ -716,7 +742,9 @@ class AirHockeyEnv(gym.Env):
         # if self.start_from_defend and not done and self.t == self._env._mdp_info.horizon:
         # if self.start_from_defend and not done and self.t == self.horizon:
         if not done and self.t == self.horizon:
+            r -= self.large_penalty
 
+        if done and self.puck_is_in_otherside:
             r -= self.large_penalty
 
         if self.high_level_action:
@@ -925,22 +953,22 @@ class AirHockeyEnv(gym.Env):
         """
         return obs[self.env_info['puck_vel_ids']]
 
-    # def get_joint_pos(self, obs):
-    #     """
-    #     Get the joint position from the observation.
-    #
-    #     Args
-    #     ----
-    #     obs: numpy.ndarray
-    #         Agent's observation.
-    #
-    #     Returns
-    #     -------
-    #     numpy.ndarray
-    #         joint position of the robot
-    #
-    #     """
-    #     return obs[self.env_info['joint_pos_ids']]
+    def get_joint_pos(self, obs):
+        """
+        Get the joint position from the observation.
+
+        Args
+        ----
+        obs: numpy.ndarray
+            Agent's observation.
+
+        Returns
+        -------
+        numpy.ndarray
+            joint position of the robot
+
+        """
+        return obs[self.env_info['joint_pos_ids']]
 
     def get_joint_vel(self, obs):
         """
@@ -1062,18 +1090,21 @@ class AirHockeyEnv(gym.Env):
 
         first_agent_action = _action
 
+        if self.env_label == "tournament":
+            second_agent_action = self.second_agent.draw_action(self.second_agent_obs)
 
-        second_agent_action = self.second_agent.draw_action(self.second_agent_obs)
+            dual_action = (first_agent_action, second_agent_action)
 
-        dual_action = (first_agent_action, second_agent_action)
+            obs, reward, done, info = self._env.step((dual_action[0][self.action_idx[0]],
+                                                      dual_action[1][self.action_idx[1]]))
 
-        obs, reward, done, info = self._env.step((dual_action[0][self.action_idx[0]],
-                                                  dual_action[1][self.action_idx[1]]))
+            obs_1, obs_2 = np.split(obs, 2)
 
-        obs_1, obs_2 = np.split(obs, 2)
+            obs = obs_1
+            self.second_agent_obs = obs_2
+        else:
+            obs, reward, done, info = self._env.step(_action)
 
-        obs = obs_1
-        self.second_agent_obs = obs_2
         #
         # if info["success"] and not done:
         #     info["success"] = 0
@@ -1082,6 +1113,7 @@ class AirHockeyEnv(gym.Env):
         if (not self.start_from_defend and self.curriculum_learning_step1 and not self.curriculum_learning_step2
         and self.puck_vel[0] < 0):
             done = True
+            # print("1")
             # #fixme
             # done = False
         # if (self.start_from_defend and self.curriculum_learning_step1 and not self.curriculum_learning_step2
@@ -1089,6 +1121,8 @@ class AirHockeyEnv(gym.Env):
         if (self.start_from_defend and self.curriculum_learning_step1 and not self.curriculum_learning_step2
             and np.abs(self.puck_vel[0]) < 0.1 and self.has_hit):
             done = True
+            # print("2")
+
             # print(f"puck vel x axis : {np.abs(self.puck_vel[0])}")
             # #fixme
             # done = False
@@ -1096,6 +1130,8 @@ class AirHockeyEnv(gym.Env):
         if (self.start_from_defend and self.curriculum_learning_step1 and not self.curriculum_learning_step2
                 and self.puck_is_in_otherside and self.has_hit):
             done = True
+            # print("3")
+
             # #fixme
             # done = False
         info = self._process_info(info)
@@ -1135,34 +1171,40 @@ class AirHockeyEnv(gym.Env):
                 else:
                     _action = action
                 first_agent_action = _action
-                second_agent_action = self.second_agent.draw_action(self.second_agent_obs)
+                if self.env_label == "tournament":
+                    second_agent_action = self.second_agent.draw_action(self.second_agent_obs)
 
-                dual_action = (first_agent_action, second_agent_action)
+                    dual_action = (first_agent_action, second_agent_action)
 
-                obs, _, done, info = self._env.step((dual_action[0][self.action_idx[0]],
-                                                     dual_action[1][self.action_idx[1]]))
+                    obs, reward, done, info = self._env.step((dual_action[0][self.action_idx[0]],
+                                                              dual_action[1][self.action_idx[1]]))
 
-                obs_1, obs_2 = np.split(obs, 2)
+                    obs_1, obs_2 = np.split(obs, 2)
 
-                obs = obs_1
-                self.second_agent_obs = obs_2
-                #
+                    obs = obs_1
+                    self.second_agent_obs = obs_2
+                else:
+                    obs, reward, done, info = self._env.step(_action)#
                 # if info["success"] and not done:
                 #     info["success"] = 0
                 self._post_simulation(obs)
                 if (not self.start_from_defend and self.curriculum_learning_step1 and not self.curriculum_learning_step2
                         and self.puck_vel[0] < 0):
                     done = True
+                    # print("action pers 1")
 
                 # if (self.start_from_defend and self.curriculum_learning_step1 and not self.curriculum_learning_step2
                 # and np.abs(self.puck_vel[0]) < 0.1 and not self.puck_is_in_otherside):
                 if (self.start_from_defend and self.curriculum_learning_step1 and not self.curriculum_learning_step2
                         and np.abs(self.puck_vel[0]) < 0.1 and self.has_hit):
                     done = True
+                    # print("action pers 2")
+
                     # print("done kir khar")
                 if (self.start_from_defend and self.curriculum_learning_step1 and not self.curriculum_learning_step2
                         and self.puck_is_in_otherside and self.has_hit):
                     done = True
+                    # print("action pers 3")
 
 
                 info = self._process_info(info)
@@ -1178,6 +1220,31 @@ class AirHockeyEnv(gym.Env):
 
         return obs, reward, done, info
 
+    def sigmoid(self, x):
+        return 1.0 / (1.0 + np.exp(-x))
+
+    # using sigmoid, we will have a smooth transition
+    def curriculum_transition_func(self):
+        difference_velocity_range = ((self._env.base_env.second_velocity_range - self._env.base_env.first_velocity_range) *
+            self.sigmoid(-4.5 + ((self.epoch_number - self.start_curriculum_transition) * self.transition_step_size)))
+        self._env.base_env.velocity_range = self._env.base_env.first_velocity_range + difference_velocity_range
+
+
+        difference_start_range = ((self._env.base_env.second_start_range - self._env.base_env.first_start_range) *
+            self.sigmoid(-4.5 + ((self.epoch_number - self.start_curriculum_transition) * self.transition_step_size)))
+        self._env.base_env.start_range = self._env.base_env.first_start_range + difference_start_range
+
+
+        difference_init_ee_range = ((self._env.base_env.second_init_ee_range - self._env.base_env.first_init_ee_range) *
+            self.sigmoid(-4.5 + ((self.epoch_number - self.start_curriculum_transition) * self.transition_step_size)))
+        self._env.base_env.init_ee_range = self._env.base_env.first_init_ee_range + difference_init_ee_range
+
+
+
+        difference_init_angle_range = ((self._env.base_env.second_init_angle_range - self._env.base_env.first_init_angle_range) *
+            self.sigmoid(-4.5 + ((self.epoch_number - self.start_curriculum_transition) * self.transition_step_size)))
+        self._env.base_env.init_angle_range = self._env.base_env.first_init_angle_range + difference_init_angle_range
+
     def reset(self):
         self.t = 0
         self.has_hit = False
@@ -1187,12 +1254,14 @@ class AirHockeyEnv(gym.Env):
         self._state_queue = []
         self.old_action = np.zeros_like(self.old_action)
 
+        if self.curriculum_transition and self.epoch_number is not None and self.epoch_number >= self.start_curriculum_transition:
+            self.curriculum_transition_func()
         obs = self._env.reset()
 
-        obs_1, obs_2 = np.split(obs, 2)
-
-        obs = obs_1
-        self.second_agent_obs = obs_2
+        if self.env_label=="tournament":
+            obs_1, obs_2 = np.split(obs, 2)
+            obs = obs_1
+            self.second_agent_obs = obs_2
 
         self.puck_is_in_otherside = False
         self._post_simulation(obs)
