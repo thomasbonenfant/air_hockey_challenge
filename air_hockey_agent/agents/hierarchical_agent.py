@@ -474,11 +474,20 @@ class HierarchicalAgent(AgentBase):
         # Reset agents the first time the task is changed
         if self.task_change_counter == 1:
             self.defend_agent.reset()
+            self.repel_defend_agent.reset()
             self.rule_based_agent.reset()
             print(f'From {self.previous_task} --> {self.task}')
 
-        new_task_percentage = 100 / (steps * 100)
-        new_task_percentage *= self.task_change_counter
+        #new_task_percentage = 100 / (steps * 100)
+
+        # Use a sigmoid step
+        sigmoid_step = 9 / steps
+        sigmoid_step *= self.task_change_counter
+        sigmoid_step -= 4.5
+
+        new_task_percentage = 1 / (1 + np.e**(-sigmoid_step))
+
+        #new_task_percentage *= self.task_change_counter
 
         if previous_task == "defend":
             previous_action = self.defend_agent.draw_action(observation)

@@ -294,6 +294,9 @@ class PolicyAgent(AgentBase):
         elif self.task == "prepare":
             action = self.prepare_act()
         elif self.task == "home":
+            #action, point_reached = self.smooth_act(step_size=self.last_ds)
+            #if point_reached:
+            #    action = self.return_act(self.state.w_ee_pos, step_size=self.last_ds)
             action = self.return_act(self.state.w_ee_pos)
         else:
             action = None
@@ -368,10 +371,19 @@ class PolicyAgent(AgentBase):
             optimized_action[0] = final_action[0]
             optimized_action[1] = final_action[1]
 
-        self.last_action = optimized_action
+        # Clip joint positions in the limits
+        joint_pos_limits = self.env_info['robot']['joint_pos_limit']
+        joint_vel_limits = self.env_info['robot']['joint_vel_limit']
+
+        new_final_action = np.zeros((2, 7))
+        new_final_action[0] = np.clip(optimized_action[0], joint_pos_limits[0], joint_pos_limits[1])
+        new_final_action[1] = np.clip(optimized_action[1], joint_vel_limits[0], joint_vel_limits[1])
+        # new_final_action[2] = (final_action[1] - self.state.r_joint_vel)/self.env_info["dt"]
+
+        self.last_action = new_final_action
         self.last_r_puck_pos = self.state.r_puck_pos
 
-        return optimized_action
+        return new_final_action
 
     def set_task(self, task=None):
         """
@@ -1193,7 +1205,7 @@ class PolicyAgent(AgentBase):
 
         return action
 
-    def smooth_act(self, target_point=DEFAULT_POS, step_size=5e-3):
+    def smooth_act(self, target_point=DEFAULT_POS[:2], step_size=5e-3):
         """
         Reach a given point following a curved trajectory, reach the point from behind
         The target point is in world coordinates
