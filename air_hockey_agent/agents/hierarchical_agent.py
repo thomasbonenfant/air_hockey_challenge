@@ -41,21 +41,19 @@ BEST_PARAM = dict(
     home=None
 )
 
-# Class implementing teh rule based policy
-class HierarchichalAgent(AgentBase):
+
+# Class implementing the rule based policy
+class HierarchicalAgent(AgentBase):
     def __init__(self, env_info, agent_id=1, task: str = "home", **kwargs):
         # Superclass initialization
         super().__init__(env_info, agent_id, **kwargs)
 
-        # Build the two agents
+        # INSTANTIATE AGENTS -------------------------------------------------------------------
         self.rule_based_agent = PolicyAgent(env_info, **kwargs)
-
         #with open("env_info_single_agent/env_infos.pkl", "rb") as fp:
         #    env_info_hit, env_info_defend = pickle.load(fp)
-        env_info_defend = env_info
-        #env_info_defend['opponent_ee_ids'] = []
-
-        self.defend_agent = DefendAgent(env_info_defend, **kwargs)
+        self.repel_defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
+        self.defend_agent = DefendAgent(env_info, env_label="tournament", **kwargs)
 
         self.optimizer = TrajectoryOptimizer(self.env_info)  # optimize joint position of each trajectory point
 
@@ -214,7 +212,8 @@ class HierarchichalAgent(AgentBase):
             self.previous_task = self.task
             self.task = self.simplified_pick_task()
 
-        if self.previous_task != self.task:
+        if self.previous_task != self.task and not self.changing_task:
+            self.last_ds = self.rule_based_agent.last_ds
             self.changing_task = True
             #self.defend_agent.reset()
             #self.rule_based_agent.reset()
@@ -224,15 +223,14 @@ class HierarchichalAgent(AgentBase):
             elif self.task != "prepare":
                 self.rule_based_agent.reset()'''
 
-            #print(f'From {self.previous_task} --> {self.task}')
-
         if self.changing_task:
             action = self.change_action_smoothly(previous_task=self.previous_task, current_task=self.task,
                                                  observation=observation, steps=10)
         else:
             if self.task == "defend":
                 action = self.defend_agent.draw_action(observation)
-                # action = self.rule_based_agent.draw_action(observation)
+            elif self.task == "repel":
+                action = self.repel_defend_agent.draw_action(observation)
             else:
                 self.rule_based_agent.set_task(self.task)
                 action = self.rule_based_agent.draw_action(observation)
@@ -245,6 +243,7 @@ class HierarchichalAgent(AgentBase):
         if np.sign(self.get_puck_pos(observation)[0] - 1.51) == self.prev_side:
             self.timer += self.env_info['dt']
             self.defend_agent.set_timer(self.timer)
+            self.repel_defend_agent.set_timer(self.timer)
         else:
             self.prev_side *= -1
             self.timer = 0
@@ -260,8 +259,9 @@ class HierarchichalAgent(AgentBase):
             The task from which retrieve the action
         """
 
-        picked_task = "home"
+        picked_task = "home"  # fixme problem with the fact that it sometimes goes home instead of finishing the task
         defend_vel_threshold = 0.6
+        repel_vel_threshold = 0.8  # puck too fast, just send it back
 
         w_puck_pos = self.state.w_puck_pos
         r_puck_pos = self.state.r_puck_pos
@@ -275,8 +275,12 @@ class HierarchichalAgent(AgentBase):
             # Puck coming toward the agent
             if r_puck_vel[0] < 0:
                 # fast puck
-                if np.linalg.norm(r_puck_vel[:2]) > defend_vel_threshold:
-                    picked_task = "defend"
+                puck_velocity = np.linalg.norm(r_puck_vel[:2])
+                if puck_velocity > defend_vel_threshold:
+                    if puck_velocity > repel_vel_threshold:
+                        picked_task = "repel"
+                    else:
+                        picked_task = "defend"
                 else:
                     if r_puck_pos[0] < 1.36:
                         enough_space = self.check_enough_space()
@@ -285,7 +289,7 @@ class HierarchichalAgent(AgentBase):
                         picked_task = "home"
 
             elif r_puck_vel[0] >= 0:
-                if np.linalg.norm(r_puck_vel[:2]) < 0.6 and r_puck_pos[0] < 1.36:
+                if np.linalg.norm(r_puck_vel[:2]) < 10 and r_puck_pos[0] < 1.36:
                     enough_space = self.check_enough_space()
                     picked_task = "hit" if enough_space else "prepare"
                 else:
@@ -478,12 +482,16 @@ class HierarchichalAgent(AgentBase):
 
         if previous_task == "defend":
             previous_action = self.defend_agent.draw_action(observation)
+        elif previous_task == "repel":
+            previous_action = self.repel_defend_agent.draw_action(observation)
         else:
             self.rule_based_agent.set_task(self.previous_task)
             previous_action = self.rule_based_agent.draw_action(observation)
 
         if current_task == "defend":
             current_action = self.defend_agent.draw_action(observation)
+        elif current_task == "repel":
+            current_action = self.repel_defend_agent.draw_action(observation)
         else:
             self.rule_based_agent.set_task(self.task)
             current_action = self.rule_based_agent.draw_action(observation)

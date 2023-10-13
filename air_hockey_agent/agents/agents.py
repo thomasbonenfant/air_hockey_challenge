@@ -36,7 +36,7 @@ class Agent(AgentBase):
 
         torch.set_num_threads(4)
         self.interpolation_order = varient['interpolation_order']
-        self.env_label = env_info['env_name']
+        # self.env_label = env_info['env_name']
         self.env_info = env_info
         self.robot_model = copy.deepcopy(env_info['robot']['robot_model'])
         self.robot_data = copy.deepcopy(env_info['robot']['robot_data'])
@@ -377,6 +377,9 @@ class Agent(AgentBase):
         return action
 
     def _get_state(self, obs):
+        if self.env_label != "tournament":
+            obs = obs[:20]#fixme
+            self.opponent = False#fixme
         ee_pos = self.ee_pos
         ee_vel = self.ee_vel
         if self.high_level_action:
@@ -655,6 +658,9 @@ class Agent(AgentBase):
         res = forward_kinematics(self.robot_model, self.robot_data, self.get_joint_pos(obs))
         return res[0]
 
+    def set_timer(self, time):
+        self.timer = time
+
     def get_opponent_ee_pose(self, obs):
         """
         Get the Opponent's End-Effector's Position from the observation.
@@ -671,9 +677,6 @@ class Agent(AgentBase):
 
         """
         return obs[self.env_info['opponent_ee_ids']]
-
-    def set_timer(self, time):
-        self.timer = time
 
     def draw_action(self, observation):
 
@@ -778,10 +781,10 @@ class HitAgent(Agent):
         # path = 'air_hockey_agent/agents/Agents/Hit_Agent'
         path = 'Agents/Hit_Agent'
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Hit_Agent'
-        env_label = "tournament"
+        self.env_label = "tournament"
         path = os.path.join(dir_path, path)
 
-        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=env_label, random_agent=False, env_info=env_info)
+        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=self.env_label, random_agent=False, env_info=env_info)
 
         variant = json.load(open(os.path.join(path, 'variant.json')))
 
@@ -799,28 +802,32 @@ class HitAgent(Agent):
 
 
 class DefendAgent(Agent):
-    def __init__(self, env_info, **kwargs):
+    def __init__(self, env_info, env_label, **kwargs ):
         dir_path = os.path.dirname(os.path.abspath(__file__))
 
         # modification to run with tournament env
         env_info['opponent_ee_ids'] = []
 
-        path = 'air_hockey_agent/agents/Agents/Defend_Agent'
+        #path = 'air_hockey_agent/agents/Agents/Defend_Agent'
         path = 'Agents/Defend_Agent'
 
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Defend_Agent'
-        env_label = "tournament"
+        self.env_label = env_label
+
+        if self.env_label == "tournament":
+            path = 'Agents/Defend_Agent'
+        elif self.env_label == "7dof-defend":
+            path = 'Agents/DefendHit_Agent'
+
         path = os.path.join(dir_path, path)
 
-        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=env_label, random_agent=False, env_info=env_info)
+        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=self.env_label, random_agent=False, env_info=env_info)
 
         variant = json.load(open(os.path.join(path, 'variant.json')))
-
 
         # self.obs_dim = env.observation_space.low.size  # TODO needs hardcode
         # self.action_dim = env.action_space.low.size  # TODO needs hardcode
         # self.action_space = env.action_space
-
 
         super().__init__(env_info, variant, **kwargs)
 
@@ -839,10 +846,10 @@ class PrepareAgent(Agent):
         path = 'Agents/Prepare_Agent'
 
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Prepare_Agent'
-        env_label = "tournament"
+        self.env_label = "tournament"
         path = os.path.join(dir_path, path)
 
-        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=env_label, random_agent=False, env_info=env_info)
+        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=self.env_label, random_agent=False, env_info=env_info)
 
         variant = json.load(open(os.path.join(path, 'variant.json')))
 

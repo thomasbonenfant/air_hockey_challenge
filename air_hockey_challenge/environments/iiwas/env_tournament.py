@@ -29,7 +29,8 @@ class AirHockeyTournament(AirHockeyDouble):
             mujoco.mjr_overlay(mujoco.mjtFont.mjFONT_BIG, mujoco.mjtGridPos.mjGRID_TOPLEFT, viewport, names, data, context)
 
         viewer_params["custom_render_callback"] = custom_render_callback
-        super().__init__(gamma=gamma, horizon=horizon, viewer_params=viewer_params)
+        # super().__init__(gamma=gamma, horizon=horizon, viewer_params=viewer_params)  # had to comment this, on mac it crashes
+        super().__init__(gamma=gamma, horizon=horizon)
 
         hit_width = self.env_info['table']['width'] / 2 - self.env_info['puck']['radius'] - \
                     self.env_info['mallet']['radius'] * 2
