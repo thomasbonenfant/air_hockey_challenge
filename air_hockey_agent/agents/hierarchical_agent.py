@@ -224,6 +224,10 @@ class HierarchicalAgent(AgentBase):
             self.changing_task = True
             self.step_counter = 0
 
+            # Force going home after defend repel or hit
+            if self.previous_task == "defend" or self.previous_task == "repel" or self.previous_task == "hit":
+                self.task = "home"
+
             '''if self.task == "prepare" and not self.rule_based_agent.keep_hitting:
                 self.rule_based_agent.reset()
             elif self.task != "prepare":
