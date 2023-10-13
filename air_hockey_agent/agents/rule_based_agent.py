@@ -31,7 +31,7 @@ DES_ACC = 0.05
 
 best_hit_sample = np.array([0.993793, 3.008965, 3e-2, 0.01002]) / 100
 best_hit = np.array([0.01, 0.03, 3e-4, 1e-4])
-best_hit_train = np.array([[0.01004139, 0.03003824, 0.00030698, 0.00010313]])
+best_hit_train = np.array([0.01004139, 0.03003824, 0.00030698, 0.00010313])
 BEST_PARAM = dict(
     hit=best_hit_train,
     defend=None,
