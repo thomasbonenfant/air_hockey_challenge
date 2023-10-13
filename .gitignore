@@ -1,4 +1,5 @@
 examples/rl/agents
+air_hockey_agent/agents/Agents
 logs/
 .local/
 wandb/
