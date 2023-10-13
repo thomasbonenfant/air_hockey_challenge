@@ -23,6 +23,7 @@ from air_hockey_agent.agents.optimizer import TrajectoryOptimizer
 
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from air_hockey_agent.agents.agents import DefendAgent
+from baseline.baseline_agent.baseline_agent import BaselineAgent
 
 # Macros
 EE_HEIGHT = 0.0645  # apparently 0.0646 works better then 0.0645
@@ -50,6 +51,7 @@ class HierarchicalAgent(AgentBase):
 
         # INSTANTIATE AGENTS -------------------------------------------------------------------
         self.rule_based_agent = PolicyAgent(env_info, **kwargs)
+        self.baseline_agent = BaselineAgent(env_info, **kwargs)
         #with open("env_info_single_agent/env_infos.pkl", "rb") as fp:
         #    env_info_hit, env_info_defend = pickle.load(fp)
         self.repel_defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
@@ -66,6 +68,7 @@ class HierarchicalAgent(AgentBase):
         self.task = task
         self.previous_task = task
         self.task_change_counter = 1
+        self.step_counter = 0
         self.changing_task = False
 
         # Thetas
@@ -127,6 +130,7 @@ class HierarchicalAgent(AgentBase):
         self.final = FINAL
         self.desired_from = None
         self.task_change_counter = 1
+        self.step_counter = 0
         self.changing_task = False
 
         # Kalman filter
@@ -210,13 +214,15 @@ class HierarchicalAgent(AgentBase):
         # PICK THE ACTION ----------------------------------------------------------
         if not self.changing_task:
             self.previous_task = self.task
-            self.task = self.simplified_pick_task()
+
+            # Perform the same task for a given amount of steps
+            if self.step_counter > 20:
+                self.task = self.simplified_pick_task()
 
         if self.previous_task != self.task and not self.changing_task:
             self.last_ds = self.rule_based_agent.last_ds
             self.changing_task = True
-            #self.defend_agent.reset()
-            #self.rule_based_agent.reset()
+            self.step_counter = 0
 
             '''if self.task == "prepare" and not self.rule_based_agent.keep_hitting:
                 self.rule_based_agent.reset()
@@ -231,6 +237,8 @@ class HierarchicalAgent(AgentBase):
                 action = self.defend_agent.draw_action(observation)
             elif self.task == "repel":
                 action = self.repel_defend_agent.draw_action(observation)
+            #elif self.task == "home":
+            #    action = self.baseline_agent.draw_action(observation)
             else:
                 self.rule_based_agent.set_task(self.task)
                 action = self.rule_based_agent.draw_action(observation)
@@ -248,6 +256,7 @@ class HierarchicalAgent(AgentBase):
             self.prev_side *= -1
             self.timer = 0
 
+        self.step_counter += 1
         return action
 
     def simplified_pick_task(self):
@@ -284,7 +293,10 @@ class HierarchicalAgent(AgentBase):
                 else:
                     if r_puck_pos[0] < 1.36:
                         enough_space = self.check_enough_space()
-                        picked_task = "hit" if enough_space else "prepare"
+                        if r_puck_vel[0] > defend_vel_threshold:
+                            picked_task = "home"
+                        else:
+                            picked_task = "hit" if enough_space else "prepare"
                     else:
                         picked_task = "home"
 
@@ -476,23 +488,25 @@ class HierarchicalAgent(AgentBase):
             self.defend_agent.reset()
             self.repel_defend_agent.reset()
             self.rule_based_agent.reset()
-            print(f'From {self.previous_task} --> {self.task}')
+            self.baseline_agent.reset()
+            #print(f'From {self.previous_task} --> {self.task}')
 
-        #new_task_percentage = 100 / (steps * 100)
+        new_task_percentage = 100 / (steps * 100)
+        new_task_percentage *= self.task_change_counter
 
-        # Use a sigmoid step
+        '''# Use a sigmoid step
         sigmoid_step = 9 / steps
         sigmoid_step *= self.task_change_counter
         sigmoid_step -= 4.5
 
-        new_task_percentage = 1 / (1 + np.e**(-sigmoid_step))
-
-        #new_task_percentage *= self.task_change_counter
+        new_task_percentage = 1 / (1 + np.e**(-sigmoid_step))'''
 
         if previous_task == "defend":
             previous_action = self.defend_agent.draw_action(observation)
         elif previous_task == "repel":
             previous_action = self.repel_defend_agent.draw_action(observation)
+        #elif previous_task == "home":
+        #    previous_action = self.baseline_agent.draw_action(observation)
         else:
             self.rule_based_agent.set_task(self.previous_task)
             previous_action = self.rule_based_agent.draw_action(observation)
@@ -501,6 +515,8 @@ class HierarchicalAgent(AgentBase):
             current_action = self.defend_agent.draw_action(observation)
         elif current_task == "repel":
             current_action = self.repel_defend_agent.draw_action(observation)
+        #elif current_task == "home":
+        #    current_action = self.baseline_agent.draw_action(observation)
         else:
             self.rule_based_agent.set_task(self.task)
             current_action = self.rule_based_agent.draw_action(observation)

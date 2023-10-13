@@ -31,8 +31,9 @@ DES_ACC = 0.05
 
 best_hit_sample = np.array([0.993793, 3.008965, 3e-2, 0.01002]) / 100
 best_hit = np.array([0.01, 0.03, 3e-4, 1e-4])
+best_hit_train = np.array([[0.01004139, 0.03003824, 0.00030698, 0.00010313]])
 BEST_PARAM = dict(
-    hit=best_hit,
+    hit=best_hit_train,
     defend=None,
     prepare=None
 )
@@ -294,7 +295,7 @@ class PolicyAgent(AgentBase):
         elif self.task == "prepare":
             action = self.prepare_act()
         elif self.task == "home":
-            #action, point_reached = self.smooth_act(step_size=self.last_ds)
+            #action, point_reached = self.smooth_act()
             #if point_reached:
             #    action = self.return_act(self.state.w_ee_pos, step_size=self.last_ds)
             action = self.return_act(self.state.w_ee_pos)
@@ -311,8 +312,7 @@ class PolicyAgent(AgentBase):
                            self.table_length / 2 - (self.mallet_radius + tolerance))
         action_y = np.clip(action[1], -self.table_width / 2 + (self.mallet_radius + tolerance),
                            self.table_width / 2 - (self.mallet_radius + tolerance))
-        # action_z = self.env_info['robot']['universal_height']  # EE_HEIGHT + tolerance
-        action_z = EE_HEIGHT + tolerance
+        action_z = self.env_info['robot']['universal_height']  # EE_HEIGHT + tolerance
         action = np.array([action_x, action_y, action_z])
 
         # convert ee coordinates in the robot frame

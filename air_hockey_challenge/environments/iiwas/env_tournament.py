@@ -41,6 +41,8 @@ class AirHockeyTournament(AirHockeyDouble):
         # Initial position of the puck
         puck_pos = np.random.rand(2) * (self.hit_range[:, 1] - self.hit_range[:, 0]) + self.hit_range[:, 0]
 
+        self.start_side = -1
+
         self._write_data("puck_x_pos", puck_pos[0] * self.start_side)
         self._write_data("puck_y_pos", puck_pos[1])
 

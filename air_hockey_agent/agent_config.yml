@@ -15,7 +15,7 @@ generate_score: "phase-3" # Generate the score for the leaderboard ranking, set 
 friendship_game: True
 
 # Parameter for tournament stage
-steps_per_game: 2000 # How many steps one game will last. The n_episodes determine the number of games played.
+steps_per_game: 10000 # How many steps one game will last. The n_episodes determine the number of games played.
 
 # Agent Parameters
 # You can specify your own parameters here, they will be passed to the init of your Agent
