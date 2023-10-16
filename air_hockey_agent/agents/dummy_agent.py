@@ -1,7 +1,7 @@
 import numpy as np
 
-from envs.air_hockey_challenge.air_hockey_challenge.framework.agent_base import AgentBase
-from envs.air_hockey_challenge.air_hockey_challenge.utils import inverse_kinematics, world_to_robot, robot_to_world
+from air_hockey_challenge.framework.agent_base import AgentBase
+from air_hockey_challenge.utils import inverse_kinematics, world_to_robot, robot_to_world
 
 EE_HEIGHT = 0.0645
 
