@@ -137,6 +137,7 @@ class AirHockeyDouble(AirHockeyBase):
         return new_obs
 
     def setup(self, obs):
+        self._compute_init_state()
         for i in range(7):
             self._data.joint("iiwa_1/joint_" + str(i + 1)).qpos = self.init_state[i]
             self._data.joint("iiwa_2/joint_" + str(i + 1)).qpos = self.init_state2[i] \
