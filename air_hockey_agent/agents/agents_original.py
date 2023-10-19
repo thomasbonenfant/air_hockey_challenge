@@ -36,7 +36,7 @@ class Agent(AgentBase):
 
         torch.set_num_threads(4)
         self.interpolation_order = varient['interpolation_order']
-        # self.env_label = env_info['env_name']
+        self.env_label = env_info['env_name']
         self.env_info = env_info
         self.robot_model = copy.deepcopy(env_info['robot']['robot_model'])
         self.robot_data = copy.deepcopy(env_info['robot']['robot_data'])
@@ -51,7 +51,7 @@ class Agent(AgentBase):
         self.last_joint_pos_action = None
         self.last_joint_vel_action = None
 
-        self.include_hit = False#['include_hit'] #fixme
+        self.include_hit = True  # varient['include_hit'] #fixme
         self.high_level_action = varient['high_level_action']
         self.delta_action = varient['delta_action']
         self.acceleration = varient['acceleration']
@@ -69,7 +69,7 @@ class Agent(AgentBase):
         self.include_old_action = varient['include_old_action']
         self.use_atacom = varient['use_atacom']
         self.shaped_reward = varient['shaped_reward']
-        self.dont_include_timer_in_states = varient['dont_include_timer_in_states']
+
         joint_pos_ids = self.env_info["joint_pos_ids"]
         low_joints_pos = self.env_info["rl_info"].observation_space.low[joint_pos_ids]
         high_joints_pos = self.env_info["rl_info"].observation_space.high[joint_pos_ids]
@@ -79,8 +79,6 @@ class Agent(AgentBase):
         high_joints_vel = self.env_info["rl_info"].observation_space.high[joint_vel_ids]
         joint_vel_norm = high_joints_vel - low_joints_vel
         ee_pos_nom = self.high_position - self.low_position
-        self.timer = 0.0
-        delta_ratio = varient['delta_ratio']
         self.normalizations = {
             'joint_pos_constr': np.concatenate([joint_pos_norm, joint_pos_norm]),
             'joint_vel_constr': np.concatenate([joint_vel_norm, joint_vel_norm]),
@@ -99,8 +97,6 @@ class Agent(AgentBase):
         low_position = self.env_info["rl_info"].observation_space.low[puck_pos_ids]
         low_velocity = self.env_info["rl_info"].observation_space.low[puck_vel_ids]
         high_velocity = self.env_info["rl_info"].observation_space.high[puck_vel_ids]
-        low_timer = np.array([0.0])
-        high_timer = np.array([15.0])
         self.dim = 3 if "3" in self.env_label else 7
         self.max_vel = high_velocity[0]
         if self.high_level_action:
@@ -133,13 +129,13 @@ class Agent(AgentBase):
             low_state = np.concatenate([low_state, low_position, low_velocity[:2]])
             high_state = np.concatenate([high_state, high_position, high_velocity[:2]])
         if self.delta_action and not self.acceleration:
-            range_action = np.abs(high_action - low_action) * delta_ratio
+            range_action = np.abs(high_action - low_action) * self.delta_ratio
             low_action = - range_action
             high_action = range_action
         if self.hit_env and self.shaped_reward and self.include_hit:
             low_state = np.concatenate([low_state, np.array([0.])])
             high_state = np.concatenate([high_state, np.array([1.])])
-        env_info["opponent_ee_ids"] = [20, 21, 22]
+
         if 'opponent_ee_ids' in env_info and len(env_info["opponent_ee_ids"]) > 0:
             self.opponent = True
             low_state = np.concatenate([low_state, low_position])  # -.1 z of ee
@@ -151,21 +147,22 @@ class Agent(AgentBase):
             low_state = np.concatenate([low_state, low_action])
             high_state = np.concatenate([high_state, high_action])
 
-        if not self.dont_include_timer_in_states:
-            low_state = np.concatenate([low_state, low_timer])
-            high_state = np.concatenate([high_state, high_timer])
-
         if self.history > 1:
             low_state = np.tile(low_state, self.history)
             high_state = np.tile(high_state, self.history)
+
         if self.use_atacom:
-            if not self.high_level_action:
+            low_action = env_info['robot']['joint_acc_limit'][0]
+            high_action = env_info['robot']['joint_acc_limit'][1]
+            if self.dim == 3:
+                self.atacom_transformation = AtacomTransformation(env_info, self.get_joint_pos, self.get_joint_vel)
+                low_action = low_action[:self.atacom_transformation.ee_pos_dim_out]
+                high_action = high_action[:self.atacom_transformation.ee_pos_dim_out]
+            else:
                 low_action = env_info['robot']['joint_acc_limit'][0]
                 high_action = env_info['robot']['joint_acc_limit'][1]
-            atacom = build_ATACOM_Controller(env_info, slack_type='soft_corner', slack_tol=1e-06, slack_beta=4)
-            self.atacom_transformation = AtacomTransformation(env_info, False, atacom)
-            # low_action = low_action[:self.atacom_transformation.ee_pos_dim_out]
-            # high_action = high_action[:self.atacom_transformation.ee_pos_dim_out]
+                atacom = build_ATACOM_Controller(env_info, slack_type='soft_corner', slack_tol=1e-06, slack_beta=4)
+                self.atacom_transformation = AtacomTransformation(env_info, False, atacom)
 
         self.t = 0
 
@@ -210,22 +207,17 @@ class Agent(AgentBase):
 
         if self.use_aqp:
             success, joint_velocities = self.solve_aqp(command, self.joint_pos, 0)
-            if not self.use_atacom:
-                new_joint_pos = self.joint_pos + (self.joint_vel + joint_velocities) / 2 * self.dt
+            new_joint_pos = self.joint_pos + (self.joint_vel + joint_velocities) / 2 * self.dt
         else:
             success, new_joint_pos = inverse_kinematics(self.robot_model, self.robot_data, command)
             joint_velocities = (new_joint_pos - self.joint_pos) / self.env_info['dt']
         if not success:
             self._fail_count += 1
-        if not self.use_atacom:
-            action = np.vstack([new_joint_pos, joint_velocities])
-        else:
-            return joint_velocities
 
+        action = np.vstack([new_joint_pos, joint_velocities])
         return action
 
     def _post_simulation(self, obs):
-        self._obs = obs
         self.puck_pos = self.get_puck_pos(obs)
         self.previous_vel = self.puck_vel if self.t > 0 else None
         self.puck_vel = self.get_puck_vel(obs)
@@ -242,15 +234,6 @@ class Agent(AgentBase):
             distance = np.linalg.norm(self.puck_pos[:2] - self.ee_pos[:2])
             if previous_vel_norm <= current_vel_norm and distance <= (self.puck_radius + self.mallet_radius) * 1.1:
                 self.has_hit = True
-
-        # if self.puck_pos[0] < 1.51 and (self.puck_is_in_otherside or self.t == 0):  # puck is in our side
-        #     self.puck_is_in_otherside = False
-        #     self.hit_reward_given = False
-        #     self.has_hit = False
-        # elif self.puck_pos[0] < 1.51:
-        #     self.puck_is_in_otherside = False
-        # else:
-        #     self.puck_is_in_otherside = True
 
     def _process_info(self, info):
         info["joint_pos_constr"] = info["constraints_value"]["joint_pos_constr"]
@@ -314,11 +297,7 @@ class Agent(AgentBase):
                 delta_pos = ee_vel * self.dt
 
                 action = ee_pos[:2] + delta_pos[:2]
-            tolerance = 0.0065
-            padding = np.array([self.puck_radius + tolerance, self.puck_radius + tolerance])
-            low_clip = self.low_position[:2] + padding
-            high_clip = self.high_position[:2] - padding
-            action_clipped = np.clip(action, a_min=low_clip, a_max=high_clip)
+            action_clipped = np.clip(action, a_min=self.low_position[:2], a_max=self.high_position[:2])
             if np.any(action_clipped - action > 1e-6):
                 self.clipped_state = True
             else:
@@ -327,59 +306,9 @@ class Agent(AgentBase):
             action = self._action_transform(action[:2])
         else:
             action = np.reshape(action, (2, -1))
-        if self.clip_vel:
-            joint_vel = action[1, :]
-            new_joint_vel = np.clip(joint_vel, self.low_joints_vel, self.high_joints_vel)
-            new_joint_pos = self.joint_pos + (self.joint_vel + new_joint_vel) / 2 * self.dt
-            action = np.vstack([new_joint_pos, new_joint_vel])
-        return action
-
-    def _atacom_plus_aqp_action_transform(self, action):
-        if self.delta_action and not self.acceleration:
-            if self.high_level_action:
-                ee_pos = self.ee_pos
-                action = ee_pos[:2] + action[:2]
-            else:
-                joint_pos = self.joint_pos
-                joint_vel = self.joint_vel
-                action = np.concatenate([joint_pos, joint_vel]) + action
-        if self.high_level_action:
-            if self.acceleration:
-                ee_pos = self.ee_pos
-                # action = np.array([2., 1.])
-                ee_vel = self.ee_vel[:2] + self.dt * action[:2]
-                delta_pos = ee_vel * self.dt
-
-                action = ee_pos[:2] + delta_pos[:2]
-            tolerance = 0.0065
-            padding = np.array([self.puck_radius + tolerance, self.puck_radius + tolerance])
-            low_clip = self.low_position[:2] + padding
-            high_clip = self.high_position[:2] - padding
-            action_clipped = np.clip(action, a_min=low_clip, a_max=high_clip)
-            if np.any(action_clipped - action > 1e-6):
-                self.clipped_state = True
-            else:
-                self.clipped_state = False
-            action = action_clipped
-            new_joint_vel = self._action_transform(action[:2])
-        else:
-            action = np.reshape(action, (2, -1))
-        if self.clip_vel:
-            joint_vel = action
-            new_joint_vel = np.clip(joint_vel, self.low_joints_vel, self.high_joints_vel)
-
-        current_joint_vel = self.joint_vel
-
-        acceleration = (new_joint_vel - current_joint_vel) / self.dt
-        new_acc = np.clip(acceleration, self.low_joints_acc, self.high_joints_acc)
-        action = new_acc
-
         return action
 
     def _get_state(self, obs):
-        if self.env_label != "tournament":
-            obs = obs[:20]#fixme
-            self.opponent = False#fixme
         ee_pos = self.ee_pos
         ee_vel = self.ee_vel
         if self.high_level_action:
@@ -399,13 +328,6 @@ class Agent(AgentBase):
 
         if self.include_old_action:
             state = np.concatenate([state, self.old_action])
-
-        if not self.dont_include_timer_in_states:
-            state = np.concatenate([state, [self.timer]])
-            # state = np.concatenate([state, []])
-
-
-
         if self.history > 1:
             self._state_queue.append(state)
             if self.t == 0:
@@ -425,39 +347,18 @@ class Agent(AgentBase):
         return ee_vel
 
     def reset(self):
-        # self.restart = True
-        # self.t = 0
-        # self.has_hit = False
-        # self.hit_reward_given = False
-        # self._fail_count = 0
-        # self._state_queue = []
-        # self.old_action = np.zeros_like(self.old_action)
-        # if self.use_atacom:
-        #     self.atacom_transformation.reset()
-
         self.restart = True
         self.t = 0
-        self.timer = 0
         self.has_hit = False
         self.hit_reward_given = False
-        self.defend_reward_given = False
         self._fail_count = 0
         self._state_queue = []
         self.old_action = np.zeros_like(self.old_action)
-
         if self.use_atacom:
             self.atacom_transformation.reset()
 
-        # if self.state[0] < 1.51:  # puck is in our side
-        #
-        #     self.puck_is_in_otherside = False
-        # else:
-        #     self.puck_is_in_otherside = True
-
-        # return self.state
-
     def load_agent(self, path, baseline_agent=False, env_label=None, random_agent=False, env_info=None):
-        variant = json.load(open(path + '/variant.json', 'r'))
+        variant = json.load(open(os.path.join(path, 'variant.json')))
         seed = variant['seed']
         domain = variant['domain']
         env_args = {}
@@ -484,33 +385,14 @@ class Agent(AgentBase):
             env_args['stop_after_hit'] = False
             env_args['gamma'] = variant['trainer_kwargs']['discount']
             env_args['horizon'] = variant['algorithm_kwargs']['max_path_length'] + 1
-            env_args["acceleration"] = variant["acceleration"]
-            env_args['max_accel'] = variant['max_accel']
-            env_args['interpolation_order'] = variant['interpolation_order']
-            env_args['include_old_action'] = variant['include_old_action']
-            env_args['use_aqp'] = variant['use_aqp']
-            env_args['speed_decay'] = variant['speed_decay']
-            env_args['whole_game_reward'] = variant['whole_game_reward']
-            env_args['score_reward'] = variant['score_reward']
-            env_args['fault_penalty'] = variant['fault_penalty']
-            env_args['load_second_agent'] = False#variant['load_second_agent']
-            env_args['dont_include_timer_in_states'] = variant['dont_include_timer_in_states']
-            env_args['action_persistence'] = 0  # variant['action_persistence']
-            env_args['stop_when_puck_otherside'] = variant['stop_when_puck_otherside']
-
-            env_args['curriculum_learning_step1'] = variant['curriculum_learning_step1']
-            env_args['curriculum_learning_step2'] = variant['curriculum_learning_step2']
-            env_args['curriculum_learning_step3'] = variant['curriculum_learning_step3']
-
-            env_args['start_from_defend'] = variant['start_from_defend']
-
-            env_args['original_env'] = True
-
             try:
-                env_args['aqp_terminates'] = variant['aqp_terminates']
-
+                env_args["acceleration"] = variant["acceleration"]
+                env_args['max_accel'] = variant['max_accel']
+                env_args['interpolation_order'] = variant['interpolation_order']
+                env_args['include_old_action'] = variant['include_old_action']
+                env_args['use_aqp'] = variant['use_aqp']
             except:
-                env_args['aqp_terminates'] = False
+                env_args['use_aqp'] = True
 
         if baseline_agent:
             env_args['high_level_action'] = False
@@ -522,8 +404,9 @@ class Agent(AgentBase):
             env_args['env'] = env_label
 
         env = env_producer(domain, seed, **env_args)
-        obs_dim = env.observation_space.low.size
-        action_dim = env.action_space.low.size
+        obs_dim = env.observation_space.low.size #TODO needs hardcode
+        action_dim = env.action_space.low.size #TODO needs hardcode
+        # action_space = env.action_space
 
         # Get producer function for policy and value functions
         M = variant['layer_size']
@@ -566,11 +449,14 @@ class Agent(AgentBase):
         elif baseline_agent:
             from examples.control.hitting_agent import build_agent
             trainer = build_agent(env.wrapped_env._env.env_info)
+            # trainer = build_agent(env_info)
+
             trainer.reset()
             env = env.wrapped_env
         else:
             trainer = None
         return trainer, env
+        # return trainer, None
 
     def get_puck_pos(self, obs):
         """
@@ -658,9 +544,6 @@ class Agent(AgentBase):
         res = forward_kinematics(self.robot_model, self.robot_data, self.get_joint_pos(obs))
         return res[0]
 
-    def set_timer(self, time):
-        self.timer = time
-
     def get_opponent_ee_pose(self, obs):
         """
         Get the Opponent's End-Effector's Position from the observation.
@@ -685,7 +568,7 @@ class Agent(AgentBase):
 
         # Noise removal
 
-        noisy_puck_pos = self.get_puck_pos(observation)
+        '''noisy_puck_pos = self.get_puck_pos(observation)
 
         if self.restart:
             self.puck_tracker.reset(noisy_puck_pos)
@@ -703,6 +586,7 @@ class Agent(AgentBase):
             observation[self.env_info['joint_vel_ids']] = self.last_joint_vel_action.copy()
 
         self.restart = False
+        '''
 
         ##
 
@@ -781,10 +665,10 @@ class HitAgent(Agent):
         # path = 'air_hockey_agent/agents/Agents/Hit_Agent'
         path = 'Agents/Hit_Agent'
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Hit_Agent'
-        self.env_label = "tournament"
+        env_label = "7dof-hit"
         path = os.path.join(dir_path, path)
 
-        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=self.env_label, random_agent=False, env_info=env_info)
+        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=env_label, random_agent=False, env_info=env_info)
 
         variant = json.load(open(os.path.join(path, 'variant.json')))
 
@@ -802,32 +686,28 @@ class HitAgent(Agent):
 
 
 class DefendAgent(Agent):
-    def __init__(self, env_info, env_label, **kwargs ):
+    def __init__(self, env_info, **kwargs):
         dir_path = os.path.dirname(os.path.abspath(__file__))
 
         # modification to run with tournament env
         env_info['opponent_ee_ids'] = []
 
-        #path = 'air_hockey_agent/agents/Agents/Defend_Agent'
+        path = 'air_hockey_agent/agents/Agents/Defend_Agent'
         path = 'Agents/Defend_Agent'
 
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Defend_Agent'
-        self.env_label = env_label
-
-        if self.env_label == "tournament":
-            path = 'Agents/Defend_Agent'
-        elif self.env_label == "7dof-defend":
-            path = 'Agents/DefendHit_Agent'
-
+        env_label = "7dof-defend"
         path = os.path.join(dir_path, path)
 
-        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=self.env_label, random_agent=False, env_info=env_info)
+        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=env_label, random_agent=False, env_info=env_info)
 
         variant = json.load(open(os.path.join(path, 'variant.json')))
+
 
         # self.obs_dim = env.observation_space.low.size  # TODO needs hardcode
         # self.action_dim = env.action_space.low.size  # TODO needs hardcode
         # self.action_space = env.action_space
+
 
         super().__init__(env_info, variant, **kwargs)
 
@@ -846,10 +726,10 @@ class PrepareAgent(Agent):
         path = 'Agents/Prepare_Agent'
 
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Prepare_Agent'
-        self.env_label = "tournament"
+        env_label = "7dof-prepare"
         path = os.path.join(dir_path, path)
 
-        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=self.env_label, random_agent=False, env_info=env_info)
+        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=env_label, random_agent=False, env_info=env_info)
 
         variant = json.load(open(os.path.join(path, 'variant.json')))
 

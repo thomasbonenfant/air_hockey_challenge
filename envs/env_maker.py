@@ -19,13 +19,12 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
     filter_opponent_ee_obs = lambda state: state[:-3]
     #null_filter = lambda state: state
 
-    #defend_policy_oac = DefendAgent(env_info)
-    hit_policy_oac = HitAgent(env_info)
-    hit_policy_rb = PolicyAgent(env_info, agent_id=1, task="hit", smash_line=-0.5)
-    hit_policy_rb_1 = PolicyAgent(env_info, agent_id=1, task="hit", smash_line=-0.4)
-    hit_policy_rb_2 = PolicyAgent(env_info, agent_id=1, task="hit", smash_line=-0.3)
+    defend_policy_oac = DefendAgent(env_info, env_label="tournament")
+    repel_agent_oac = DefendAgent(env_info, env_label="7dof-defend")
+    #hit_policy_oac = HitAgent(env_info)
+    hit_policy_rb = PolicyAgent(env_info, agent_id=1, task="hit")
     prepare_policy_rb = PolicyAgent(env_info, agent_id=1, task="prepare")
-    defend_rb = PolicyAgent(env_info, agent_id=1, task="defend")
+    #defend_rb = PolicyAgent(env_info, agent_id=1, task="defend")
 
     policy_state_processors = {
         #defend_policy_oac: filter_opponent_ee_obs,
@@ -37,7 +36,7 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
 
     env = HierarchicalEnv(env=env,
                           steps_per_action=steps_per_action,
-                          policies=[hit_policy_rb, hit_policy_rb_1, hit_policy_rb_2, defend_rb, prepare_policy_rb],
+                          policies=[hit_policy_rb, defend_policy_oac, repel_agent_oac, prepare_policy_rb],
                           policy_state_processors=policy_state_processors,
                           render_flag=render,
                           include_joints=include_joints,

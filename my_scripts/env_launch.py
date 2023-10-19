@@ -50,13 +50,13 @@ env_args = {
 
 }
 
-env = make_environment(steps_per_action=15,
-                       include_joints=False,
+env = make_environment(steps_per_action=20,
+                       include_joints=True,
                        alpha_r=1.0,
                        scale_obs=True,
                        large_reward=1000,
                        include_faults=True,
-                       fault_penalty=333,
+                       fault_penalty=1000,
                        fault_risk_penalty=1,
                        include_timer=True,
                        render=True)
@@ -81,7 +81,7 @@ policy_state_processors = {
     prepare_policy: null_filter
 }'''
 
-load_agent = True
+load_agent = False
 
 if load_agent:
     agent = PPO.load("/home/thomas/Downloads/876767/best_model")

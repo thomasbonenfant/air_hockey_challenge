@@ -25,11 +25,15 @@ EE_HEIGHT = 0.0645  # apparently 0.0646 works better then 0.0645
 WINDOW_SIZE = 200
 PREV_BETA = 0
 FINAL = 10
-DEFEND_LINE = -0.7
+DEFEND_LINE = -0.8
 DEFAULT_POS = np.array([DEFEND_LINE, 0, EE_HEIGHT])
 DES_ACC = 0.05
+
+best_hit_sample = np.array([0.993793, 3.008965, 3e-2, 0.01002]) / 100
+best_hit = np.array([0.01, 0.03, 3e-4, 1e-4])
+best_hit_train = np.array([0.01004139, 0.03003824, 0.00030698, 0.00010313])
 BEST_PARAM = dict(
-    hit=np.array([9.99302077e-02, 9.65953660e-03, 2.59815166e-05, 5.01348799e-02]),
+    hit=best_hit_train,
     defend=None,
     prepare=None
 )
@@ -56,16 +60,16 @@ def build_agent(env_info, **kwargs):
 
 # Class implementing teh rule based policy
 class PolicyAgent(AgentBase):
-    def __init__(self, env_info, agent_id=1, task: str = "hit", smash_line=-0.5, **kwargs):
+    def __init__(self, env_info, agent_id=1, task: str = "hit", **kwargs):
         # Superclass initialization
         super().__init__(env_info, agent_id, **kwargs)
 
         self.optimizer = TrajectoryOptimizer(self.env_info)  # optimize joint position of each trajectory point
+        #self.motion_law_predictor = MotionLaw(self.env_info["dt"])  # predict the puck position using motion low
 
         # Kalman filters
         self.puck_tracker = PuckTracker(self.env_info, agent_id)
-        #self.adv_ee_tracker = PuckTracker(self.env_info, agent_id)
-        #self.ee_pos_tracker = PuckTracker(self.env_info, agent_id)
+
         self.reset_filter = True
 
         # Task allocation
@@ -73,7 +77,7 @@ class PolicyAgent(AgentBase):
 
         # Thetas
         assert self.task in ["hit", "defend", "prepare"], f"Illegal task: {self.task}"
-        self.theta = BEST_PARAM[self.task]
+        self.theta = BEST_PARAM['hit']
 
         # HIT: define initial values
         # angle between ee->puck and puck->goal lines
@@ -84,7 +88,6 @@ class PolicyAgent(AgentBase):
         self.last_action = np.zeros((2, 7))
         self.q_anchor = None
         self.final = FINAL
-        self.smash_line = smash_line
 
         # DEFEND: define initial values
         self.desired_from = None
@@ -277,14 +280,25 @@ class PolicyAgent(AgentBase):
 
         # Compute the action based on the task
         # Note: here all the actions must be in WORLD coordinates
-        self.theta = BEST_PARAM[self.task]
+        # self.theta = BEST_PARAM[self.task]
 
+        # Select the most appropriate task
+        # task choice is done by hierarchical agent
+        # self.task = self.pick_task()
+        # print(self.task)
+
+        # task is set through a setter
         if self.task == "hit":
-            action = self.hit_act()
+            action = self.hit_act_smooth_slow()
         elif self.task == "defend":
             action = self.defend_act()
         elif self.task == "prepare":
             action = self.prepare_act()
+        elif self.task == "home":
+            #action, point_reached = self.smooth_act()
+            #if point_reached:
+            #    action = self.return_act(self.state.w_ee_pos, step_size=self.last_ds)
+            action = self.return_act(self.state.w_ee_pos)
         else:
             action = None
 
@@ -357,10 +371,91 @@ class PolicyAgent(AgentBase):
             optimized_action[0] = final_action[0]
             optimized_action[1] = final_action[1]
 
-        self.last_action = optimized_action
+        # Clip joint positions in the limits
+        joint_pos_limits = self.env_info['robot']['joint_pos_limit']
+        joint_vel_limits = self.env_info['robot']['joint_vel_limit']
+
+        new_final_action = np.zeros((2, 7))
+        new_final_action[0] = np.clip(optimized_action[0], joint_pos_limits[0], joint_pos_limits[1])
+        new_final_action[1] = np.clip(optimized_action[1], joint_vel_limits[0], joint_vel_limits[1])
+        # new_final_action[2] = (final_action[1] - self.state.r_joint_vel)/self.env_info["dt"]
+
+        self.last_action = new_final_action
         self.last_r_puck_pos = self.state.r_puck_pos
 
-        return optimized_action
+        return new_final_action
+
+    def set_task(self, task=None):
+        """
+        Set the self.task parameter. Used to allow hierarchical_agent control over
+        the rule_based agent
+        """
+        if task is not None:
+            assert task in ["hit", "defend", "prepare", "home"]
+        self.task = task
+
+    def pick_task(self):
+        """
+        Description:
+            This function will retrieve the correct task to perform among hit, defend and prepare
+
+        Returns:
+            the most appropriate task
+        """
+
+        if self.state.w_puck_pos[0] >= 0 * self.agent_id:
+            # always defend is the puck is in the enemy field
+            return "defend"
+
+        if np.linalg.norm(self.state.r_puck_vel[0:2]) > 1:  # the threshold is trainable
+            if self.state.r_puck_vel[0] < 0:
+                return "defend"
+            else:
+                self.phase = "wait"
+                self.final = FINAL
+                return "hit"
+        else:
+            puck_pos = self.state.w_puck_pos[:2]
+            ee_pos = self.state.w_ee_pos[:2]
+            # Beta computation
+            beta = self.get_angle(
+                self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
+                self.world_to_puck(ee_pos, puck_pos)
+            )
+
+            if puck_pos[1] <= self.table_width / 2:
+                gamma = self.get_angle(
+                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
+                    self.world_to_puck(self.goal_pos, puck_pos)
+                )
+                tot_angle = beta + gamma
+            else:
+                gamma = self.get_angle(
+                    self.world_to_puck(self.goal_pos, puck_pos),
+                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos)
+                )
+                tot_angle = beta - gamma
+
+            # todo should the check for enough space become a function?
+            enough_space = True
+            tolerance = 1.5 * (self.mallet_radius + self.puck_radius)
+
+            tolerance_coordinates = np.array([tolerance * np.cos(np.deg2rad(tot_angle)),
+                                              tolerance * np.sin(np.deg2rad(tot_angle))])
+
+            tolerance_coordinates = self.puck_to_world(tolerance_coordinates, puck_pos)
+
+            if (tolerance_coordinates[0] <= -self.table_length / 2) or \
+                    (tolerance_coordinates[1] >= self.table_width / 2 or tolerance_coordinates[1] <= -self.table_width / 2):
+                enough_space = False
+
+            if enough_space:
+                #self.phase = "wait"
+                #self.final = FINAL
+                return "hit"
+            else:
+                self.phase = "wait"
+                return "prepare"
 
     def solve_anchor_pos_ik_null(self, hit_pos_2d, hit_dir_2d, q_0, solve_max_time):
         hit_pos = np.concatenate([hit_pos_2d, [self.env_info['robot']["ee_desired_height"]]])
@@ -420,6 +515,7 @@ class PolicyAgent(AgentBase):
             numpy.array([*, *]): the new position the end effector should
             occupy in the next step
         """
+
         # INITIALIZATION ------------------------------------------------------
         # Get useful info from the state
         puck_pos = self.state.w_puck_pos[:2]
@@ -483,13 +579,16 @@ class PolicyAgent(AgentBase):
             upper_bound_goal = self.env_info["table"]["goal_width"] / 2
 
             # check if adv_ee moved in around the bounds of the goal
-            '''if (adv_ee_pos[1] <= 0 and np.abs(adv_ee_pos[1] - lower_bound_goal) < 0.08) or \
-                    (adv_ee_pos[1] >= 0 and np.abs(adv_ee_pos[1] - upper_bound_goal) < 0.08):'''
+            # todo change this control, it was custom for the bernoulli lemniscate curve
+            #  it might be removed
+            if (adv_ee_pos[1] <= 0 and np.abs(adv_ee_pos[1] - lower_bound_goal) < 0.08) or \
+                    (adv_ee_pos[1] >= 0 and np.abs(adv_ee_pos[1] - upper_bound_goal) < 0.08):
+                self.can_hit = True
+
             self.can_hit = True
 
-
             # (np.abs(radius - self.mallet_radius - self.puck_radius) <= 5e-3) and (self.state.w_puck_pos[0] > -0.6 or self.state.w_puck_vel[0] >= 0) violates less constraints but has a lower success rate
-            if rounded_radius <= 1e-2 and (self.state.w_puck_pos[0] > self.smash_line):  # and self.state.w_puck_vel[0] > 0) and not self.has_hit:
+            if rounded_radius <= 1e-2 and (self.state.w_puck_pos[0] > - 0.48):  # and self.state.w_puck_vel[0] > 0) and not self.has_hit:
                 self.phase = "smash"
                 self.has_hit = True
 
@@ -498,6 +597,149 @@ class PolicyAgent(AgentBase):
                 d_beta = correction / 2
 
                 ds = (self.last_ds + 1e-4 * self.env_info["dt"] * self.time[self.phase] / (radius + self.mallet_radius))
+                #ds *= (1/self.state.r_puck_pos[0] - 1e-3)
+                #ds *= 0.9 / (self.state.r_puck_pos[0] / (self.table_length / 2))
+                self.last_ds = ds
+
+            else:
+                ds = 1e-3
+
+        # SMASH: perform a smash right after the "has_hit" computation
+        if self.phase == "smash":
+            self.time[self.phase] += 1
+            if self.final == 0:
+                self.reset()
+                #return self.last_position
+                return self.return_act(ee_pos)
+            else:
+                self.final -= 1
+                d_beta = correction
+                #ds = self.last_ds + 0.01 * (DES_ACC - self.last_ds) / (FINAL - self.final)
+                ds = self.last_ds / ((FINAL - self.final) * 2)
+                #ds = self.last_ds * 0.95
+                self.last_ds = ds
+
+        # NEXT POINT COMPUTATION ----------------------------------------------
+        if puck_pos[1] <= self.table_width / 2:
+            # Puck is in the bottom part
+            # Check if d_beta needs to be inverted
+            if ee_pos_puck[1] < radius * np.sin(np.deg2rad(gamma + 180)):
+                d_beta = -d_beta
+
+            # Compute the action
+            x_inters_reduced = (radius - ds) * np.cos(np.deg2rad(beta + d_beta + gamma))
+            y_inters_reduced = (radius - ds) * np.sin(np.deg2rad(beta + d_beta + gamma))
+            action = self.puck_to_world(np.array([x_inters_reduced, y_inters_reduced]), puck_pos)
+            self.last_position = action
+        else:
+            # Puck is in the top part
+            # Check if d_beta needs to be inverted
+            if ee_pos_puck[1] > radius * np.sin(np.deg2rad(180 - gamma)):
+                d_beta = -d_beta
+
+            # Compute the action
+            x_inters_reduced = (radius - ds) * np.cos(np.deg2rad(beta - d_beta - gamma))
+            y_inters_reduced = (radius - ds) * np.sin(np.deg2rad(beta - d_beta - gamma))
+            action = self.puck_to_world(np.array([x_inters_reduced, y_inters_reduced]), puck_pos)
+            self.last_position = action
+
+        return action
+
+    def hit_act_smooth_slow(self):
+        """
+        Description:
+            this function computes the new action to perform to perform a "hit"
+
+        Returns:
+            numpy.array([*, *]): the new position the end effector should
+            occupy in the next step
+        """
+        # INITIALIZATION ------------------------------------------------------
+        # Get useful info from the state
+        puck_pos = self.state.w_puck_pos[:2]
+        ee_pos = self.state.w_ee_pos[:2]
+
+        # Initialization of d_beta and ds
+        d_beta = 0
+        ds = 0
+
+        # Beta computation
+        beta = self.get_angle(
+            self.world_to_puck(self.goal_pos, puck_pos),
+            self.world_to_puck(ee_pos, puck_pos)
+        )
+
+        # Gamma computation
+        if puck_pos[1] <= self.table_width / 2:
+            gamma = self.get_angle(
+                self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
+                self.world_to_puck(self.goal_pos, puck_pos)
+            )
+        else:
+            gamma = self.get_angle(
+                self.world_to_puck(self.goal_pos, puck_pos),
+                self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos)
+            )
+
+        # Convert the ee position and take the current radius
+        ee_pos_puck = self.world_to_puck(ee_pos, puck_pos)
+        radius = np.sqrt(
+            (ee_pos[0] - puck_pos[0]) ** 2 + (ee_pos[1] - puck_pos[1]) ** 2
+        )
+
+        rounded_radius = round(radius - (self.mallet_radius + self.puck_radius), 5)
+
+        # correction term
+        correction = np.abs(180 - beta) if puck_pos[1] <= self.table_width / 2 else np.abs(beta - 180)
+
+        # PHASES --------------------------------------------------------------
+        # WAIT: wait for the puck to move slowly
+        if self.phase == "wait" and (np.linalg.norm(self.state.r_puck_vel) < 3 or self.state.r_puck_vel[0] >= 0):
+            self.phase = "adjustment"
+
+        # ADJUSTMENT: adjust the beta angle and go to the right trajectory
+        if self.phase == "adjustment":
+            self.time[self.phase] += 1
+            if correction <= 2.5:
+                self.phase = "acceleration"
+            else:
+                #d_beta = (0.01 + 0.03 * self.time[self.phase] * self.env_info["dt"]) * correction
+                #ds = 3e-4
+                # 0.01
+                d_beta = (0.05 + 0.03 * self.time[self.phase] * self.env_info["dt"]) * correction
+                ds = 3e-4
+
+                self.last_ds = ds
+
+        # ACCELERATION: the ee is in the correct line, accelerate
+        if self.phase == "acceleration":
+            self.time[self.phase] += 1
+            self.last_w_puck_pos = puck_pos  # it will be used in the slow_down phase
+
+            # Check if can hit considering the adversary position
+            adv_ee_pos = self.state.w_adv_ee_pos
+            lower_bound_goal = - self.env_info["table"]["goal_width"] / 2
+            upper_bound_goal = self.env_info["table"]["goal_width"] / 2
+
+            # check if adv_ee moved in around the bounds of the goal
+            if (adv_ee_pos[1] <= 0 and np.abs(adv_ee_pos[1] - lower_bound_goal) < 0.08) or \
+                    (adv_ee_pos[1] >= 0 and np.abs(adv_ee_pos[1] - upper_bound_goal) < 0.08):
+                self.can_hit = True
+
+            self.can_hit = True
+
+            # (np.abs(radius - self.mallet_radius - self.puck_radius) <= 5e-3) and (self.state.w_puck_pos[0] > -0.6 or self.state.w_puck_vel[0] >= 0) violates less constraints but has a lower success rate
+            if rounded_radius <= 1e-2 and (puck_pos[0] > - 0.5):  # and self.state.w_puck_vel[0] > 0) and not self.has_hit:
+                self.phase = "slow_down"
+                self.has_hit = True
+
+            elif self.can_hit:
+                # update ds considering how far it is from the left short-side
+                d_beta = correction / 2
+
+                #ds = (self.last_ds + 1e-4 * self.env_info["dt"] * self.time[self.phase] / (radius + self.mallet_radius))
+                ds = (self.last_ds + 1e-4 * self.env_info["dt"] * self.time[self.phase] / (radius + self.mallet_radius))
+
                 #ds *= (1/self.state.r_puck_pos[0] - 1e-3)
                 #ds *= 0.9 / (self.state.r_puck_pos[0] / (self.table_length / 2))  # FIXME problem if puck_vel[0] is close to 0
                 self.last_ds = ds
@@ -508,8 +750,11 @@ class PolicyAgent(AgentBase):
         # SMASH: perform a smash right after the "has_hit" computation
         if self.phase == "smash":
             self.time[self.phase] += 1
+            self.last_w_puck_pos = puck_pos
+
             if self.final == 0:
-                return self.last_position
+                self.phase = "slow_down"
+                # return self.last_position
             else:
                 self.final -= 1
                 d_beta = correction
@@ -517,7 +762,31 @@ class PolicyAgent(AgentBase):
                 ds = self.last_ds / ((FINAL - self.final) * 2)
                 #ds = self.last_ds * 0.95
                 self.last_ds = ds
-            self.reset()
+
+        # SLOW_DOWN: move on a curved trajectory to slow down after a hit
+        if self.phase == "slow_down":
+            if self.state.w_puck_pos[1] < 0:
+                stop_point = np.array([self.last_w_puck_pos[0]-0.1, self.last_w_puck_pos[1] + 0.1])
+                #stop_point, _ = world_to_robot(base_frame=self.frame, translation=stop_point)
+            else:
+                stop_point = np.array([self.last_w_puck_pos[0]-0.1, self.last_w_puck_pos[1] - 0.1])
+                #stop_point, _ = world_to_robot(base_frame=self.frame, translation=stop_point)
+
+            stop_point = DEFAULT_POS[:2]
+            action, point_reached = self.smooth_act(target_point=stop_point, step_size=self.last_ds/2)
+
+            if not point_reached:
+                return action
+            else:
+                self.phase = "return_home"
+
+        # RETURN HOME: bring the end effector back in the default position
+        if self.phase == "return_home":
+            if np.linalg.norm(self.state.w_puck_vel[:2]) < 0.1:
+                self.has_hit = False
+                self.phase = "wait"
+            else:
+                return self.return_act(ee_pos, step_size=self.last_ds)
 
         # NEXT POINT COMPUTATION ----------------------------------------------
         if puck_pos[1] <= self.table_width / 2:
@@ -613,7 +882,7 @@ class PolicyAgent(AgentBase):
         # Retrieve useful info from the state
         puck_pos = self.state.w_puck_pos[:2]
         ee_pos = self.state.w_ee_pos[:2]
-        puck_vel = self.state.r_puck_vel[:2]
+        puck_vel = self.state.w_puck_vel[:2]
 
         # Initialize d_beta and ds
         d_beta = 0
@@ -625,6 +894,10 @@ class PolicyAgent(AgentBase):
             self.world_to_puck(ee_pos, puck_pos)
         )
 
+        # CHECK ENOUGH SPACE ------------------------------------------------------------------
+        # che if there is enough space to perform a hit, in that case no prepare is needed
+
+        '''
         if puck_pos[1] <= self.table_width / 2:
             gamma = self.get_angle(
                 self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
@@ -649,15 +922,32 @@ class PolicyAgent(AgentBase):
         if (tolerance_coordinates[0] <= -self.table_length / 2) or \
                 (tolerance_coordinates[1] >= self.table_width / 2 or tolerance_coordinates[1] <= -self.table_width / 2):
             enough_space = False
+        '''
+        '''
+        enough_space = True
+
+        # compute the offset wrt table borders
+        x_tol = np.round(self.table_length / 2 - np.abs(puck_pos[0]), 5)
+        y_tol = np.round(self.table_width / 2 - np.abs(puck_pos[1]), 5)
+
+        tolerance = self.puck_radius + 2 * self.mallet_radius
+
+        if y_tol < tolerance or x_tol < tolerance:
+            enough_space = False
+        '''
+        enough_space = self.check_enough_space()
 
         if enough_space:
             self.keep_hitting = False
+        else:
+            self.keep_hitting = True
 
         if self.keep_hitting and self.has_hit:
-            if np.linalg.norm(ee_pos - DEFAULT_POS) <= 0.05:
+            if np.linalg.norm(ee_pos - DEFAULT_POS[:2]) <= 0.2:
                 self.has_hit = False
-                self.keep_hitting = False
+                #self.keep_hitting = False
                 self.phase = "wait"
+            pass
 
         # Take the current radius
         radius = np.sqrt(
@@ -668,13 +958,11 @@ class PolicyAgent(AgentBase):
 
         correction = (beta - 90) if puck_pos[1] <= 0 else (270 - beta)
 
-        if correction <= 1e-2:
-            correction = 0
-
+        # WAIT ------------------------------------------------------------------
         if self.phase == "wait":
-            # time.sleep(0.2)
             self.phase = "adjustment"
 
+        # ADJUSTMENT ------------------------------------------------------------------
         if self.phase == "adjustment":
             self.time[self.phase] += 1
 
@@ -684,23 +972,35 @@ class PolicyAgent(AgentBase):
 
             d_beta = 0.01 * self.time[self.phase] + correction * 0.03  # fixme clip beta if beta - d_beta < 90?
             ds = 5e-3
+
             self.last_ds = ds
 
         if rounded_radius <= 0 and not self.has_hit:
             self.has_hit = True
             self.time["adjustment"] = 0
 
+        # ACCELERATION ------------------------------------------------------------------
         if self.phase == "acceleration":
             d_beta = correction
             ds = 1e-2
+            self.last_ds = ds
 
-        if self.has_hit:
+        '''if self.has_hit and enough_space:
             if np.linalg.norm(puck_vel) > 0.5:
                 self.keep_hitting = True
                 self.has_hit = False
             else:
-                self.keep_hitting = False
+                if enough_space:
+                    self.keep_hitting = False
+                else:
+                    self.has_hit = False
+                    self.keep_hitting = True
             return self.return_act(ee_pos, step_size=self.last_ds)
+        '''
+
+        if self.has_hit:
+            #print('return')
+            return self.return_act(ee_pos=ee_pos, step_size=self.last_ds*2)
 
         '''
         # correction term
@@ -764,6 +1064,118 @@ class PolicyAgent(AgentBase):
             x_inters_reduced = (radius - ds) * np.cos(np.deg2rad(beta - d_beta))
             y_inters_reduced = (radius - ds) * np.sin(np.deg2rad(beta - d_beta))
             action = self.puck_to_world(np.array([x_inters_reduced, y_inters_reduced]), puck_pos)
+        else:
+            # Puck is in the top part
+            # Compute the action
+            #if ee_pos_puck[1] > radius * np.sin(np.deg2rad(180)):
+            #    d_beta = -d_beta
+            x_inters_reduced = (radius - ds) * np.cos(np.deg2rad(beta + d_beta))
+            y_inters_reduced = (radius - ds) * np.sin(np.deg2rad(beta + d_beta))
+            action = self.puck_to_world(np.array([x_inters_reduced, y_inters_reduced]), puck_pos)
+
+        self.last_position = action
+        return action
+
+    def original_prepare_act(self):
+        """
+        Description:
+            this function computes the new action to perform a "prepare"
+
+        Returns:
+            numpy.array([*, *]): the new position the end effector should
+            occupy in the next step
+        """
+
+        # INITIALIZATION ------------------------------------------------------
+        # Retrieve useful info from the state
+        puck_pos = self.state.w_puck_pos[:2]
+        ee_pos = self.state.w_ee_pos[:2]
+        puck_vel = self.state.w_puck_vel[:2]
+
+        # Initialize d_beta and ds
+        d_beta = 0
+        ds = 0
+
+        # Beta computation
+        beta = self.get_angle(
+            self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
+            self.world_to_puck(ee_pos, puck_pos)
+        )
+
+        enough_space = self.check_enough_space()
+
+        verbose = False
+        if verbose:
+            print(self.phase)
+            print(f'enough space: {enough_space}')
+            print(f'has_hit: {self.has_hit}')
+            print(f'keep_hitting: {self.keep_hitting}\n')
+
+        if enough_space:
+            self.keep_hitting = False
+        else:
+            self.keep_hitting = True
+
+        if self.keep_hitting and self.has_hit:
+            if np.linalg.norm(ee_pos - DEFAULT_POS[:2]) <= 0.2:
+                self.has_hit = False
+                #self.keep_hitting = False
+                self.phase = "wait"
+            pass
+
+        # Take the current radius
+        radius = np.sqrt(
+            (ee_pos[0] - puck_pos[0]) ** 2 + (ee_pos[1] - puck_pos[1]) ** 2
+        )
+
+        rounded_radius = round(radius - (self.mallet_radius + self.puck_radius), 5)
+
+        correction = (beta - 90) if puck_pos[1] <= 0 else (270 - beta)
+
+        print(correction)
+
+        #if correction <= 1e-2:
+        #    correction = 0
+
+        if self.phase == "wait":
+            # time.sleep(0.2)
+            self.phase = "adjustment"
+
+        if self.phase == "adjustment":
+            self.time[self.phase] += 1
+
+            if correction <= 1e-2:
+                #correction = 0
+                self.phase = "acceleration"
+
+            d_beta = 0.01 * self.time[self.phase] + correction * 0.03
+            #d_beta = 0.01 + correction * 0.03
+            ds = 5e-3
+            self.last_ds = ds
+
+        if rounded_radius <= 0 and not self.has_hit:
+            self.has_hit = True
+            self.time["adjustment"] = 0
+
+        # ACCELERATION ------------------------------------------------------------------
+        if self.phase == "acceleration":
+            d_beta = correction
+            ds = 1e-2
+            self.last_ds = ds
+
+        if self.has_hit:
+            return self.return_act(ee_pos=ee_pos, step_size=self.last_ds*4)
+
+        # NEXT POINT COMPUTATION ----------------------------------------------
+        if np.abs(puck_pos[1] - ee_pos[1]) < 2 * self.mallet_radius:
+            # Puck is in the bottom part
+            #if ee_pos_puck[1] < radius * np.sin(np.deg2rad(180)):
+            #    d_beta = -d_beta
+
+            # Compute the action
+            x_inters_reduced = (radius - ds) * np.cos(np.deg2rad(beta - d_beta))
+            y_inters_reduced = (radius - ds) * np.sin(np.deg2rad(beta - d_beta))
+            action = self.puck_to_world(np.array([x_inters_reduced, y_inters_reduced]), puck_pos)
 
         else:
             # Puck is in the top part
@@ -784,12 +1196,60 @@ class PolicyAgent(AgentBase):
 
             The ee_pos must be in the same coordinates of the target
         """
+        #ee_pos = self.state.w_puck_pos[:2]
+
         ds_x = (target[0] - ee_pos[0]) * step_size
         ds_y = (target[1] - ee_pos[1]) * step_size
 
         action = np.array([ee_pos[0] + ds_x, ee_pos[1] + ds_y])
 
         return action
+
+    def smooth_act(self, target_point=DEFAULT_POS[:2], step_size=5e-3):
+        """
+        Reach a given point following a curved trajectory, reach the point from behind
+        The target point is in world coordinates
+        """
+        ee_pos = self.state.w_ee_pos[:2]
+
+        # Beta computation
+        beta = self.get_angle(
+            self.world_to_puck(target_point + np.array([1, 0]), target_point),
+            self.world_to_puck(ee_pos, target_point)
+        )
+
+        # Take the current radius
+        radius = np.sqrt(
+            (ee_pos[0] - target_point[0]) ** 2 + (ee_pos[1] - target_point[1]) ** 2
+        )
+
+        rounded_radius = round(radius - (self.mallet_radius + self.puck_radius), 5)
+
+        point_reached = False
+        if rounded_radius <= 0:
+            point_reached = True
+
+        correction = np.abs(360 - beta) if target_point[1] >= 0 else np.abs(beta - 0.1)
+
+        d_beta = (self.theta[0] + self.theta[1] * self.env_info["dt"]) * correction
+        ds = step_size
+
+        # NEXT POINT COMPUTATION ----------------------------------------------
+        if target_point[1] <= ee_pos[1]:
+            # Puck is in the bottom part
+            # Compute the action
+            x_inters_reduced = (radius - ds) * np.cos(np.deg2rad(beta - d_beta))
+            y_inters_reduced = (radius - ds) * np.sin(np.deg2rad(beta - d_beta))
+            action = self.puck_to_world(np.array([x_inters_reduced, y_inters_reduced]), target_point)
+        else:
+            # Puck is in the top part
+            # Compute the action
+            x_inters_reduced = (radius - ds) * np.cos(np.deg2rad(beta + d_beta))
+            y_inters_reduced = (radius - ds) * np.sin(np.deg2rad(beta + d_beta))
+            action = self.puck_to_world(np.array([x_inters_reduced, y_inters_reduced]), target_point)
+
+        self.last_position = action
+        return action, point_reached
 
     def _apply_forward_kinematics(self, joint_pos):
         # Paramaters
@@ -865,3 +1325,25 @@ class PolicyAgent(AgentBase):
             angle = 2 * np.pi + angle
 
         return np.rad2deg(angle)
+
+    def check_enough_space(self):
+        """
+        Checks if there is enough space to perform a hit, in that case no prepare is needed
+
+        Returns: True if there is enough space, False otherwise
+        """
+
+        puck_pos = self.state.w_puck_pos[:2]
+        side_tolerance = 0.06
+        enough_space = True
+
+        # compute the offset wrt table borders
+        x_tol = np.round(self.table_length / 2 - np.abs(puck_pos[0]), 5)
+        y_tol = np.round(((self.table_width / 2) - side_tolerance) - np.abs(puck_pos[1]), 5)
+
+        tolerance = self.puck_radius + 2 * self.mallet_radius
+
+        if y_tol < tolerance or x_tol < tolerance:
+            enough_space = False
+
+        return enough_space

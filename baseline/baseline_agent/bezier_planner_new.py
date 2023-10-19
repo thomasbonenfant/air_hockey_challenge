@@ -1,7 +1,7 @@
 import matplotlib
 import numpy as np
 
-matplotlib.use('Agg')
+matplotlib.use('tkAgg')
 import matplotlib.pyplot as plt
 
 

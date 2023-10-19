@@ -167,7 +167,7 @@ def domain_to_env(name):
     from envs.air_hockey import AirHockeyEnv
     return {
 
-        'air_hockey': AirHockeyEnv
+        'air_hockey':AirHockeyEnv
     }[name]
     # except:
     #     from envs.cartpole_continuous import ContinuousCartPoleEnv as Cartpole

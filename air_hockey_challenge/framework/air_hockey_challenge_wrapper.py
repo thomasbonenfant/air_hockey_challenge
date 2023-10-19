@@ -108,7 +108,6 @@ class AirHockeyChallengeWrapper(Environment):
         elif "prepare" in self.env_name:
             if -0.8 < puck_pos[0] <= -0.2 and np.abs(puck_pos[1]) < 0.39105 and puck_vel[0] < 0.1:
                 success = 1
-
         return success
 
 
