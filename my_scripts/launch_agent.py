@@ -16,7 +16,7 @@ class ConstAgent():
         return self.action, None
 
 
-def launch(path, num_episodes, always_action=None, best=False):
+def launch(path, num_episodes, always_action=None, best=False, store_traj=False, seed=None):
     env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
 
     env_args['render'] = True
@@ -26,6 +26,9 @@ def launch(path, num_episodes, always_action=None, best=False):
         agent = PPO.load(os.path.join(path, 'best_model' if best else 'model'))
     else:
         agent = ConstAgent(always_action)
+
+    if seed is not None:
+        np.random.seed(seed)
 
     episode_reward = []
     actions = []
@@ -52,10 +55,10 @@ def launch(path, num_episodes, always_action=None, best=False):
             steps += 1
             cumulative_reward += rew
 
-            cumulative_large_reward += info['reward']['log_large_reward']
-            cumulative_fault_penalty += info['reward']['log_fault_penalty']
-            cumulative_fault_risk_penalty += info['reward']['log_fault_risk_penalty']
-            cumulative_constr_penalty += info['reward']['log_constr_penalty']
+            cumulative_large_reward += info['reward']['large_reward']
+            cumulative_fault_penalty += info['reward']['fault_penalty']
+            cumulative_fault_risk_penalty += info['reward']['fault_risk_penalty']
+            cumulative_constr_penalty += info['reward']['constr_penalty']
 
         episode_reward.append(cumulative_reward)
         large_reward.append(cumulative_large_reward)
@@ -98,6 +101,7 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/38050'
     path = '/home/thomas/Downloads/246278'
     path = '/home/thomas/Downloads/453204'
+    path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb/no_constr/719942'
 
-    launch(path, num_episodes=5, always_action=3, best=False)
+    launch(path, num_episodes=5, always_action=None, best=True, store_traj=False, seed=666)
     #eval_agent(path, 10, 2, always_action=None)

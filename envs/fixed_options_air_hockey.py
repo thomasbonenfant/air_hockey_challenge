@@ -231,9 +231,9 @@ class HierarchicalEnv(gym.Env):
         self.faults = np.array(info["faults"])
 
         # add rewards in info
-        reward_dict = {'log_large_reward': self.log_large_reward, 'log_constr_penalty': self.log_constr_penalty,
-                       'log_fault_penalty': self.log_fault_penalty,
-                       'log_fault_risk_penalty': self.log_fault_risk_penalty}
+        reward_dict = {'large_reward': self.log_large_reward, 'constr_penalty': self.log_constr_penalty,
+                       'fault_penalty': self.log_fault_penalty,
+                       'fault_risk_penalty': self.log_fault_risk_penalty}
         info['reward'] = reward_dict
 
         return self.process_state(self.state, info), reward, done, False, info

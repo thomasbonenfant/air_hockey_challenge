@@ -1,6 +1,6 @@
 python -m my_scripts.experiment \
 --save_model_dir="/home/airhockey/thomas/data/hrl" \
---experiment_label="rule_based/3_hit,1_defend/no_constr" \
+--experiment_label="rb_hit/defend_oac/repel_oac/prepare_rb" \
 --alg="ppo" \
 --steps_per_action=15 \
 --include_timer \
@@ -9,7 +9,7 @@ python -m my_scripts.experiment \
 --large_reward=1000 \
 --fault_penalty=1000 \
 --fault_risk_penalty=0 \
---parallel=10 \
+--parallel=15 \
 --lr=3e-4 \
 --steps_per_update=256 \
 --batch_size=256 \
@@ -17,7 +17,7 @@ python -m my_scripts.experiment \
 --gamma=0.997 \
 --gae_lambda=0.95 \
 --clip_range=0.2 \
---ent_coef=0.0 \
+--ent_coef=0.05 \
 --vf_coef=0.5 \
 --max_grad_norm=0.5 \
 --sde_sample_freq=-1 \
