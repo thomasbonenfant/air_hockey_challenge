@@ -1,7 +1,9 @@
 python -m my_scripts.experiment \
---save_model_dir="/home/airhockey/thomas/data/hrl" \
+\
+--total_timesteps=1000000 \
+--save_model_dir="/tmp/" \
 --experiment_label="rb_hit/defend_oac/repel_oac/prepare_rb" \
---alg="ppo" \
+\
 --steps_per_action=15 \
 --include_timer \
 --scale_obs \
@@ -10,6 +12,11 @@ python -m my_scripts.experiment \
 --fault_penalty=1000 \
 --fault_risk_penalty=0 \
 --parallel=15 \
+\
+--eval_freq=2048 \
+--n_eval_episodes=10 \
+\
+ppo \
 --lr=3e-4 \
 --steps_per_update=256 \
 --batch_size=256 \
@@ -24,9 +31,7 @@ python -m my_scripts.experiment \
 --stats_window_size=100 \
 --tensorboard_log="./" \
 --verbose=1 \
---total_timesteps=1000000 \
---eval_freq=2048 \
---n_eval_episodes=10 \
+
 
 
 

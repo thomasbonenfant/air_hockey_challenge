@@ -2,7 +2,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement
 from envs import make_environment
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC, DQN
 
 from my_scripts.utils import parse_args, create_log_directory, variant_util
 import os
@@ -32,10 +32,20 @@ def main():
 
     learn_args['callback'] = [eval_callback]  # , summary_writer_callback]
 
-    model = PPO(**alg_args)
+    if log_args['alg'] == 'ppo':
+        model = PPO(**alg_args)
+    elif log_args['alg'] == 'sac':
+        model = SAC(**alg_args)
+    elif log_args['alg'] == 'dqn':
+        model = DQN(**alg_args)
+    else:
+        raise NotImplementedError
     model.learn(**learn_args)
 
     model.save(os.path.join(log_dir, "model.zip"))
+
+    if log_args['alg'] == 'dqn':
+        model.save_replay_buffer(os.path.join(log_dir))
 
 
 '''

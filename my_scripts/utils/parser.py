@@ -6,6 +6,7 @@ import os
 
 def parse_args():
     parser = ArgumentParser()
+    subparsers = parser.add_subparsers(title="algorithm", required=True)
 
     # log args
 
@@ -31,31 +32,94 @@ def parse_args():
     parser.add_argument("--alpha_r", type=float, default=1.)
     parser.add_argument("--parallel", type=int, default=1)
 
-    # ppo arguments
-    parser.add_argument("--lr", type=float, default=3e-4)
-    parser.add_argument("--steps_per_update", type=int, default=32)
-    parser.add_argument("--batch_size", type=int, default=64)
-    parser.add_argument("--n_epochs", type=int, default=10)
-    parser.add_argument("--gamma", type=float, default=0.999)
-    parser.add_argument("--gae_lambda", type=float, default=0.95)
-    parser.add_argument("--clip_range", type=float, default=0.2)
-    parser.add_argument("--clip_range_vf", type=float)
-    parser.add_argument("--normalize_advantage", action="store_true", default=True)
-    parser.add_argument("--ent_coef", type=float, default=0.0)
-    parser.add_argument("--vf_coef", type=float, default=0.5)
-    parser.add_argument("--max_grad_norm", type=float, default=0.5)
-    parser.add_argument("--use_sde", action="store_true", default=False)
-    parser.add_argument("--sde_sample_freq", type=int, default=-1)
-    parser.add_argument("--target_kl", type=float)
-    parser.add_argument("--stats_window_size", type=int, default=100)
-    parser.add_argument("--tensorboard_log", type=str)
-    parser.add_argument("--verbose", type=int, default=1)
-    parser.add_argument("--seed", type=int)
-
     # learning args
 
     parser.add_argument("--total_timesteps", type=int, required=True)
     # parser.add_argument("--tb_log_name", type=str)
+
+    # ppo arguments
+    parser_ppo = subparsers.add_parser("ppo")
+    parser_ppo.add_argument("--policy", type=str, default="MlpPolicy")
+    parser_ppo.add_argument("--lr", type=float, default=3e-4)
+    parser_ppo.add_argument("--steps_per_update", type=int, default=32)
+    parser_ppo.add_argument("--batch_size", type=int, default=64)
+    parser_ppo.add_argument("--n_epochs", type=int, default=10)
+    parser_ppo.add_argument("--gamma", type=float, default=0.999)
+    parser_ppo.add_argument("--gae_lambda", type=float, default=0.95)
+    parser_ppo.add_argument("--clip_range", type=float, default=0.2)
+    parser_ppo.add_argument("--clip_range_vf", type=float)
+    parser_ppo.add_argument("--normalize_advantage", action="store_true", default=True)
+    parser_ppo.add_argument("--ent_coef", type=float, default=0.0)
+    parser_ppo.add_argument("--vf_coef", type=float, default=0.5)
+    parser_ppo.add_argument("--max_grad_norm", type=float, default=0.5)
+    parser_ppo.add_argument("--use_sde", action="store_true", default=False)
+    parser_ppo.add_argument("--sde_sample_freq", type=int, default=-1)
+    parser_ppo.add_argument("--target_kl", type=float)
+    parser_ppo.add_argument("--stats_window_size", type=int, default=100)
+    parser_ppo.add_argument("--tensorboard_log", type=str)
+    parser_ppo.add_argument("--verbose", type=int, default=1)
+    parser_ppo.add_argument("--seed", type=int)
+    parser_ppo.set_defaults(alg='ppo')
+
+    #sac arguments
+    parser_sac = subparsers.add_parser("sac")
+    parser_sac.add_argument("--policy", type=str, default="MlpPolicy")
+    parser_sac.add_argument("--env", type=str, default="gym_env_name")
+    parser_sac.add_argument("--learning_rate", type=float, default=3e-4)
+    parser_sac.add_argument("--buffer_size", type=int, default=1000000)
+    parser_sac.add_argument("--learning_starts", type=int, default=1000)
+    parser_sac.add_argument("--batch_size", type=int, default=256)
+    parser_sac.add_argument("--tau", type=float, default=0.005)
+    parser_sac.add_argument("--gamma", type=float, default=0.99)
+    parser_sac.add_argument("--train_freq", type=int, default=1)
+    parser_sac.add_argument("--gradient_steps", type=int, default=1)
+    parser_sac.add_argument("--action_noise", type=str, default=None)
+    parser_sac.add_argument("--replay_buffer_class", type=str, default=None)
+    parser_sac.add_argument("--replay_buffer_kwargs", type=json.loads, default=None)
+    parser_sac.add_argument("--optimize_memory_usage", type=bool, default=False)
+    parser_sac.add_argument("--ent_coef", type=str, default='auto')
+    parser_sac.add_argument("--target_update_interval", type=int, default=1)
+    parser_sac.add_argument("--target_entropy", type=str, default=None)
+    parser_sac.add_argument("--use_sde", type=bool, default=False)
+    parser_sac.add_argument("--sde_sample_freq", type=int, default=-1)
+    parser_sac.add_argument("--use_sde_at_warmup", type=bool, default=False)
+    parser_sac.add_argument("--stats_window_size", type=int, default=100)
+    parser_sac.add_argument("--tensorboard_log", type=str, default=None)
+    parser_sac.add_argument("--policy_kwargs", type=json.loads, default=None)
+    parser_sac.add_argument("--verbose", type=int, default=1)
+    parser_sac.add_argument("--seed", type=int, default=None)
+    parser_sac.add_argument("--device", type=str, default="auto")
+    parser_sac.add_argument("--_init_setup_model", type=bool, default=True)
+    parser_sac.set_defaults(alg='sac')
+
+    #dqn arguments
+    parser_dqn = subparsers.add_parser("dqn")
+    parser_dqn.add_argument("--policy", type=str, default="MlpPolicy")
+    parser_dqn.add_argument("--learning_rate", type=float, default=0.001)
+    parser_dqn.add_argument("--buffer_size", type=int, default=10000)
+    parser_dqn.add_argument("--learning_starts", type=int, default=1000)
+    parser_dqn.add_argument("--batch_size", type=int, default=32)
+    parser_dqn.add_argument("--tau", type=float, default=1.0)
+    parser_dqn.add_argument("--gamma", type=float, default=0.99)
+    parser_dqn.add_argument("--train_freq", type=int, default=1)
+    parser_dqn.add_argument("--gradient_steps", type=int, default=1)
+    parser_dqn.add_argument("--replay_buffer_class", type=str, default=None)
+    parser_dqn.add_argument("--replay_buffer_kwargs", type=json.loads, default=None)
+    parser_dqn.add_argument("--optimize_memory_usage", type=bool, default=False)
+    parser_dqn.add_argument("--target_update_interval", type=int, default=100)
+    parser_dqn.add_argument("--exploration_fraction", type=float, default=0.1)
+    parser_dqn.add_argument("--exploration_initial_eps", type=float, default=1.0)
+    parser_dqn.add_argument("--exploration_final_eps", type=float, default=0.02)
+    parser_dqn.add_argument("--max_grad_norm", type=float, default=10.0)
+    parser_dqn.add_argument("--stats_window_size", type=int, default=100)
+    parser_dqn.add_argument("--tensorboard_log", type=str, default=None)
+    parser_dqn.add_argument("--policy_kwargs", type=json.loads, default=None)
+    parser_dqn.add_argument("--verbose", type=int, default=1)
+    parser_dqn.add_argument("--seed", type=int, default=None)
+    parser_dqn.add_argument("--device", type=str, default="auto")
+    parser_dqn.add_argument("--_init_setup_model", type=bool, default=True)
+    parser_dqn.set_defaults(alg='dqn')
+
 
     variant = parser.parse_args()
 
@@ -86,27 +150,80 @@ def variant_util(variant):
     env_args['alpha_r'] = variant.alpha_r
     env_args['include_joints'] = variant.include_joints
 
-    alg_args['learning_rate'] = variant.lr
-    alg_args['policy'] = "MlpPolicy"
-    alg_args['n_steps'] = variant.steps_per_update
-    alg_args['batch_size'] = variant.batch_size
-    alg_args['n_epochs'] = variant.n_epochs
-    alg_args['gamma'] = variant.gamma
-    alg_args['gae_lambda'] = variant.gae_lambda
-    alg_args['clip_range'] = variant.clip_range
-    alg_args['clip_range_vf'] = variant.clip_range_vf
-    alg_args['normalize_advantage'] = variant.normalize_advantage
-    alg_args['ent_coef'] = variant.ent_coef
-    alg_args['vf_coef'] = variant.vf_coef
-    alg_args['max_grad_norm'] = variant.max_grad_norm
-    alg_args['use_sde'] = variant.use_sde
-    alg_args['sde_sample_freq'] = variant.sde_sample_freq
-    alg_args['target_kl'] = variant.target_kl
-    alg_args['stats_window_size'] = variant.stats_window_size
-    alg_args['tensorboard_log'] = variant.tensorboard_log
-    alg_args['verbose'] = variant.verbose
+    if log_args['alg'] == 'ppo':
+        alg_args['learning_rate'] = variant.lr
+        alg_args['policy'] = variant.policy
+        alg_args['n_steps'] = variant.steps_per_update
+        alg_args['batch_size'] = variant.batch_size
+        alg_args['n_epochs'] = variant.n_epochs
+        alg_args['gamma'] = variant.gamma
+        alg_args['gae_lambda'] = variant.gae_lambda
+        alg_args['clip_range'] = variant.clip_range
+        alg_args['clip_range_vf'] = variant.clip_range_vf
+        alg_args['normalize_advantage'] = variant.normalize_advantage
+        alg_args['ent_coef'] = variant.ent_coef
+        alg_args['vf_coef'] = variant.vf_coef
+        alg_args['max_grad_norm'] = variant.max_grad_norm
+        alg_args['use_sde'] = variant.use_sde
+        alg_args['sde_sample_freq'] = variant.sde_sample_freq
+        alg_args['target_kl'] = variant.target_kl
+        alg_args['stats_window_size'] = variant.stats_window_size
+        alg_args['tensorboard_log'] = variant.tensorboard_log
+        alg_args['verbose'] = variant.verbose
+        alg_args['seed'] = variant.seed
+    elif log_args['alg'] == 'sac':
+        alg_args['policy'] = variant.policy
+        alg_args['learning_rate'] = variant.learning_rate
+        alg_args['buffer_size'] = variant.buffer_size
+        alg_args['learning_starts'] = variant.learning_starts
+        alg_args['batch_size'] = variant.batch_size
+        alg_args['tau'] = variant.tau
+        alg_args['gamma'] = variant.gamma
+        alg_args['train_freq'] = variant.train_freq
+        alg_args['gradient_steps'] = variant.gradient_steps
+        alg_args['action_noise'] = variant.action_noise
+        alg_args['replay_buffer_class'] = variant.replay_buffer_class
+        alg_args['replay_buffer_kwargs'] = variant.replay_buffer_kwargs
+        alg_args['optimize_memory_usage'] = variant.optimize_memory_usage
+        alg_args['ent_coef'] = variant.ent_coef
+        alg_args['target_update_interval'] = variant.target_update_interval
+        alg_args['target_entropy'] = variant.target_entropy
+        alg_args['use_sde'] = variant.use_sde
+        alg_args['sde_sample_freq'] = variant.sde_sample_freq
+        alg_args['use_sde_at_warmup'] = variant.use_sde_at_warmup
+        alg_args['stats_window_size'] = variant.stats_window_size
+        alg_args['tensorboard_log'] = variant.tensorboard_log
+        alg_args['policy_kwargs'] = variant.policy_kwargs
+        alg_args['verbose'] = variant.verbose
+        alg_args['seed'] = variant.seed
+        alg_args['device'] = variant.device
+        alg_args['_init_setup_model'] = variant._init_setup_model
+    elif log_args['alg'] == 'dqn':
+        alg_args['policy'] = variant.policy
+        alg_args['learning_rate'] = variant.learning_rate
+        alg_args['buffer_size'] = variant.buffer_size
+        alg_args['learning_starts'] = variant.learning_starts
+        alg_args['batch_size'] = variant.batch_size
+        alg_args['tau'] = variant.tau
+        alg_args['gamma'] = variant.gamma
+        alg_args['train_freq'] = variant.train_freq
+        alg_args['gradient_steps'] = variant.gradient_steps
+        alg_args['replay_buffer_class'] = variant.replay_buffer_class
+        alg_args['replay_buffer_kwargs'] = variant.replay_buffer_kwargs
+        alg_args['optimize_memory_usage'] = variant.optimize_memory_usage
+        alg_args['target_update_interval'] = variant.target_update_interval
+        alg_args['exploration_fraction'] = variant.exploration_fraction
+        alg_args['exploration_initial_eps'] = variant.exploration_initial_eps
+        alg_args['exploration_final_eps'] = variant.exploration_final_eps
+        alg_args['max_grad_norm'] = variant.max_grad_norm
+        alg_args['stats_window_size'] = variant.stats_window_size
+        alg_args['tensorboard_log'] = variant.tensorboard_log
+        alg_args['policy_kwargs'] = variant.policy_kwargs
+        alg_args['verbose'] = variant.verbose
+        alg_args['seed'] = variant.seed
+        alg_args['device'] = variant.device
+        alg_args['_init_setup_model'] = variant._init_setup_model
 
-    alg_args['seed'] = variant.seed
 
     learn_args['total_timesteps'] = variant.total_timesteps
     # learn_args['tb_log_name'] = variant.tb_log_name

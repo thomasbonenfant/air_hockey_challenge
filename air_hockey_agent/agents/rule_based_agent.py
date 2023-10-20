@@ -76,7 +76,7 @@ class PolicyAgent(AgentBase):
         self.task = task
 
         # Thetas
-        assert self.task in ["hit", "defend", "prepare"], f"Illegal task: {self.task}"
+        assert self.task in ["hit", "defend", "prepare", "home"], f"Illegal task: {self.task}"
         self.theta = BEST_PARAM['hit']
 
         # HIT: define initial values
