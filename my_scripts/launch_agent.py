@@ -16,15 +16,31 @@ class ConstAgent():
         return self.action, None
 
 
-def launch(path, num_episodes, always_action=None, best=False, store_traj=False, seed=None):
+class RandomAgent():
+    def __init__(self, action_space):
+        self.ac = action_space
+
+    def predict(self, observation, **kwargs):
+        return self.ac.sample(), None
+
+
+def launch(path, num_episodes, random=False, always_action=None, best=False, store_traj=False, seed=None, custom_env_args=None):
     env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
 
-    env_args['render'] = True
+    if custom_env_args is not None:
+        for key in custom_env_args:
+            env_args[key] = custom_env_args[key]
+
     env = make_environment(**env_args)
 
-    if always_action is None:
+    if always_action is None and not random:
+        print(f'Loading {"best" if best else ""} agent at {path}')
         agent = PPO.load(os.path.join(path, 'best_model' if best else 'model'))
+    elif random:
+        print(f'Using Random Agent')
+        agent = RandomAgent(env.action_space)
     else:
+        print(f'Always selecting action: {always_action}')
         agent = ConstAgent(always_action)
 
     if seed is not None:
@@ -52,6 +68,7 @@ def launch(path, num_episodes, always_action=None, best=False, store_traj=False,
             action, _ = agent.predict(observation=obs, deterministic=True)
             actions.append(action)
             obs, rew, done, _, info = env.step(action)
+            print(obs)
             steps += 1
             cumulative_reward += rew
 
@@ -101,7 +118,19 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/38050'
     path = '/home/thomas/Downloads/246278'
     path = '/home/thomas/Downloads/453204'
-    path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb/no_constr/719942'
+    path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb/no_constr/227351'
 
-    launch(path, num_episodes=5, always_action=None, best=True, store_traj=False, seed=666)
-    #eval_agent(path, 10, 2, always_action=None)
+    custom_env_args = {
+        'include_ee': True,
+        'scale_obs': False,
+        'render': False
+    }
+
+    launch(path,
+           num_episodes=5,
+           random=False,
+           always_action=None,
+           best=True,
+           store_traj=False,
+           seed=None,
+           custom_env_args=None)

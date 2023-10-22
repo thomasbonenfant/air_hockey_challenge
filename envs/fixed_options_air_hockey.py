@@ -3,6 +3,7 @@ from gymnasium.spaces import Discrete, Box, MultiDiscrete, Dict
 import numpy as np
 
 from envs.airhockeydoublewrapper import AirHockeyDouble
+from air_hockey_challenge.utils.kinematics import forward_kinematics
 
 PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, "jerk": 1, "computation_time_minor": 0.5,
                   "computation_time_middle": 1,  "computation_time_major": 2}
@@ -32,6 +33,7 @@ class HierarchicalEnv(gym.Env):
         self.alpha_r = alpha_r
         self.use_history = use_history # not implemented
         self.include_joints = include_joints
+        self.include_ee = include_ee
 
         self.low_level_history = []
 
@@ -94,6 +96,15 @@ class HierarchicalEnv(gym.Env):
             fault_obs = MultiDiscrete([3, 3])
             obs_dict['faults'] = fault_obs
 
+        if self.include_ee:
+            if scale_obs:
+                self._min_obs_ee_pos = low_position[:2]
+                self.obs_ee_pos_range = high_position[:2] - low_position[:2]
+                ee_obs = Box(-np.ones_like(low_position[:2]), np.ones_like(high_position[:2]))
+            else:
+                ee_obs = Box(low_position[:2], high_position[:2])
+            obs_dict['ee_pos'] = ee_obs
+
         self.observation_space = Dict(obs_dict)
 
         self.action_space = Discrete(len(self.policies))
@@ -138,17 +149,35 @@ class HierarchicalEnv(gym.Env):
         obs = np.delete(state, self.idx_to_delete, axis=0)
         obs = {'orig_obs': obs}
 
-        obs = self._scale_obs(obs)
-
         if self.include_faults:
             obs['faults'] = self.faults % 3
         if self.include_timer:
             obs['timer'] = np.clip(self.env.base_env.timer / 15, a_min=0, a_max=1)
+        if self.include_ee:
+            joint_pos = state[self.env_info['joint_pos_ids']]
+            mj_model = self.env_info['robot']['robot_model']
+            mj_data = self.env_info['robot']['robot_data']
+
+            # Apply FW kinematics
+            ee_pos_robot_frame, rotation = forward_kinematics(
+                mj_model=mj_model,
+                mj_data=mj_data,
+                q=joint_pos,
+                link="ee"
+            )
+
+            obs['ee_pos'] = ee_pos_robot_frame[:2] # do not include z coordinate
+
+        if self.scale_obs:
+            obs = self._scale_obs(obs)
 
         return obs
 
     def _scale_obs(self, obs):
         obs['orig_obs'] = (obs['orig_obs'] - self._min_obs_original) / self.obs_original_range * 2 - 1
+
+        if self.include_ee:
+            obs['ee_pos'] = (obs['ee_pos'] - self._min_obs_ee_pos) / self.obs_ee_pos_range * 2 - 1
         return obs
 
     def _reward_constraints(self, info):
@@ -163,6 +192,28 @@ class HierarchicalEnv(gym.Env):
             penalty_sums += PENALTY_POINTS[constr]
         reward_constraints = - reward_constraints / penalty_sums
         return reward_constraints
+
+    def low_level_reward(self, info):
+        reward = 0
+        puck_pos = np.array(self.state[self.env_info["puck_pos_ids"]])
+
+        # penalty at every step if the puck is in our part of the table. Introduced for reducing faults
+        if puck_pos[0] + self.env_info["robot"]["base_frame"][0][0, 3] <= 0:
+            reward -= self.fault_risk_penalty
+            self.log_fault_risk_penalty -= self.fault_risk_penalty
+
+        reward += self.alpha_r * self._reward_constraints(info)
+        self.log_constr_penalty += self.alpha_r * self._reward_constraints(info)
+        return reward
+
+    def high_level_reward(self, info):
+        # large sparse reward for a goal
+        reward_score = (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
+        self.log_large_reward = reward_score
+
+        reward_fault = -(np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty
+        self.log_fault_penalty = reward_fault
+        return reward_score + reward_fault
 
     def step(self, action: int):
         """
@@ -200,15 +251,7 @@ class HierarchicalEnv(gym.Env):
 
             self.low_level_history.append(self.state)
 
-            puck_pos = np.array(self.state[self.env_info["puck_pos_ids"]])
-
-            # penalty at every step if the puck is in our part of the table. Introduced for reducing faults
-            if puck_pos[0] + self.env_info["robot"]["base_frame"][0][0, 3] <= 0:
-                reward -= self.fault_risk_penalty
-                self.log_fault_risk_penalty -= self.fault_risk_penalty
-
-            reward += self.alpha_r * self._reward_constraints(info)
-            self.log_constr_penalty += self.alpha_r * self._reward_constraints(info)
+            reward += self.low_level_reward(info)
 
             if self.render_flag:
                 self.env.render()
@@ -220,18 +263,14 @@ class HierarchicalEnv(gym.Env):
             self.low_level_history.extend([self.state] * (self.steps_per_action - len(self.low_level_history)))
             # TODO: complete history feature implementation
 
-        # large sparse reward for a goal
-        reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
-        self.log_large_reward += (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward
-
-        reward -= (np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty
-        self.log_fault_penalty -= (np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_penalty
+        reward += self.high_level_reward(info)
 
         self.score = np.array(info['score'])
         self.faults = np.array(info["faults"])
 
         # add rewards in info
-        reward_dict = {'large_reward': self.log_large_reward, 'constr_penalty': self.log_constr_penalty,
+        reward_dict = {'large_reward': self.log_large_reward,
+                       'constr_penalty': self.log_constr_penalty,
                        'fault_penalty': self.log_fault_penalty,
                        'fault_risk_penalty': self.log_fault_risk_penalty}
         info['reward'] = reward_dict

@@ -22,10 +22,10 @@ class SummaryWriterCallback(BaseCallback):
 
         for info in self.locals['infos']:
             reward = info['reward']
-            large_reward.append(reward["log_large_reward"])
-            fault_penalty.append(reward["log_fault_penalty"])
-            fault_risk_penalty.append(reward["log_fault_risk_penalty"])
-            constr_penalty.append(reward["log_constr_penalty"])
+            large_reward.append(reward["large_reward"])
+            fault_penalty.append(reward["fault_penalty"])
+            fault_risk_penalty.append(reward["fault_risk_penalty"])
+            constr_penalty.append(reward["constr_penalty"])
 
         self.tb_formatter.writer.add_scalar("reward/large_reward", np.sum(large_reward), self.num_timesteps)
         self.tb_formatter.writer.add_scalar("reward/fault_penalty", np.sum(fault_penalty), self.num_timesteps)

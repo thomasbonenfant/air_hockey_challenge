@@ -152,7 +152,10 @@ def variant_util(variant):
 
     if log_args['alg'] == 'ppo':
         alg_args['learning_rate'] = variant.lr
-        alg_args['policy'] = variant.policy
+        try:
+            alg_args['policy'] = variant.policy
+        except Exception:
+            alg_args['policy'] = 'MlpPolicy'
         alg_args['n_steps'] = variant.steps_per_update
         alg_args['batch_size'] = variant.batch_size
         alg_args['n_epochs'] = variant.n_epochs

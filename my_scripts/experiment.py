@@ -44,20 +44,9 @@ def main():
 
     model.save(os.path.join(log_dir, "model.zip"))
 
-    if log_args['alg'] == 'dqn':
+    if log_args['alg'] == 'dqn' or log_args['alg'] == 'sac':
         model.save_replay_buffer(os.path.join(log_dir))
 
-
-'''
-    vec_env = model.get_env()
-    obs = vec_env.reset()
-    for i in range(1000):
-        action, _state = model.predict(obs, deterministic=True)
-        obs, reward, done, info = vec_env.step(action)
-        vec_env.render("human")
-        # VecEnv resets automatically
-        # if done:
-        #   obs = vec_env.reset()'''
 
 if __name__ == '__main__':
     main()

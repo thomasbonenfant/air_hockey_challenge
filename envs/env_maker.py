@@ -8,35 +8,22 @@ from gymnasium.wrappers import FlattenObservation
 
 def make_environment(steps_per_action=100, include_timer=False, include_faults=False,
                      render=False, large_reward=100, fault_penalty=33.33, fault_risk_penalty=0.1,
-                     scale_obs=False, alpha_r=1., include_joints=False):
+                     scale_obs=False, alpha_r=1., include_joints=False, include_ee=False):
     env = AirHockeyDouble(interpolation_order=3)
     env_info = env.env_info
-
-    # load env_info of hit and defend environment
-    #with open("envs/env_info_single_agent/env_infos.pkl", "rb") as fp:
-    #    env_info_hit, env_info_defend = pickle.load(fp)
-
-    filter_opponent_ee_obs = lambda state: state[:-3]
-    #null_filter = lambda state: state
 
     defend_policy_oac = DefendAgent(env_info, env_label="tournament")
     repel_agent_oac = DefendAgent(env_info, env_label="7dof-defend")
     #hit_policy_oac = HitAgent(env_info)
     hit_policy_rb = PolicyAgent(env_info, agent_id=1, task="hit")
     prepare_policy_rb = PolicyAgent(env_info, agent_id=1, task="prepare")
-    #defend_rb = PolicyAgent(env_info, agent_id=1, task="defend")
+    home_policy_rb = PolicyAgent(env_info, agent_id=1, task="home")
 
-    policy_state_processors = {
-        #defend_policy_oac: filter_opponent_ee_obs,
-        #hit_policy_oac: null_filter,
-        #hit_policy_rb: null_filter,
-        #prepare_policy_rb: null_filter,
-        #defend_rb: null_filter
-    }
+    policy_state_processors = {}
 
     env = HierarchicalEnv(env=env,
                           steps_per_action=steps_per_action,
-                          policies=[hit_policy_rb, defend_policy_oac, repel_agent_oac, prepare_policy_rb],
+                          policies=[hit_policy_rb, defend_policy_oac, repel_agent_oac, prepare_policy_rb, home_policy_rb],
                           policy_state_processors=policy_state_processors,
                           render_flag=render,
                           include_joints=include_joints,
@@ -46,8 +33,11 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
                           fault_penalty=fault_penalty,
                           fault_risk_penalty=fault_risk_penalty,
                           scale_obs=scale_obs,
-                          alpha_r=alpha_r)
+                          alpha_r=alpha_r,
+                          include_ee=include_ee)
 
     env = FlattenObservation(env)
+
+
 
     return env
