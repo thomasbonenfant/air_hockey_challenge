@@ -264,12 +264,8 @@ class HierarchicalAgent(AgentBase):
         if self.done is False:
             if self.task == "defend":
                 action = self.defend_agent.draw_action(observation)
-                if self.state.r_puck_pos[0] > 1.66:
-                    self.done = True
             elif self.task == "repel":
                 action = self.repel_defend_agent.draw_action(observation)
-                if self.state.r_puck_pos[0] > 1.66:
-                    self.done = True
             else:
                 # self.task == "hit" or self.task == "prepare" or self.task == "home":
                 self.rule_based_agent.set_task(self.task)

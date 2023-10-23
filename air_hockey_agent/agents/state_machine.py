@@ -41,7 +41,7 @@ class StateMachine:
             if desired_next_state == previous_state or desired_next_state == 'home':
                 next_state = desired_next_state
             else:
-                #next_state = previous_state  # todo should it go home?
-                next_state = 'home'
+                next_state = previous_state  # todo should it go home?
+                # next_state = 'home'
 
         return next_state
