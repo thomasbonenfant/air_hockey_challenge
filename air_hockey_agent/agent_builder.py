@@ -14,7 +14,7 @@ def build_agent(env_info, **kwargs):
     :param env_info: The environment information
     :return: Either Agent ot Policy
     """
-    # with open("env_info_single_agent/env_infos.pkl", "rb") as fp:
+    #with open("env_info_single_agent/env_infos.pkl", "rb") as fp:
     #    env_info_hit, env_info_defend = pickle.load(fp)
 
     if "hit" in env_info["env_name"]:

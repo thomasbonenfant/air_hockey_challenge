@@ -192,13 +192,8 @@ class Agent(AgentBase):
 
         self.policy = None
 
-
-
-
-
         self.initial_ee_pos = None
         self.initial = True
-
 
         self.stop_after_hit_ee_pos = None
         self.stopped = False
