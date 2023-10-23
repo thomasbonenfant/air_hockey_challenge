@@ -24,7 +24,7 @@ class RandomAgent():
         return self.ac.sample(), None
 
 
-def launch(path, num_episodes, random=False, always_action=None, best=False, store_traj=False, seed=None, custom_env_args=None):
+def launch(path, num_episodes, random=False, always_action=None, best=False, store_traj=False, seed=None, custom_env_args=None, action_dict=None):
     env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
 
     if custom_env_args is not None:
@@ -67,15 +67,18 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
         while not done:
             action, _ = agent.predict(observation=obs, deterministic=True)
             actions.append(action)
+
+            if action_dict is not None:
+                print(f'Action: {action_dict[int(action)]}')
+
             obs, rew, done, _, info = env.step(action)
-            print(obs)
             steps += 1
             cumulative_reward += rew
 
-            cumulative_large_reward += info['reward']['large_reward']
-            cumulative_fault_penalty += info['reward']['fault_penalty']
-            cumulative_fault_risk_penalty += info['reward']['fault_risk_penalty']
-            cumulative_constr_penalty += info['reward']['constr_penalty']
+            cumulative_large_reward += info['large_reward']
+            cumulative_fault_penalty += info['fault_penalty']
+            cumulative_fault_risk_penalty += info['fault_risk_penalty']
+            cumulative_constr_penalty += info['constr_penalty']
 
         episode_reward.append(cumulative_reward)
         large_reward.append(cumulative_large_reward)
@@ -118,19 +121,26 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/38050'
     path = '/home/thomas/Downloads/246278'
     path = '/home/thomas/Downloads/453204'
-    path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb/no_constr/227351'
+    path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb+home_rb/541699'
 
     custom_env_args = {
-        'include_ee': True,
-        'scale_obs': False,
-        'render': False
+        'render': True
+    }
+
+    action_dict = {
+        0: 'Hit',
+        1: 'Defend',
+        2: 'Repel',
+        3: 'Prepare',
+        4: 'Home',
     }
 
     launch(path,
-           num_episodes=5,
+           num_episodes=10,
            random=False,
            always_action=None,
-           best=True,
+           best=False,
            store_traj=False,
-           seed=None,
-           custom_env_args=None)
+           seed=666,
+           custom_env_args=custom_env_args,
+           action_dict=action_dict)

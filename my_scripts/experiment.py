@@ -1,8 +1,9 @@
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement
 from envs import make_environment
 from stable_baselines3 import PPO, SAC, DQN
+from my_scripts.summary_writer import SummaryWriterCallback
 
 from my_scripts.utils import parse_args, create_log_directory, variant_util
 import os
@@ -11,14 +12,17 @@ import os
 def main():
     env_args, alg_args, learn_args, log_args, variant = variant_util(parse_args())
 
-    env_producer = lambda: make_environment(**env_args)
-    env = VecMonitor(make_vec_env(env_producer, n_envs=variant.parallel, vec_env_cls=SubprocVecEnv))
-    alg_args["env"] = env
-
     log_dir = create_log_directory(log_args, variant)
     learn_args["tb_log_name"] = log_dir
 
-    eval_env = VecMonitor(make_vec_env(env_producer, n_envs=variant.parallel, vec_env_cls=SubprocVecEnv))
+    env_producer = lambda: make_environment(**env_args)
+    env = make_vec_env(env_producer,
+                       n_envs=variant.parallel,
+                       vec_env_cls=SubprocVecEnv,
+                       monitor_dir=log_dir)
+    alg_args["env"] = env
+
+    eval_env = make_vec_env(env_producer, n_envs=variant.parallel, vec_env_cls=SubprocVecEnv)
     stop_train_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=5, min_evals=10, verbose=1)
     eval_callback = EvalCallback(n_eval_episodes=variant.n_eval_episodes,
                                  eval_freq=variant.eval_freq,
@@ -27,10 +31,9 @@ def main():
                                  best_model_save_path=log_dir,
                                  eval_env=eval_env)
 
+    summary_writer_callback = SummaryWriterCallback()
 
-    # summary_writer_callback = SummaryWriterCallback()
-
-    learn_args['callback'] = [eval_callback]  # , summary_writer_callback]
+    learn_args['callback'] = [eval_callback, summary_writer_callback]
 
     if log_args['alg'] == 'ppo':
         model = PPO(**alg_args)

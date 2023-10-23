@@ -23,6 +23,7 @@ def parse_args():
     parser.add_argument("--steps_per_action", type=int, default=100)
     parser.add_argument("--render", action="store_true")
     parser.add_argument("--include_timer", action="store_true")
+    parser.add_argument("--include_ee", action="store_true")
     parser.add_argument("--include_faults", action="store_true")
     parser.add_argument("--include_joints", action="store_true")
     parser.add_argument("--large_reward", type=float, default=100)
@@ -142,6 +143,7 @@ def variant_util(variant):
     env_args['steps_per_action'] = variant.steps_per_action
     env_args['render'] = variant.render
     env_args['include_timer'] = variant.include_timer
+    env_args['include_ee'] = variant.include_ee
     env_args['include_faults'] = variant.include_faults
     env_args['large_reward'] = variant.large_reward
     env_args['fault_penalty'] = variant.fault_penalty

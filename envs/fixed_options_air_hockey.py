@@ -273,6 +273,7 @@ class HierarchicalEnv(gym.Env):
                        'constr_penalty': self.log_constr_penalty,
                        'fault_penalty': self.log_fault_penalty,
                        'fault_risk_penalty': self.log_fault_risk_penalty}
-        info['reward'] = reward_dict
+        for key in reward_dict:
+            info[key] = reward_dict[key]
 
         return self.process_state(self.state, info), reward, done, False, info
