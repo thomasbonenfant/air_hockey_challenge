@@ -1,1 +1,1 @@
-from .env_maker import make_environment
+from .env_maker import make_environment, make_hit_env

@@ -1,12 +1,21 @@
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement
-from envs import make_environment
+from envs import make_environment, make_hit_env
 from stable_baselines3 import PPO, SAC, DQN
 from my_scripts.summary_writer import SummaryWriterCallback
 
 from my_scripts.utils import parse_args, create_log_directory, variant_util
 import os
+
+
+def create_producer(env_args):
+    env_name = env_args['env']
+    if env_name == 'hrl':
+        return lambda: make_environment(**env_args)
+    if env_name == 'hit':
+        return lambda: make_hit_env(**env_args)
+    raise NotImplementedError
 
 
 def main():
@@ -15,7 +24,7 @@ def main():
     log_dir = create_log_directory(log_args, variant)
     learn_args["tb_log_name"] = log_dir
 
-    env_producer = lambda: make_environment(**env_args)
+    env_producer = create_producer(env_args)
     env = make_vec_env(env_producer,
                        n_envs=variant.parallel,
                        vec_env_cls=SubprocVecEnv,

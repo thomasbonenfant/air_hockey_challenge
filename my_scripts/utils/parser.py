@@ -7,12 +7,13 @@ import os
 def parse_args():
     parser = ArgumentParser()
     subparsers = parser.add_subparsers(title="algorithm", required=True)
+    subparser_env = parser.add_subparsers(title="env", required=True)
 
     # log args
 
     parser.add_argument("--save_model_dir", type=str, default="../models")
     parser.add_argument("--experiment_label", type=str, default="")
-    parser.add_argument("--alg", type=str, default="ppo")
+    #parser.add_argument("--alg", type=str, default="ppo")
 
     # eval args
 
@@ -20,18 +21,28 @@ def parse_args():
     parser.add_argument("--n_eval_episodes", type=int, default=80)
 
     # env arguments
-    parser.add_argument("--steps_per_action", type=int, default=100)
-    parser.add_argument("--render", action="store_true")
-    parser.add_argument("--include_timer", action="store_true")
-    parser.add_argument("--include_ee", action="store_true")
-    parser.add_argument("--include_faults", action="store_true")
-    parser.add_argument("--include_joints", action="store_true")
-    parser.add_argument("--large_reward", type=float, default=100)
-    parser.add_argument("--fault_penalty", type=float, default=33.33)
-    parser.add_argument("--fault_risk_penalty", type=float, default=0.1)
-    parser.add_argument("--scale_obs", action="store_true")
-    parser.add_argument("--alpha_r", type=float, default=1.)
-    parser.add_argument("--parallel", type=int, default=1)
+    parser_hrl = subparser_env.add_parser(name="hrl")
+    parser_hrl.add_argument("--steps_per_action", type=int, default=100)
+    parser_hrl.add_argument("--render", action="store_true")
+    parser_hrl.add_argument("--include_timer", action="store_true")
+    parser_hrl.add_argument("--include_ee", action="store_true")
+    parser_hrl.add_argument("--include_faults", action="store_true")
+    parser_hrl.add_argument("--include_joints", action="store_true")
+    parser_hrl.add_argument("--large_reward", type=float, default=100)
+    parser_hrl.add_argument("--fault_penalty", type=float, default=33.33)
+    parser_hrl.add_argument("--fault_risk_penalty", type=float, default=0.1)
+    parser_hrl.add_argument("--scale_obs", action="store_true")
+    parser_hrl.add_argument("--alpha_r", type=float, default=1.)
+    parser_hrl.add_argument("--parallel", type=int, default=1)
+    parser_hrl.set_defaults(env="hrl")
+
+    parser_hit = subparser_env.add_parser(name="hit")
+    parser_hit.add_argument("--include_joints", action="store_true")
+    parser_hit.add_argument('--include_ee', action="store_true")
+    parser_hit.add_argument('--include_ee_vel', action="store_true")
+    parser_hit.add_argument("--scale_obs", action="store_true")
+    parser_hit.add_argument("--alpha_r", type=float, default=1.0)
+    parser_hit.set_defaults(env="hrl")
 
     # learning args
 
@@ -140,17 +151,25 @@ def variant_util(variant):
     log_args['experiment_label'] = variant.experiment_label
     log_args['alg'] = variant.alg
 
-    env_args['steps_per_action'] = variant.steps_per_action
-    env_args['render'] = variant.render
-    env_args['include_timer'] = variant.include_timer
-    env_args['include_ee'] = variant.include_ee
-    env_args['include_faults'] = variant.include_faults
-    env_args['large_reward'] = variant.large_reward
-    env_args['fault_penalty'] = variant.fault_penalty
-    env_args['fault_risk_penalty'] = variant.fault_risk_penalty
-    env_args['scale_obs'] = variant.scale_obs
-    env_args['alpha_r'] = variant.alpha_r
-    env_args['include_joints'] = variant.include_joints
+    if variant.env == "hrl":
+        env_args['steps_per_action'] = variant.steps_per_action
+        env_args['render'] = variant.render
+        env_args['include_timer'] = variant.include_timer
+        env_args['include_ee'] = variant.include_ee
+        env_args['include_faults'] = variant.include_faults
+        env_args['large_reward'] = variant.large_reward
+        env_args['fault_penalty'] = variant.fault_penalty
+        env_args['fault_risk_penalty'] = variant.fault_risk_penalty
+        env_args['scale_obs'] = variant.scale_obs
+        env_args['alpha_r'] = variant.alpha_r
+        env_args['include_joints'] = variant.include_joints
+    elif variant.env == "hit":
+        env_args['include_ee'] = variant.include_ee
+        env_args['include_ee_vel'] = variant.include_ee_vel
+        env_args['include_joints'] = variant.include_joints
+        env_args['scale_obs'] = variant.scale_obs
+        env_args['alpha_r'] = variant.alpha_r
+
 
     if log_args['alg'] == 'ppo':
         alg_args['learning_rate'] = variant.lr
