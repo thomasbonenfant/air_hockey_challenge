@@ -97,6 +97,7 @@ class PolicyAgent(AgentBase):
         # Completed flags
         self.hit_completed = False
         self.prepare_completed = False
+        self.home_completed = False
 
         # QUEUES
         # save last steps to reduce noise effect
@@ -150,6 +151,7 @@ class PolicyAgent(AgentBase):
         # Completed flags
         self.hit_completed = False
         self.prepare_completed = False
+        self.home_completed = False
 
         # Episode parameters
         self.done = None
@@ -232,8 +234,8 @@ class PolicyAgent(AgentBase):
         # self.ee_pos_tracker.step(self.state.r_ee_pos)
 
         # Reduce noise with kalman filter
-        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+        self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
         # self.state.r_adv_ee_pos = self.adv_ee_tracker.state[[0, 1, 4]]
         # self.state.r_ee_pos = self.ee_pos_tracker.state[0:3]
 
@@ -268,6 +270,7 @@ class PolicyAgent(AgentBase):
                 action = self.return_act(self.state.w_ee_pos)
                 self.hit_completed = False
                 self.prepare_completed = False
+                self.home_completed = True
             #action = self.return_act(self.state.w_ee_pos)
         else:
             action = None

@@ -24,7 +24,7 @@ from air_hockey_agent.agents.kalman_filter import PuckTracker
 from air_hockey_agent.agents.optimizer import TrajectoryOptimizer
 
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
-from air_hockey_agent.agents.agents import DefendAgent, RepelAgent
+from air_hockey_agent.agents.agents import DefendAgent
 from baseline.baseline_agent.baseline_agent import BaselineAgent
 from air_hockey_agent.agents.state_machine import StateMachine
 
@@ -65,8 +65,8 @@ class HierarchicalAgent(AgentBase):
         self.baseline_agent = BaselineAgent(env_info, **kwargs)
         #with open("env_info_single_agent/env_infos.pkl", "rb") as fp:
         #    env_info_hit, env_info_defend = pickle.load(fp)
-        self.repel_defend_agent = RepelAgent(env_info, env_label="7dof-defend", **kwargs)
-        self.defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
+        self.repel_defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
+        self.defend_agent = DefendAgent(env_info, env_label="tournament", **kwargs)
 
         self.optimizer = TrajectoryOptimizer(self.env_info)  # optimize joint position of each trajectory point
 
@@ -219,8 +219,8 @@ class HierarchicalAgent(AgentBase):
         self.puck_tracker.step(self.state.r_puck_pos)
 
         # Reduce noise with kalman filter
-        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+        self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
 
         # Convert in WORLD coordinates 2D
         self.state.w_puck_pos, _ = robot_to_world(base_frame=self.frame,
@@ -232,8 +232,9 @@ class HierarchicalAgent(AgentBase):
 
         # PICK THE ACTION -----------------------------------------------------------------------------------------
         self.previous_task = self.task
-        self.task = self.simplified_pick_task()
-        #self.task = self.select_task()
+        self.task = self.switcher()
+        # self.task = self.simplified_pick_task()
+        # self.task = self.select_task()
         self.task = self.state_machine.select_task(previous_state=self.previous_task, desired_next_state=self.task)
 
         if self.previous_task != self.task:
@@ -242,6 +243,12 @@ class HierarchicalAgent(AgentBase):
             self.rule_based_agent.reset()
             self.defend_agent.reset()
             self.repel_defend_agent.reset()
+
+            # Save the task changing in a file
+            # task_number = Tasks[self.task.upper()].value
+            # log = np.array([task_number, self.iteration_counter])
+            # self.task_change_log.append(log)
+            #np.save('task_change_log.npy', self.task_change_log)
 
         '''
         # TODO forcing remove and test
@@ -259,28 +266,56 @@ class HierarchicalAgent(AgentBase):
         if self.previous_task == "repel" and self.task == "defend":
             self.task = "repel"'''
 
-        # execute the action until completion
-        # TODO find a way to understand if the defend and the repel are complete
-        if self.done is False:
-            if self.task == "defend":
-                action = self.defend_agent.draw_action(observation)
-            elif self.task == "repel":
-                action = self.repel_defend_agent.draw_action(observation)
-            else:
-                # self.task == "hit" or self.task == "prepare" or self.task == "home":
-                self.rule_based_agent.set_task(self.task)
-                action = self.rule_based_agent.draw_action(observation)
-
-                if self.task == "hit":
-                    self.done = self.rule_based_agent.hit_completed
-                elif self.task == "prepare":
-                    self.done = self.rule_based_agent.prepare_completed
+        '''
+        #if self.done is False:
+        if self.task == "defend":
+            action = self.defend_agent.draw_action(observation)
+            if self.state.r_puck_vel[0] > 0:  # FIXME update with the new check from Amir
+                self.done = True
+        elif self.task == "repel":
+            action = self.repel_defend_agent.draw_action(observation)
+            if self.state.r_puck_vel[0] > 0:  # FIXME update with the new check from Amir
+                self.done = True
         else:
-            self.rule_based_agent.set_task("home")
+            # self.task == "hit" or self.task == "prepare" or self.task == "home":
+            self.rule_based_agent.set_task(self.task)
             action = self.rule_based_agent.draw_action(observation)
-            self.done = self.rule_based_agent.hit_completed # todo bring self.done back to False after finishing the hit?
-            if self.done is False:
-                print('Home completed')
+
+            if self.task == "hit":
+                self.done = self.rule_based_agent.hit_completed
+            elif self.task == "prepare":
+                self.done = self.rule_based_agent.prepare_completed
+            elif self.task == "home":
+                self.done = self.rule_based_agent.home_completed
+        '''
+
+        # execute the action until completion
+        #if self.done is False:
+        if self.task == "defend":
+            action = self.defend_agent.draw_action(observation)
+            #self.done = self.defend_agent.has_hit
+            if self.state.r_puck_vel[0] > 0:  # FIXME update with the new check from Amir
+                self.done = True
+        elif self.task == "repel":
+            action = self.repel_defend_agent.draw_action(observation)
+            #self.done = self.repel_defend_agent.has_hit
+            if self.state.r_puck_vel[0] > 0:  # FIXME update with the new check from Amir
+                self.done = True
+        else:
+            # self.task == "hit" or self.task == "prepare" or self.task == "home":
+            self.rule_based_agent.set_task(self.task)
+            action = self.rule_based_agent.draw_action(observation)
+
+            if self.task == "hit":
+                self.done = self.rule_based_agent.hit_completed
+            elif self.task == "prepare":
+                self.done = self.rule_based_agent.prepare_completed
+            elif self.task == "home":
+                self.done = self.rule_based_agent.home_completed
+        #else:
+        #    self.rule_based_agent.set_task("home")
+        #    action = self.rule_based_agent.draw_action(observation)
+        #    self.done = self.rule_based_agent.hit_completed # bring self.done back to False after finishing the hit
 
         # UPDATE TIMER
         if np.sign(self.get_puck_pos(observation)[0] - 1.51) == self.prev_side:
@@ -429,6 +464,15 @@ class HierarchicalAgent(AgentBase):
 
         self.step_counter += 1
         return action
+
+    def switcher(self):
+        if self.done:
+            new_task = self.simplified_pick_task()
+            self.done = False
+        else:
+            new_task = self.previous_task
+
+        return new_task
 
     def select_task(self):
 
