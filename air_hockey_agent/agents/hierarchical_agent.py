@@ -24,7 +24,7 @@ from air_hockey_agent.agents.kalman_filter import PuckTracker
 from air_hockey_agent.agents.optimizer import TrajectoryOptimizer
 
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
-from air_hockey_agent.agents.agents import DefendAgent
+from air_hockey_agent.agents.agents import DefendAgent, RepelAgent
 from baseline.baseline_agent.baseline_agent import BaselineAgent
 from air_hockey_agent.agents.state_machine import StateMachine
 
@@ -65,8 +65,8 @@ class HierarchicalAgent(AgentBase):
         self.baseline_agent = BaselineAgent(env_info, **kwargs)
         #with open("env_info_single_agent/env_infos.pkl", "rb") as fp:
         #    env_info_hit, env_info_defend = pickle.load(fp)
-        self.repel_defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
-        self.defend_agent = DefendAgent(env_info, env_label="tournament", **kwargs)
+        self.repel_defend_agent = RepelAgent(env_info, env_label="7dof-defend", **kwargs)
+        self.defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
 
         self.optimizer = TrajectoryOptimizer(self.env_info)  # optimize joint position of each trajectory point
 
