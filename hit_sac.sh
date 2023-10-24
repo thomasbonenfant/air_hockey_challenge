@@ -1,6 +1,6 @@
 python -m my_scripts.experiment \
 \
---total_timesteps=4e6 \
+--total_timesteps=4000000 \
 --save_model_dir="/home/airhockey/thomas/data/hit" \
 --experiment_label="joints+ee_pos+ee_vel" \
 \
@@ -20,7 +20,7 @@ python -m my_scripts.experiment \
 \
 sac \
 --learning_rate=0.001 \
---buffer_size=1e6 \
+--buffer_size=1000000 \
 --learning_starts=1000 \
 --batch_size=4000 \
 --tau=0.005 \
