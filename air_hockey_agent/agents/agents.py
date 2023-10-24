@@ -722,6 +722,7 @@ class Agent(AgentBase):
         scaled_action = np.clip(scaled_action, lb, ub)
 
         if self.use_atacom:
+            action[-1] = 0  # do not move the last joint
             action = self.atacom_transformation.draw_action(observation, action)
             self.clipped_state = False
         else:

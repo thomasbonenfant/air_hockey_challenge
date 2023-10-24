@@ -25,7 +25,7 @@ WINDOW_SIZE = 200
 PREV_BETA = 0
 FINAL = 10
 DEFEND_LINE = -0.8
-DEFAULT_POS = np.array([DEFEND_LINE, 0, EE_HEIGHT])
+DEFAULT_POS = np.array([-0.85995711, 0.0, 0.0645572])  # np.array([DEFEND_LINE, 0, EE_HEIGHT])
 DES_ACC = 0.05
 
 best_hit_sample = np.array([0.993793, 3.008965, 3e-2, 0.01002]) / 100
@@ -234,8 +234,8 @@ class PolicyAgent(AgentBase):
         # self.ee_pos_tracker.step(self.state.r_ee_pos)
 
         # Reduce noise with kalman filter
-        self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
         # self.state.r_adv_ee_pos = self.adv_ee_tracker.state[[0, 1, 4]]
         # self.state.r_ee_pos = self.ee_pos_tracker.state[0:3]
 

@@ -60,4 +60,7 @@ def replay_dataset(env_name, dataset_path):
 
 
 if __name__ == "__main__":
-    replay_dataset("7dof-hit", "path/to/dataset.pkl")
+    dataset_path = "../../downloads/dataset-23-10/Home_vs_Away/Game_0/Home/dataset.pkl"
+    # dataset_path = "../../downloads/dataset-airhockeyit/air-hockit_vs_rl3_polimi/dataset.pkl"
+
+    replay_dataset("tournament", dataset_path)

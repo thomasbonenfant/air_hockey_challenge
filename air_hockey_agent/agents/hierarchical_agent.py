@@ -34,7 +34,7 @@ WINDOW_SIZE = 200
 PREV_BETA = 0
 FINAL = 10
 DEFEND_LINE = -0.8
-DEFAULT_POS = np.array([DEFEND_LINE, 0, EE_HEIGHT])
+DEFAULT_POS = np.array([-0.85995711, 0.0, 0.0645572])  # np.array([DEFEND_LINE, 0, EE_HEIGHT])
 DES_ACC = 0.05
 best_hit_sample = np.array([0.993793, 3.008965, 3e-2, 0.01002]) / 100
 best_hit = np.array([0.01, 0.03, 3e-4, 1e-4])
@@ -219,8 +219,8 @@ class HierarchicalAgent(AgentBase):
         self.puck_tracker.step(self.state.r_puck_pos)
 
         # Reduce noise with kalman filter
-        self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
 
         # Convert in WORLD coordinates 2D
         self.state.w_puck_pos, _ = robot_to_world(base_frame=self.frame,
@@ -469,6 +469,11 @@ class HierarchicalAgent(AgentBase):
         if self.done:
             new_task = self.simplified_pick_task()
             self.done = False
+            # todo reset all the agents done (home in particular)
+            self.rule_based_agent.hit_completed = False
+            self.rule_based_agent.prepare_completed = False
+            self.rule_based_agent.home_completed = False
+
         else:
             new_task = self.previous_task
 
