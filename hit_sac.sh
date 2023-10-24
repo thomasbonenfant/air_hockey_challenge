@@ -9,7 +9,7 @@ python -m my_scripts.experiment \
 --scale_action \
 --alpha_r=10.0 \
 --hit_coeff=1000 \
---parallel=1 \
+--parallel=20 \
 --include_ee \
 --include_ee_vel \
 --include_joints \

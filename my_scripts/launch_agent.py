@@ -80,7 +80,7 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
                 print(f'Action: {action_dict[int(action)]}')
 
             obs, rew, done, _, info = env.step(action)
-            print(rew)
+            #print(rew)
             env.render()
             steps += 1
             cumulative_reward += rew
@@ -131,12 +131,12 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/38050'
     path = '/home/thomas/Downloads/246278'
     path = '/home/thomas/Downloads/259224'
-    path = '/home/thomas/Downloads/291722'
+    path = '/home/thomas/Downloads/604409'
 
     #path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb+home_rb/541699'
 
     custom_env_args = {
-        'scale_action': False
+
     }
 
     action_dict = {
@@ -149,11 +149,11 @@ if __name__ == '__main__':
 
     launch(path,
            num_episodes=10,
-           random=True,
+           random=False,
            always_action=None,
            best=True,
            store_traj=False,
-           seed=666,
+           seed=1,
            custom_env_args=custom_env_args,
            action_dict=None)
     #eval_agent(path, num_episodes=10, parallel=1, render=True)
