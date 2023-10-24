@@ -3,7 +3,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement
 from envs import create_producer
 from stable_baselines3 import PPO, SAC, DQN
-from my_scripts.summary_writer import SummaryWriterCallback
+from my_scripts.callbacks.reward_logs_callback import RewardLogsCallback
 
 from my_scripts.utils import parse_args, create_log_directory, variant_util
 import os
@@ -30,9 +30,9 @@ def main():
                                  best_model_save_path=log_dir,
                                  eval_env=eval_env)
 
-    summary_writer_callback = SummaryWriterCallback()
+    summary_writer_callback = RewardLogsCallback()
 
-    learn_args['callback'] = [eval_callback] #, summary_writer_callback]
+    learn_args['callback'] = [eval_callback, summary_writer_callback]
 
     if log_args['alg'] == 'ppo':
         model = PPO(**alg_args)

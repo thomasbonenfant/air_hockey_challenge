@@ -3,7 +3,7 @@ from stable_baselines3.common.logger import TensorBoardOutputFormat
 import numpy as np
 
 
-class SummaryWriterCallback(BaseCallback):
+class RewardLogsCallback(BaseCallback):
 
     def _on_training_start(self) -> None:
         # self._log_freq = 1000

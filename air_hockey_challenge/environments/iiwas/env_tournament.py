@@ -21,6 +21,9 @@ class AirHockeyTournament(AirHockeyDouble):
         self.prev_side = self.start_side
         self.timer = 0
 
+        self.init_velocity_range = (0, 0.5)  # Table Frame
+
+
         def custom_render_callback(viewport, context):
             names = f"Agents \nScores \nFaults "
             data = f"{self.agent_name} - {self.opponent_name}\n "
@@ -37,11 +40,23 @@ class AirHockeyTournament(AirHockeyDouble):
         self.hit_range = np.array([[-0.7, -0.2], [-hit_width, hit_width]])  # Table Frame
 
     def setup(self, obs):
+        self.start_side = 1
         # Initial position of the puck
         puck_pos = np.random.rand(2) * (self.hit_range[:, 1] - self.hit_range[:, 0]) + self.hit_range[:, 0]
 
         self._write_data("puck_x_pos", puck_pos[0] * self.start_side)
         self._write_data("puck_y_pos", puck_pos[1])
+
+        lin_vel = np.random.uniform(self.init_velocity_range[0], self.init_velocity_range[1])
+        angle = np.random.uniform(-np.pi / 2 - 0.1, np.pi / 2 + 0.1)
+        puck_vel = np.zeros(3)
+        puck_vel[0] = -np.cos(angle) * lin_vel
+        puck_vel[1] = np.sin(angle) * lin_vel
+        puck_vel[2] = np.random.uniform(-2, 2, 1)
+
+        self._write_data("puck_x_vel", puck_vel[0])
+        self._write_data("puck_y_vel", puck_vel[1])
+        self._write_data("puck_yaw_vel", puck_vel[2])
 
         self.prev_side = self.start_side
         self.timer = 0

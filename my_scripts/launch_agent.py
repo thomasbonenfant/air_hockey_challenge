@@ -72,6 +72,7 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
                 print(f'Action: {action_dict[int(action)]}')
 
             obs, rew, done, _, info = env.step(action)
+            print(rew)
             env.render()
             steps += 1
             cumulative_reward += rew
