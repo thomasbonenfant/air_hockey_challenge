@@ -30,4 +30,5 @@ dqn \
 --max_grad_norm=10.0 \
 --train_freq=1 \
 --gradient_steps=1 \
---stats_window_size=100
+--stats_window_size=100 \
+--_init_setup_model

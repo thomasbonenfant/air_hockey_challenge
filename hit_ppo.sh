@@ -7,15 +7,12 @@ python -m my_scripts.experiment \
 --eval_freq=2048 \
 --n_eval_episodes=100 \
 \
---env=hrl \
---steps_per_action=15 \
---include_timer \
---large_reward=1000 \
---fault_penalty=1000 \
---fault_risk_penalty=0 \
+--env=hit \
 --include_joints \
 --include_ee \
+--include_ee_vel \
 --scale_obs \
+--scale_action \
 --alpha_r=10.0 \
 --parallel=20 \
 \

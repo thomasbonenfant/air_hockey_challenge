@@ -38,6 +38,7 @@ def parse_args():
     #parser_hit.add_argument("--include_joints", action="store_true")
     #parser_hit.add_argument('--include_ee', action="store_true")
     env_group.add_argument('--include_ee_vel', action="store_true")
+    env_group.add_argument('--scale_action', action='store_true')
     #parser_hit.add_argument("--scale_obs", action="store_true")
     #parser_hit.add_argument("--alpha_r", type=float, default=1.0)
     #parser_hit.set_defaults(env="hit")
@@ -85,20 +86,20 @@ def parse_args():
     parser_sac.add_argument("--action_noise", type=str, default=None)
     parser_sac.add_argument("--replay_buffer_class", type=str, default=None)
     parser_sac.add_argument("--replay_buffer_kwargs", type=json.loads, default=None)
-    parser_sac.add_argument("--optimize_memory_usage", type=bool, default=False)
+    parser_sac.add_argument("--optimize_memory_usage", action="store_true")
     parser_sac.add_argument("--ent_coef", type=str, default='auto')
     parser_sac.add_argument("--target_update_interval", type=int, default=1)
     parser_sac.add_argument("--target_entropy", type=str, default=None)
-    parser_sac.add_argument("--use_sde", type=bool, default=False)
+    parser_sac.add_argument("--use_sde", action="store_true")
     parser_sac.add_argument("--sde_sample_freq", type=int, default=-1)
-    parser_sac.add_argument("--use_sde_at_warmup", type=bool, default=False)
+    parser_sac.add_argument("--use_sde_at_warmup", action="store_true")
     parser_sac.add_argument("--stats_window_size", type=int, default=100)
     parser_sac.add_argument("--tensorboard_log", type=str, default=None)
     parser_sac.add_argument("--policy_kwargs", type=json.loads, default=None)
     parser_sac.add_argument("--verbose", type=int, default=1)
     parser_sac.add_argument("--seed", type=int, default=None)
     parser_sac.add_argument("--device", type=str, default="auto")
-    parser_sac.add_argument("--_init_setup_model", type=bool, default=True)
+    parser_sac.add_argument("--_init_setup_model", action="store_true")
     parser_sac.set_defaults(alg='sac')
 
     #dqn arguments
@@ -114,7 +115,7 @@ def parse_args():
     parser_dqn.add_argument("--gradient_steps", type=int, default=1)
     parser_dqn.add_argument("--replay_buffer_class", type=str, default=None)
     parser_dqn.add_argument("--replay_buffer_kwargs", type=json.loads, default=None)
-    parser_dqn.add_argument("--optimize_memory_usage", type=bool, default=False)
+    parser_dqn.add_argument("--optimize_memory_usage", action="store_true")
     parser_dqn.add_argument("--target_update_interval", type=int, default=100)
     parser_dqn.add_argument("--exploration_fraction", type=float, default=0.1)
     parser_dqn.add_argument("--exploration_initial_eps", type=float, default=1.0)
@@ -126,7 +127,7 @@ def parse_args():
     parser_dqn.add_argument("--verbose", type=int, default=1)
     parser_dqn.add_argument("--seed", type=int, default=None)
     parser_dqn.add_argument("--device", type=str, default="auto")
-    parser_dqn.add_argument("--_init_setup_model", type=bool, default=True)
+    parser_dqn.add_argument("--_init_setup_model", action="store_true", default=True)
     parser_dqn.set_defaults(alg='dqn')
 
 
@@ -167,8 +168,8 @@ def variant_util(variant):
         env_args['include_ee_vel'] = variant.include_ee_vel
         env_args['include_joints'] = variant.include_joints
         env_args['scale_obs'] = variant.scale_obs
+        env_args['scale_action'] = variant.scale_action
         env_args['alpha_r'] = variant.alpha_r
-
 
     if log_args['alg'] == 'ppo':
         alg_args['learning_rate'] = variant.lr

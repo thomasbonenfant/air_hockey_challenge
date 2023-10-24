@@ -30,14 +30,17 @@ def main():
                                  best_model_save_path=log_dir,
                                  eval_env=eval_env)
 
-    summary_writer_callback = RewardLogsCallback()
+    #summary_writer_callback = RewardLogsCallback()
 
-    learn_args['callback'] = [eval_callback, summary_writer_callback]
+    learn_args['callback'] = [eval_callback] #, summary_writer_callback]
+
+    print(alg_args)
 
     if log_args['alg'] == 'ppo':
         model = PPO(**alg_args)
     elif log_args['alg'] == 'sac':
         model = SAC(**alg_args)
+        # = SAC(policy="MlpPolicy", env=env, verbose=1)
     elif log_args['alg'] == 'dqn':
         model = DQN(**alg_args)
     else:

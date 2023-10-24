@@ -11,13 +11,16 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 
 class AirHockeyHit(gym.Env):
-    def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False, scale_obs=True, alpha_r=1.0):
+    def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False,
+                 scale_obs=True, scale_action=True, alpha_r=1.0):
         self.env = env
         self.env_info = self.env.env_info
         self.include_joints = include_joints
         self.include_ee = include_ee
         self.include_ee_vel = include_ee_vel
         self.scale_obs = scale_obs
+        self.scale_action = scale_action
+
         self.alpha_r = alpha_r
 
         self.robot_model = self.env_info['robot']['robot_model']
@@ -105,14 +108,26 @@ class AirHockeyHit(gym.Env):
         atacom = build_ATACOM_Controller(self.env_info, slack_type='soft_corner', slack_tol=1e-06, slack_beta=4)
         self.atacom_transformation = AtacomTransformation(self.env_info, False, atacom)
 
-        self.action_space = Box(low=low_action, high=high_action)
+        if self.scale_action:
+            self._min_ac = low_action
+            self.ac_range = high_action - low_action
+            self.action_space = Box(low=-np.ones_like(low_action), high=np.ones_like(high_action))
+        else:
+            self.action_space = Box(low=low_action, high=high_action)
 
         self._obs = None
         self.has_hit = False
 
         self.t = 0
 
+    def _scale_action(self, action):
+        action = 0.5 * (action + 1) * self.ac_range + self._min_ac
+        return action
+
     def step(self, action):
+        if self.scale_action:
+            action = self._scale_action(action)
+
         # add final joint
         action = np.hstack([action, 0])
 
