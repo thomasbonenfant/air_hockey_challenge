@@ -50,7 +50,7 @@ class AirHockeyHit(gym.Env):
         low_joints_vel = self.env_info["rl_info"].observation_space.low[joint_vel_ids][:6]
         high_joints_vel = self.env_info["rl_info"].observation_space.high[joint_vel_ids][:6]
         joint_vel_norm = high_joints_vel - low_joints_vel
-        self.max_vel = self.env_info["rl_info"].observation_space.high[puck_vel_ids]
+        self.max_vel = self.env_info["rl_info"].observation_space.high[puck_vel_ids][0]
 
         self._constr_scales = {
             'joint_pos_constr': np.concatenate([joint_pos_norm, joint_pos_norm]),
@@ -192,7 +192,8 @@ class AirHockeyHit(gym.Env):
 
             obs['ee_pos'] = ee_pos_robot_frame[:2]  # do not include z coordinate
 
-            obs['ee_vel'] = self.ee_vel
+        if self.include_ee_vel:
+            obs['ee_vel'] = self.ee_vel[:2]
 
         if self.scale_obs:
             obs = self._scale_obs(obs)
@@ -238,7 +239,7 @@ class AirHockeyHit(gym.Env):
     def seed(self, seed=None):
         return self.env.seed(seed)
 
-    def render(self):
+    def render(self, render_mode='human'):
         self.env.render()
 
     def get_puck_pos(self, obs):

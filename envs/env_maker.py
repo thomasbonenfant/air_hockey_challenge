@@ -48,3 +48,14 @@ def make_hit_env(include_joints, include_ee, include_ee_vel, scale_obs, alpha_r)
     return env
 
 
+def create_producer(env_args):
+    env_name = env_args['env']
+    print(env_name)
+    del env_args['env']
+    if env_name == 'hrl':
+        return lambda: make_environment(**env_args)
+    if env_name == 'hit':
+        return lambda: make_hit_env(**env_args)
+    raise NotImplementedError
+
+

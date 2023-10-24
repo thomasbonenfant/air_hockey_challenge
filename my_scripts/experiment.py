@@ -1,22 +1,12 @@
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement
-from envs import make_environment, make_hit_env
+from envs import create_producer
 from stable_baselines3 import PPO, SAC, DQN
 from my_scripts.summary_writer import SummaryWriterCallback
 
 from my_scripts.utils import parse_args, create_log_directory, variant_util
 import os
-
-
-def create_producer(env_args):
-    env_name = env_args['env']
-    if env_name == 'hrl':
-        return lambda: make_environment(**env_args)
-    if env_name == 'hit':
-        return lambda: make_hit_env(**env_args)
-    raise NotImplementedError
-
 
 def main():
     env_args, alg_args, learn_args, log_args, variant = variant_util(parse_args())
@@ -42,7 +32,7 @@ def main():
 
     summary_writer_callback = SummaryWriterCallback()
 
-    learn_args['callback'] = [eval_callback, summary_writer_callback]
+    learn_args['callback'] = [eval_callback] #, summary_writer_callback]
 
     if log_args['alg'] == 'ppo':
         model = PPO(**alg_args)

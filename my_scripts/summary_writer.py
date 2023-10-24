@@ -32,10 +32,6 @@ class SummaryWriterCallback(BaseCallback):
             self.fault_risk_penalty.append(info["fault_risk_penalty"])
             self.constr_penalty.append(info["constr_penalty"])
 
-        print(self.locals)
-        quit()
-
-
         return True
 
     def _on_rollout_end(self) -> None:

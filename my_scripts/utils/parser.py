@@ -7,7 +7,7 @@ import os
 def parse_args():
     parser = ArgumentParser()
     subparsers = parser.add_subparsers(title="algorithm", required=True)
-    subparser_env = parser.add_subparsers(title="env", required=True)
+    env_group = parser.add_argument_group('env')
 
     # log args
 
@@ -21,28 +21,26 @@ def parse_args():
     parser.add_argument("--n_eval_episodes", type=int, default=80)
 
     # env arguments
-    parser_hrl = subparser_env.add_parser(name="hrl")
-    parser_hrl.add_argument("--steps_per_action", type=int, default=100)
-    parser_hrl.add_argument("--render", action="store_true")
-    parser_hrl.add_argument("--include_timer", action="store_true")
-    parser_hrl.add_argument("--include_ee", action="store_true")
-    parser_hrl.add_argument("--include_faults", action="store_true")
-    parser_hrl.add_argument("--include_joints", action="store_true")
-    parser_hrl.add_argument("--large_reward", type=float, default=100)
-    parser_hrl.add_argument("--fault_penalty", type=float, default=33.33)
-    parser_hrl.add_argument("--fault_risk_penalty", type=float, default=0.1)
-    parser_hrl.add_argument("--scale_obs", action="store_true")
-    parser_hrl.add_argument("--alpha_r", type=float, default=1.)
-    parser_hrl.add_argument("--parallel", type=int, default=1)
-    parser_hrl.set_defaults(env="hrl")
+    env_group.add_argument("--env", choices=['hrl', 'hit'], default='hrl')
+    env_group.add_argument("--steps_per_action", type=int, default=100)
+    env_group.add_argument("--render", action="store_true")
+    env_group.add_argument("--include_timer", action="store_true")
+    env_group.add_argument("--include_ee", action="store_true")
+    env_group.add_argument("--include_faults", action="store_true")
+    env_group.add_argument("--include_joints", action="store_true")
+    env_group.add_argument("--large_reward", type=float, default=100)
+    env_group.add_argument("--fault_penalty", type=float, default=33.33)
+    env_group.add_argument("--fault_risk_penalty", type=float, default=0.1)
+    env_group.add_argument("--scale_obs", action="store_true")
+    env_group.add_argument("--alpha_r", type=float, default=1.)
+    env_group.add_argument("--parallel", type=int, default=1)
 
-    parser_hit = subparser_env.add_parser(name="hit")
-    parser_hit.add_argument("--include_joints", action="store_true")
-    parser_hit.add_argument('--include_ee', action="store_true")
-    parser_hit.add_argument('--include_ee_vel', action="store_true")
-    parser_hit.add_argument("--scale_obs", action="store_true")
-    parser_hit.add_argument("--alpha_r", type=float, default=1.0)
-    parser_hit.set_defaults(env="hrl")
+    #parser_hit.add_argument("--include_joints", action="store_true")
+    #parser_hit.add_argument('--include_ee', action="store_true")
+    env_group.add_argument('--include_ee_vel', action="store_true")
+    #parser_hit.add_argument("--scale_obs", action="store_true")
+    #parser_hit.add_argument("--alpha_r", type=float, default=1.0)
+    #parser_hit.set_defaults(env="hit")
 
     # learning args
 
@@ -76,7 +74,6 @@ def parse_args():
     #sac arguments
     parser_sac = subparsers.add_parser("sac")
     parser_sac.add_argument("--policy", type=str, default="MlpPolicy")
-    parser_sac.add_argument("--env", type=str, default="gym_env_name")
     parser_sac.add_argument("--learning_rate", type=float, default=3e-4)
     parser_sac.add_argument("--buffer_size", type=int, default=1000000)
     parser_sac.add_argument("--learning_starts", type=int, default=1000)
@@ -150,6 +147,8 @@ def variant_util(variant):
     log_args['save_model_dir'] = variant.save_model_dir
     log_args['experiment_label'] = variant.experiment_label
     log_args['alg'] = variant.alg
+
+    env_args['env'] = variant.env
 
     if variant.env == "hrl":
         env_args['steps_per_action'] = variant.steps_per_action
