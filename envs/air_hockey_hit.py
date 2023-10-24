@@ -182,7 +182,9 @@ class AirHockeyHit(gym.Env):
 
     def reward(self, info):
         if self.has_hit:
-            reward = self.hit_coeff * (self.puck_vel[0] / self.max_vel)
+            if self.puck_vel[0] > 0:
+                # reward = self.hit_coeff * (self.puck_vel[0] / self.max_vel)
+                reward = self.hit_coeff * (np.linalg.norm(self.puck_vel[:2]) / self.max_vel)
         else:
             reward = - (np.linalg.norm(self.ee_pos[:2] - self.puck_pos[:2]) / (0.5 * self.table_diag))
 
