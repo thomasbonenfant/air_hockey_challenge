@@ -35,6 +35,7 @@ PREV_BETA = 0
 FINAL = 10
 DEFEND_LINE = -0.8
 DEFAULT_POS = np.array([-0.85995711, 0.0, 0.0645572])  # np.array([DEFEND_LINE, 0, EE_HEIGHT])
+INIT_STATE = np.array([0., -0.1961, 0., -1.8436, 0., 0.9704, 0.])
 DES_ACC = 0.05
 best_hit_sample = np.array([0.993793, 3.008965, 3e-2, 0.01002]) / 100
 best_hit = np.array([0.01, 0.03, 3e-4, 1e-4])
@@ -82,7 +83,7 @@ class HierarchicalAgent(AgentBase):
         self.task = task
         self.previous_task = task
         self.task_change_counter = 1
-        self.step_counter = 0
+        self.step_counter = 0  # a generic counter for steps, used to make the same task for a given amount of steps
         self.changing_task = False
 
         # Thetas
@@ -219,8 +220,8 @@ class HierarchicalAgent(AgentBase):
         self.puck_tracker.step(self.state.r_puck_pos)
 
         # Reduce noise with kalman filter
-        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+        self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
 
         # Convert in WORLD coordinates 2D
         self.state.w_puck_pos, _ = robot_to_world(base_frame=self.frame,
@@ -238,11 +239,12 @@ class HierarchicalAgent(AgentBase):
         self.task = self.state_machine.select_task(previous_state=self.previous_task, desired_next_state=self.task)
 
         if self.previous_task != self.task:
-            #print(f'{self.previous_task} --> {self.task}')
+            print(f'{self.previous_task} --> {self.task}')
             # reset agents
             self.rule_based_agent.reset()
             self.defend_agent.reset()
             self.repel_defend_agent.reset()
+            self.baseline_agent.reset()
 
             # Save the task changing in a file
             # task_number = Tasks[self.task.upper()].value
@@ -294,7 +296,7 @@ class HierarchicalAgent(AgentBase):
         if self.task == "defend":
             action = self.defend_agent.draw_action(observation)
             #self.done = self.defend_agent.has_hit
-            if self.state.r_puck_vel[0] > 0:  # FIXME update with the new check from Amir
+            if self.state.r_puck_vel[0] > 0:  # FIXME update with the new check from Amir, check both the change of vel and the has_hit
                 self.done = True
         elif self.task == "repel":
             action = self.repel_defend_agent.draw_action(observation)
@@ -326,7 +328,14 @@ class HierarchicalAgent(AgentBase):
             self.prev_side *= -1
             self.timer = 0
 
-        self.step_counter += 1
+        # Go back to the initial position when in home
+        if np.linalg.norm(self.state.w_ee_pos - DEFAULT_POS) <= 1e-2 and self.rule_based_agent.home_completed:
+            try:
+                new_action = self.baseline_agent.draw_action(observation)
+            except ValueError:
+                new_action = action
+            action = new_action
+
         return action
 
     def old_draw_action(self, observation):
@@ -469,7 +478,6 @@ class HierarchicalAgent(AgentBase):
         if self.done:
             new_task = self.simplified_pick_task()
             self.done = False
-            # todo reset all the agents done (home in particular)
             self.rule_based_agent.hit_completed = False
             self.rule_based_agent.prepare_completed = False
             self.rule_based_agent.home_completed = False
@@ -901,4 +909,3 @@ class HierarchicalAgent(AgentBase):
             angle = 2 * np.pi + angle
 
         return np.rad2deg(angle)
-
