@@ -3,6 +3,8 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 gym==0.17.0
+gymnasium
+stable_baselines3
 mujoco>=2.3.2
 osqp>=0.6.2.post8
 nlopt>=2.7.1
