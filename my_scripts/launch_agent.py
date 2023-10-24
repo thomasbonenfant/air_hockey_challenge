@@ -1,6 +1,6 @@
 from my_scripts.utils import variant_util, load_variant
 from envs.env_maker import create_producer
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC, DQN
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
@@ -35,7 +35,15 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
 
     if always_action is None and not random:
         print(f'Loading {"best" if best else ""} agent at {path}')
-        agent = PPO.load(os.path.join(path, 'best_model' if best else 'model'))
+        path = (os.path.join(path, 'best_model' if best else 'model'))
+        if log_args['alg'] == 'ppo':
+            agent = PPO.load(path)
+        elif log_args['alg'] == 'sac':
+            agent = SAC.load(path)
+        elif log_args['alg'] == 'dqn':
+            agent = DQN.load(path)
+        else:
+            raise NotImplementedError
     elif random:
         print(f'Using Random Agent')
         agent = RandomAgent(env.action_space)
@@ -122,10 +130,13 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/172658'
     path = '/home/thomas/Downloads/38050'
     path = '/home/thomas/Downloads/246278'
-    path = '/home/thomas/Downloads/127497'
+    path = '/home/thomas/Downloads/259224'
+    path = '/home/thomas/Downloads/291722'
+
     #path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb+home_rb/541699'
 
     custom_env_args = {
+        'scale_action': False
     }
 
     action_dict = {
@@ -138,7 +149,7 @@ if __name__ == '__main__':
 
     launch(path,
            num_episodes=10,
-           random=False,
+           random=True,
            always_action=None,
            best=True,
            store_traj=False,

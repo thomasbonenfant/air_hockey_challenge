@@ -12,7 +12,7 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 class AirHockeyHit(gym.Env):
     def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False,
-                 scale_obs=True, scale_action=True, alpha_r=1.0):
+                 scale_obs=True, hit_coeff=100, max_path_len=400, scale_action=True, alpha_r=1.0):
         self.env = env
         self.env_info = self.env.env_info
         self.include_joints = include_joints
@@ -20,6 +20,8 @@ class AirHockeyHit(gym.Env):
         self.include_ee_vel = include_ee_vel
         self.scale_obs = scale_obs
         self.scale_action = scale_action
+        self.hit_coeff = hit_coeff
+        self.max_path_len = max_path_len
 
         self.alpha_r = alpha_r
 
@@ -144,6 +146,9 @@ class AirHockeyHit(gym.Env):
         if self.has_hit:
             done = True
 
+        if self.t >= self.max_path_len:
+            done = True
+
         return self.process_state(obs, None), reward, done, False, info
 
     def reset(self, seed=0, options=None):
@@ -176,10 +181,8 @@ class AirHockeyHit(gym.Env):
         return reward_constraints
 
     def reward(self, info):
-        reward = 0
-
         if self.has_hit:
-            reward = 100*(self.puck_vel[0] / self.max_vel)
+            reward = self.hit_coeff * (self.puck_vel[0] / self.max_vel)
         else:
             reward = - (np.linalg.norm(self.ee_pos[:2] - self.puck_pos[:2]) / (0.5 * self.table_diag))
 

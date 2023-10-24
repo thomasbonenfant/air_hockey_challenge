@@ -39,6 +39,8 @@ def parse_args():
     #parser_hit.add_argument('--include_ee', action="store_true")
     env_group.add_argument('--include_ee_vel', action="store_true")
     env_group.add_argument('--scale_action', action='store_true')
+    env_group.add_argument('--hit_coeff', type=float, default=1000.0)
+    env_group.add_argument('--max_path_len', type=int, default=400)
     #parser_hit.add_argument("--scale_obs", action="store_true")
     #parser_hit.add_argument("--alpha_r", type=float, default=1.0)
     #parser_hit.set_defaults(env="hit")
@@ -167,9 +169,11 @@ def variant_util(variant):
         env_args['include_ee'] = variant.include_ee
         env_args['include_ee_vel'] = variant.include_ee_vel
         env_args['include_joints'] = variant.include_joints
+        env_args['hit_coeff'] = variant.hit_coeff
         env_args['scale_obs'] = variant.scale_obs
         env_args['scale_action'] = variant.scale_action
         env_args['alpha_r'] = variant.alpha_r
+        env_args['max_path_len'] = variant.max_path_len
 
     if log_args['alg'] == 'ppo':
         alg_args['learning_rate'] = variant.lr

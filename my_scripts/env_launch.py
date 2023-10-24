@@ -5,7 +5,10 @@ env = make_hit_env(include_ee=False,
                    include_ee_vel=True,
                    include_joints=False,
                    scale_obs=False,
-                   alpha_r=0.0)
+                   alpha_r=10.0,
+                   max_path_len=400,
+                   scale_action=True,
+                   hit_coeff=1000)
 
 np.random.seed(668)
 for i in range(10):
@@ -15,5 +18,5 @@ for i in range(10):
     while not done:
         action = env.action_space.sample()
         s, r, done, truncated, info = env.step(action)
-        print(s)
+
         env.render()
