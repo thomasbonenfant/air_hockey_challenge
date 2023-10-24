@@ -181,6 +181,7 @@ class AirHockeyHit(gym.Env):
         return reward_constraints
 
     def reward(self, info):
+        reward = 0
         if self.has_hit:
             if self.puck_vel[0] > 0:
                 # reward = self.hit_coeff * (self.puck_vel[0] / self.max_vel)

@@ -2,7 +2,7 @@ python -m my_scripts.experiment \
 \
 --total_timesteps=4000000 \
 --save_model_dir="/home/airhockey/thomas/data/hit" \
---experiment_label="joints+ee_pos+ee_vel" \
+--experiment_label="joints+ee_pos+ee_vel__norm_reward" \
 \
 --env=hit \
 --scale_obs \
