@@ -50,7 +50,7 @@ def main():
     model.save(os.path.join(log_dir, "model.zip"))
 
     if log_args['alg'] == 'dqn' or log_args['alg'] == 'sac':
-        model.save_replay_buffer(os.path.join(log_dir))
+        model.save_replay_buffer(os.path.join(log_dir, "replay_buffer"))
 
 
 if __name__ == '__main__':
