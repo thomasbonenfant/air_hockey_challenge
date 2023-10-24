@@ -239,7 +239,7 @@ class HierarchicalAgent(AgentBase):
         self.task = self.state_machine.select_task(previous_state=self.previous_task, desired_next_state=self.task)
 
         if self.previous_task != self.task:
-            print(f'{self.previous_task} --> {self.task}')
+            # print(f'{self.previous_task} --> {self.task}')
             # reset agents
             self.rule_based_agent.reset()
             self.defend_agent.reset()
