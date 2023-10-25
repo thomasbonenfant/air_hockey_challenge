@@ -24,7 +24,7 @@ from air_hockey_agent.agents.kalman_filter import PuckTracker
 from air_hockey_agent.agents.optimizer import TrajectoryOptimizer
 
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
-from air_hockey_agent.agents.agents import DefendAgent
+from air_hockey_agent.agents.agents import DefendAgent, RepelAgent
 from air_hockey_agent.agents.agent_sb3 import AgentSB3
 from baseline.baseline_agent.baseline_agent import BaselineAgent
 from air_hockey_agent.agents.state_machine import StateMachine
@@ -47,12 +47,13 @@ BEST_PARAM = dict(
     home=None
 )
 
+
 # Tasks enumeration
 class Tasks(Enum):
-    HOME    = 0
-    HIT     = 1
-    DEFEND  = 2
-    REPEL   = 3
+    HOME = 0
+    HIT = 1
+    DEFEND = 2
+    REPEL = 3
     PREPARE = 4
 
 
@@ -66,10 +67,10 @@ class HierarchicalAgent(AgentBase):
         self.rule_based_agent = PolicyAgent(env_info, **kwargs)
         # self.hit_agent = AgentSB3(env_info, 'Agents/Hit_Agent', **kwargs)
         self.baseline_agent = BaselineAgent(env_info, **kwargs)
-        #with open("env_info_single_agent/env_infos.pkl", "rb") as fp:
+        # with open("env_info_single_agent/env_infos.pkl", "rb") as fp:
         #    env_info_hit, env_info_defend = pickle.load(fp)
-        self.repel_defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
-        self.defend_agent = DefendAgent(env_info, env_label="tournament", **kwargs)
+        self.repel_defend_agent = RepelAgent(env_info, env_label="7dof-defend", **kwargs)
+        self.defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
 
         self.optimizer = TrajectoryOptimizer(self.env_info)  # optimize joint position of each trajectory point
 
@@ -262,7 +263,7 @@ class HierarchicalAgent(AgentBase):
         #if self.previous_task == "defend" or self.previous_task == "repel" or self.previous_task == "hit":
         #    self.task = "home"
 
-        
+
         if self.previous_task == "hit" and self.task == "prepare":
             self.task = "hit"
 
@@ -300,7 +301,8 @@ class HierarchicalAgent(AgentBase):
         if self.task == "defend":
             action = self.defend_agent.draw_action(observation)
             # self.done = self.defend_agent.has_hit
-            if self.state.r_puck_vel[0] > 0:  # FIXME update with the new check from Amir, check both the change of vel and the has_hit
+            if self.state.r_puck_vel[
+                0] > 0:  # FIXME update with the new check from Amir, check both the change of vel and the has_hit
                 self.done = True
         elif self.task == "repel":
             action = self.repel_defend_agent.draw_action(observation)
@@ -322,7 +324,7 @@ class HierarchicalAgent(AgentBase):
                 self.done = self.rule_based_agent.prepare_completed
             elif self.task == "home":
                 self.done = self.rule_based_agent.home_completed
-        #else:
+        # else:
         #    self.rule_based_agent.set_task("home")
         #    action = self.rule_based_agent.draw_action(observation)
         #    self.done = self.rule_based_agent.hit_completed # bring self.done back to False after finishing the hit
@@ -410,7 +412,7 @@ class HierarchicalAgent(AgentBase):
 
         # Perform the same task for a given amount of steps
         if self.step_counter > 20:
-            #self.task = self.simplified_pick_task()
+            # self.task = self.simplified_pick_task()
             self.task = self.select_task()
 
         if self.previous_task != self.task and not self.changing_task:
@@ -452,22 +454,23 @@ class HierarchicalAgent(AgentBase):
                         self.changing_task = False
             '''
 
-        #self.changing_task = False
+        # self.changing_task = False
         if self.changing_task:
-            action = self.change_action_smoothly(previous_task=self.previous_task, current_task=self.task, observation=observation, steps=10)
+            action = self.change_action_smoothly(previous_task=self.previous_task, current_task=self.task,
+                                                 observation=observation, steps=10)
         else:
             if self.task == "defend":
                 action = self.defend_agent.draw_action(observation)
             elif self.task == "repel":
                 action = self.repel_defend_agent.draw_action(observation)
-            #elif self.task == "home":
+            # elif self.task == "home":
             #    action = self.baseline_agent.draw_action(observation)
             else:
                 self.rule_based_agent.set_task(self.task)
                 action = self.rule_based_agent.draw_action(observation)
 
         if self.state.w_ee_pos[2] <= 0:
-            #self.reset()
+            # self.reset()
             print('WRONG EE POS, RESET')
 
         # UPDATE TIMER
@@ -796,7 +799,7 @@ class HierarchicalAgent(AgentBase):
             previous_action = self.defend_agent.draw_action(observation)
         elif previous_task == "repel":
             previous_action = self.repel_defend_agent.draw_action(observation)
-        #elif previous_task == "home":
+        # elif previous_task == "home":
         #    previous_action = self.baseline_agent.draw_action(observation)
         else:
             self.rule_based_agent.set_task(self.previous_task)
@@ -806,7 +809,7 @@ class HierarchicalAgent(AgentBase):
             current_action = self.defend_agent.draw_action(observation)
         elif current_task == "repel":
             current_action = self.repel_defend_agent.draw_action(observation)
-        #elif current_task == "home":
+        # elif current_task == "home":
         #    current_action = self.baseline_agent.draw_action(observation)
         else:
             self.rule_based_agent.set_task(self.task)
