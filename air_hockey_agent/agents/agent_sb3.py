@@ -136,6 +136,7 @@ class AgentSB3(AgentBase):
 
     def reset(self):
         self.restart = True
+        self.has_hit = False
         self.atacom_transformation.reset()
 
     def process_state(self, state):
