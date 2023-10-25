@@ -36,9 +36,9 @@ def main():
                                  best_model_save_path=log_dir,
                                  eval_env=eval_env)
 
-    summary_writer_callback = RewardLogsCallback()
+    #summary_writer_callback = RewardLogsCallback()
 
-    learn_args['callback'] = [eval_callback, summary_writer_callback]
+    learn_args['callback'] = [eval_callback] #, summary_writer_callback]
 
     print(alg_args)
 
@@ -57,6 +57,7 @@ def main():
         model = alg_cls.load(model_path)
         print('Retrieving previous experiment')
     except Exception:
+        print('Launching new experiment')
         model = alg_cls(**alg_args)
 
     model.learn(**learn_args)
