@@ -40,10 +40,39 @@ class StateMachine:
         if previous_state != 'home':
             if desired_next_state == previous_state or desired_next_state == 'home':
                 next_state = desired_next_state
-            elif previous_state == "defend" and desired_next_state != "home":
+            elif previous_state == "defend" and desired_next_state != "home": # FIXME problems with defend instead of hit?
                 next_state = "home"
             else:
                 next_state = previous_state
                 # next_state = 'home' # going home increases a lot the violated constraints
 
+        return next_state
+
+    def explicit_select_state(self, previous_state, desired_next_state):
+        # explicitly select the transitions
+        if previous_state == "hit":
+            if desired_next_state == "hit" or desired_next_state == "home":
+                next_state = desired_next_state
+            else:
+                next_state = previous_state
+        elif previous_state == "defend":
+            if desired_next_state == "defend" or desired_next_state == "home":
+                next_state = desired_next_state
+            else:
+                next_state = previous_state
+        elif previous_state == "repel":
+            if desired_next_state == "repel" or desired_next_state == "home":
+                next_state = desired_next_state
+            else:
+                next_state = previous_state
+        elif previous_state == "prepare":
+            if desired_next_state == "prepare" or desired_next_state == "home":
+                next_state = desired_next_state
+            else:
+                next_state = previous_state
+        elif previous_state == "home":
+            if desired_next_state != "home":
+                next_state = desired_next_state
+            else:
+                next_state = previous_state
         return next_state

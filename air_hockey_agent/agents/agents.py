@@ -32,8 +32,6 @@ class Agent(AgentBase):
     def __init__(self, env_info, varient, **kwargs):
         super().__init__(env_info, **kwargs)
 
-
-
         torch.set_num_threads(4)
         self.interpolation_order = varient['interpolation_order']
         # self.env_label = env_info['env_name']
@@ -857,8 +855,7 @@ class RepelAgent(Agent):
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Defend_Agent'
         self.env_label = env_label
 
-
-        path = 'Agents/DefendHit_Agent'
+        path = 'Agents/Repel_Agent'
 
         path = os.path.join(dir_path, path)
 
