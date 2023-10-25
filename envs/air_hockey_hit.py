@@ -141,7 +141,7 @@ class AirHockeyHit(gym.Env):
 
         self._post_simulation(obs)
         info = self.process_info(info)
-        reward = self.reward(info)
+        reward, info = self.reward(info)
 
         if self.has_hit:
             done = True
@@ -189,8 +189,12 @@ class AirHockeyHit(gym.Env):
         else:
             reward = - (np.linalg.norm(self.ee_pos[:2] - self.puck_pos[:2]) / (0.5 * self.table_diag))
 
-        reward += self.alpha_r * self._reward_constraints(info)
-        return reward
+        reward_constraint = self.alpha_r * self._reward_constraints(info)
+        reward += reward_constraint
+        print(reward_constraint)
+        info['constr_reward'] = reward_constraint
+        print(reward_constraint)
+        return reward, info
 
     def process_state(self, state, info):
 

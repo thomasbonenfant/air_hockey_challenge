@@ -3,9 +3,9 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement
 from envs import create_producer
 from stable_baselines3 import PPO, SAC, DQN
-from my_scripts.callbacks.reward_logs_callback import RewardLogsCallback
 
 from my_scripts.utils import parse_args, create_log_directory, variant_util
+from my_scripts.callbacks.reward_logs_callback import RewardLogsCallback
 import os
 
 def main():
@@ -14,11 +14,17 @@ def main():
     log_dir = create_log_directory(log_args, variant)
     learn_args["tb_log_name"] = log_dir
 
+    monitor_kwargs = {
+        'info_keywords': ('constr_reward',)
+    }
+
     env_producer = create_producer(env_args)
     env = make_vec_env(env_producer,
                        n_envs=variant.parallel,
                        vec_env_cls=SubprocVecEnv,
-                       monitor_dir=log_dir)
+                       monitor_dir=log_dir,
+                       monitor_kwargs=monitor_kwargs
+                       )
     alg_args["env"] = env
 
     eval_env = make_vec_env(env_producer, n_envs=variant.parallel, vec_env_cls=SubprocVecEnv)
@@ -30,21 +36,29 @@ def main():
                                  best_model_save_path=log_dir,
                                  eval_env=eval_env)
 
-    #summary_writer_callback = RewardLogsCallback()
+    summary_writer_callback = RewardLogsCallback()
 
-    learn_args['callback'] = [eval_callback] #, summary_writer_callback]
+    learn_args['callback'] = [eval_callback, summary_writer_callback]
 
     print(alg_args)
 
+    # try to load an existing experiment:
     if log_args['alg'] == 'ppo':
-        model = PPO(**alg_args)
+        alg_cls = PPO
     elif log_args['alg'] == 'sac':
-        model = SAC(**alg_args)
-        # = SAC(policy="MlpPolicy", env=env, verbose=1)
+        alg_cls = SAC
     elif log_args['alg'] == 'dqn':
-        model = DQN(**alg_args)
+        alg_cls = DQN
     else:
         raise NotImplementedError
+
+    try:
+        model_path = os.path.join(log_dir, 'model')
+        model = alg_cls.load(model_path)
+        print('Retrieving previous experiment')
+    except Exception:
+        model = alg_cls(**alg_args)
+
     model.learn(**learn_args)
 
     model.save(os.path.join(log_dir, "model.zip"))
