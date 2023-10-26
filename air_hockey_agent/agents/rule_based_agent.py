@@ -30,7 +30,7 @@ DES_ACC = 0.05
 
 best_hit_sample = np.array([0.993793, 3.008965, 3e-2, 0.01002]) / 100
 best_hit = np.array([0.01, 0.03, 3e-4, 1e-4])
-best_hit_train = np.array([0.01004139, 0.03003824, 0.00030698, 0.00010313])
+best_hit_train = np.array([9.82381671e-03, 3.01454192e-02, 2.96120280e-04, 8.81876941e-05])
 BEST_PARAM = dict(
     hit=best_hit_train,
     defend=None,
@@ -234,8 +234,8 @@ class PolicyAgent(AgentBase):
         # self.ee_pos_tracker.step(self.state.r_ee_pos)
 
         # Reduce noise with kalman filter
-        self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
         # self.state.r_adv_ee_pos = self.adv_ee_tracker.state[[0, 1, 4]]
         # self.state.r_ee_pos = self.ee_pos_tracker.state[0:3]
 
@@ -681,11 +681,12 @@ class PolicyAgent(AgentBase):
             if correction <= 2.5:
                 self.phase = "acceleration"
             else:
-                # d_beta = (0.01 + 0.03 * self.time[self.phase] * self.env_info["dt"]) * correction
-                # ds = 3e-4
-                # 0.01
-                d_beta = (0.05 + 0.03 * self.time[self.phase] * self.env_info["dt"]) * correction
-                ds = 3e-4
+                #d_beta = (0.05 + 0.03 * self.time[self.phase] * self.env_info["dt"]) * correction
+                #ds = 3e-4
+
+                d_beta = (self.theta[0] + self.theta[1] * self.time[self.phase] * self.env_info["dt"]) * correction
+                ds = self.theta[2]
+
 
                 self.last_ds = ds
 
@@ -708,17 +709,17 @@ class PolicyAgent(AgentBase):
 
             # (np.abs(radius - self.mallet_radius - self.puck_radius) <= 5e-3) and (self.state.w_puck_pos[0] > -0.6 or self.state.w_puck_vel[0] >= 0) violates less constraints but has a lower success rate
             if rounded_radius <= 1e-2 and (puck_pos[0] > - 0.5):  # and self.state.w_puck_vel[0] > 0) and not self.has_hit:
-                self.phase = "slow_down"
+                # self.phase = "slow_down"
                 self.has_hit = True
+                self.hit_completed = True
 
             elif self.can_hit:
                 # update ds considering how far it is from the left short-side
                 d_beta = correction / 2
 
-                ds = (self.last_ds + 1e-4 * self.env_info["dt"] * self.time[self.phase] / (radius + self.mallet_radius))
+                # ds = (self.last_ds + 1e-4 * self.env_info["dt"] * self.time[self.phase] / (radius + self.mallet_radius))
+                ds = (self.last_ds + self.theta[3] * self.env_info["dt"] * self.time[self.phase] / (radius + self.mallet_radius))
 
-                # ds *= (1/self.state.r_puck_pos[0] - 1e-3)
-                # ds *= 0.9 / (self.state.r_puck_pos[0] / (self.table_length / 2))  # FIXME problem if puck_vel[0] is close to 0
                 self.last_ds = ds
 
             else:

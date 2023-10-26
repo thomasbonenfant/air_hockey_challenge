@@ -26,8 +26,8 @@ def download_dataset(download_dir="downloads"):
 
     server = 'https://obs.{}.myhuaweicloud.eu'.format(swr_server)
     bucketName = 'air-hockey-dataset-eu'
-    objectKey = f'data-{team_name}.zip'
-    # objectKey = f'friendly_game/data-{team_name}.zip'  # has to be like this to download the friendly games
+    # objectKey = f'data-{team_name}.zip'
+    objectKey = f'friendly_game/data-{team_name}.zip'  # has to be like this to download the friendly games
     obsClient = ObsClient(access_key_id=AK, secret_access_key=SK, server=server)
 
     resp = obsClient.getObjectMetadata(bucketName, objectKey)

@@ -60,7 +60,15 @@ def replay_dataset(env_name, dataset_path):
 
 
 if __name__ == "__main__":
-    dataset_path = "../../downloads/dataset-23-10/Home_vs_Away/Game_0/Home/dataset.pkl"
-    # dataset_path = "../../downloads/dataset-airhockeyit/air-hockit_vs_rl3_polimi/dataset.pkl"
+    # Stable version
+    # dataset_path = "../../downloads/dataset-23-10/Home_vs_Away/Game_0/Home/dataset.pkl"  # stable version
+    # dataset_path = "../../downloads/dataset-airhockeyit/air-hockit_vs_rl3_polimi/dataset.pkl"  # stable version with adversary
+
+    # Reset default joint_pos with baseline
+    # dataset_path = "../../downloads/dataset_24-10_reset_init_pos_with_baseline/Home_vs_Away/Game_0/Home/dataset.pkl"
+    # dataset_path = "../../downloads/dataset-gxu_lipe_24-10/gxu-lipe_vs_rl3_polimi/dataset.pkl"
+
+    # New defend and repel (defend does not work)
+    dataset_path = "../../downloads/dataset_25-10_new_defend_repel/Home_vs_Away/Game_0/Home/dataset.pkl"
 
     replay_dataset("tournament", dataset_path)
