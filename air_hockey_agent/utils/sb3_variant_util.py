@@ -28,6 +28,8 @@ def parse_args():
     env_group.add_argument("--include_ee", action="store_true")
     env_group.add_argument("--include_faults", action="store_true")
     env_group.add_argument("--include_joints", action="store_true")
+    env_group.add_argument("--include_puck", action="store_true")
+    env_group.add_argument("--remove_last_joint", action="store_true")
     env_group.add_argument("--large_reward", type=float, default=100)
     env_group.add_argument("--fault_penalty", type=float, default=33.33)
     env_group.add_argument("--fault_risk_penalty", type=float, default=0.1)
@@ -169,6 +171,12 @@ def variant_util(variant):
         env_args['include_ee'] = variant.include_ee
         env_args['include_ee_vel'] = variant.include_ee_vel
         env_args['include_joints'] = variant.include_joints
+        try:
+            env_args['include_puck'] = variant.include_puck
+            env_args['remove_last_joint'] = variant.remove_last_joint
+        except:
+            env_args['include_puck'] = True
+            env_args['remove_last_joint'] = True
         env_args['hit_coeff'] = variant.hit_coeff
         env_args['scale_obs'] = variant.scale_obs
         env_args['scale_action'] = variant.scale_action
