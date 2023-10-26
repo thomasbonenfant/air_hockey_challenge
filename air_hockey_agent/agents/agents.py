@@ -252,8 +252,7 @@ class Agent(AgentBase):
             previous_delta_vel = np.sign(self.previous_vel[:2] - self.pre_previous_vel[:2])
             current_delta_vel = np.sign(self.puck_vel[:2] - self.previous_vel[:2])
 
-
-            if ((np.abs(previous_vel_norm - current_vel_norm) > 0.4 or
+            if ((np.abs(previous_vel_norm - current_vel_norm) > 0.15 or
                 not np.array_equal(previous_delta_vel, current_delta_vel) or
                  not np.array_equal(np.sign(self.puck_vel[:2]), np.sign(self.previous_vel[:2])))
                     and distance <= (self.puck_radius + self.mallet_radius) * 1.2):
