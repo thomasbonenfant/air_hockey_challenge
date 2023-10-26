@@ -10,13 +10,15 @@ import os
 
 
 class AgentSB3(AgentBase):
-    def __init__(self, env_info, path, **kwargs):
+    def __init__(self, env_info, path, acc_ratio=0.1, **kwargs):
         super().__init__(env_info, **kwargs)
         dir_path = os.path.dirname(os.path.abspath(__file__))
 
         path = os.path.join(dir_path, path)
         agent_path = os.path.join(path, 'best_model')
         self.env_info = env_info
+
+        self.acc_ratio = acc_ratio
 
         env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
 
@@ -123,8 +125,8 @@ class AgentSB3(AgentBase):
         self.dict_observation_space = Dict(obs_dict)
         self.observation_space = flatten_space(self.dict_observation_space)
 
-        low_action = self.env_info['robot']['joint_acc_limit'][0]
-        high_action = self.env_info['robot']['joint_acc_limit'][1]
+        low_action = self.acc_ratio * self.env_info['robot']['joint_acc_limit'][0]
+        high_action = self.acc_ratio * self.env_info['robot']['joint_acc_limit'][1]
 
         if self.remove_last_joint:
             low_action = low_action[:6]
@@ -188,6 +190,7 @@ class AgentSB3(AgentBase):
 
     def _scale_action(self, action):
         action = 0.5 * (action + 1) * self.ac_range + self._min_ac
+        action = np.clip(action, self._min_ac, self._min_ac + self.ac_range)
         return action
 
     def noise_filter(self, observation):
@@ -229,6 +232,10 @@ class AgentSB3(AgentBase):
             action = np.hstack([action, 0])
 
         action = self.atacom_transformation.draw_action(self._obs, action)
+
+        # check inside boundaries
+        assert np.all(action[1] > 0.95 * self.env_info["robot"]["joint_vel_limit"][0]) and \
+            np.all(action[1] < 0.95 * self.env_info["robot"]["joint_vel_limit"][1])
 
         self.last_joint_pos_action = action[0]
         self.last_joint_vel_action = action[1]
