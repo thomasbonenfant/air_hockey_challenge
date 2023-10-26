@@ -12,12 +12,14 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 class AirHockeyHit(gym.Env):
     def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False,
-                 scale_obs=True, hit_coeff=100, max_path_len=400, scale_action=True, alpha_r=1.0):
+                 scale_obs=True, hit_coeff=100, max_path_len=400, scale_action=True, remove_last_joint=True, include_puck=True, alpha_r=1.0):
         self.env = env
         self.env_info = self.env.env_info
         self.include_joints = include_joints
+        self.include_puck = include_puck
         self.include_ee = include_ee
         self.include_ee_vel = include_ee_vel
+        self.remove_last_joint = remove_last_joint
         self.scale_obs = scale_obs
         self.scale_action = scale_action
         self.hit_coeff = hit_coeff
@@ -48,13 +50,23 @@ class AirHockeyHit(gym.Env):
         high_position = np.array([1.5, 0.5, 0.3])
         ee_pos_norm = high_position - low_position
         joint_pos_ids = self.env_info["joint_pos_ids"]
-        low_joints_pos = self.env_info["rl_info"].observation_space.low[joint_pos_ids][:6]
-        high_joints_pos = self.env_info["rl_info"].observation_space.high[joint_pos_ids][:6]
-        joint_pos_norm = high_joints_pos - low_joints_pos
         joint_vel_ids = self.env_info["joint_vel_ids"]
-        low_joints_vel = self.env_info["rl_info"].observation_space.low[joint_vel_ids][:6]
-        high_joints_vel = self.env_info["rl_info"].observation_space.high[joint_vel_ids][:6]
+
+        low_joints_pos = self.env_info["rl_info"].observation_space.low[joint_pos_ids]
+        high_joints_pos = self.env_info["rl_info"].observation_space.high[joint_pos_ids]
+
+        low_joints_vel = self.env_info["rl_info"].observation_space.low[joint_vel_ids]
+        high_joints_vel = self.env_info["rl_info"].observation_space.high[joint_vel_ids]
+
+        if self.remove_last_joint:
+            low_joints_pos = low_joints_pos[:6]
+            high_joints_pos = high_joints_pos[:6]
+            low_joints_vel = low_joints_vel[:6]
+            high_joints_vel = high_joints_vel[:6]
+
         joint_vel_norm = high_joints_vel - low_joints_vel
+        joint_pos_norm = high_joints_pos - low_joints_pos
+
         self.max_vel = self.env_info["rl_info"].observation_space.high[puck_vel_ids][0]
 
         self._constr_scales = {
@@ -65,9 +77,13 @@ class AirHockeyHit(gym.Env):
 
         self.idx_to_delete = np.hstack([puck_pos_ids[2], puck_vel_ids[2], opponent_ee_ids])
 
+        if not self.include_puck:
+            self.idx_to_delete = np.hstack([self.idx_to_delete, puck_pos_ids, puck_vel_ids])
+
         if not self.include_joints:
             self.idx_to_delete = np.hstack([self.idx_to_delete, joint_pos_ids, joint_vel_ids])
-        else:
+
+        if self.remove_last_joint:
             self.idx_to_delete = np.hstack([self.idx_to_delete, joint_pos_ids[-1], joint_vel_ids[-1]])
 
         low_state = np.delete(low_state, self.idx_to_delete, axis=0)
@@ -104,8 +120,13 @@ class AirHockeyHit(gym.Env):
 
         self.observation_space = Dict(obs_dict)
 
-        low_action = self.env_info['robot']['joint_acc_limit'][0][:6]
-        high_action = self.env_info['robot']['joint_acc_limit'][1][:6]
+
+        low_action = self.env_info['robot']['joint_acc_limit'][0]
+        high_action = self.env_info['robot']['joint_acc_limit'][1]
+
+        if self.remove_last_joint:
+            low_action = low_action[:6]
+            high_action = high_action[:6]
 
         atacom = build_ATACOM_Controller(self.env_info, slack_type='soft_corner', slack_tol=1e-06, slack_beta=4)
         self.atacom_transformation = AtacomTransformation(self.env_info, False, atacom)
@@ -131,7 +152,8 @@ class AirHockeyHit(gym.Env):
             action = self._scale_action(action)
 
         # add final joint
-        action = np.hstack([action, 0])
+        if self.remove_last_joint:
+            action = np.hstack([action, 0])
 
         action = self.atacom_transformation.draw_action(self._obs, action)
 
@@ -162,7 +184,10 @@ class AirHockeyHit(gym.Env):
         return self.process_state(obs, None), None
 
     def process_info(self, info):
-        idx_to_delete = [6, 13]
+        if self.remove_last_joint:
+            idx_to_delete = [6, 13]
+        else:
+            idx_to_delete = []
         for constr in ['joint_pos_constr', 'joint_vel_constr']:
             info[constr] = np.delete(info[constr], idx_to_delete, axis=0)
         return info
@@ -205,15 +230,7 @@ class AirHockeyHit(gym.Env):
             mj_model = self.env_info['robot']['robot_model']
             mj_data = self.env_info['robot']['robot_data']
 
-            # Apply FW kinematics
-            ee_pos_robot_frame, rotation = forward_kinematics(
-                mj_model=mj_model,
-                mj_data=mj_data,
-                q=joint_pos,
-                link="ee"
-            )
-
-            obs['ee_pos'] = ee_pos_robot_frame[:2]  # do not include z coordinate
+            obs['ee_pos'] = self.ee_pos[:2]  # do not include z coordinate
 
         if self.include_ee_vel:
             obs['ee_vel'] = self.ee_vel[:2]

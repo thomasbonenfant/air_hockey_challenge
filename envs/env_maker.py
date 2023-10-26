@@ -41,10 +41,11 @@ def make_environment(steps_per_action=100, include_timer=False, include_faults=F
     return env
 
 
-def make_hit_env(include_joints, include_ee, include_ee_vel, scale_obs, scale_action, alpha_r, hit_coeff, max_path_len):
+def make_hit_env(include_joints, include_ee, include_ee_vel, include_puck, remove_last_joint,
+                 scale_obs, scale_action, alpha_r, hit_coeff, max_path_len):
     env = AirHockeyDouble(interpolation_order=3)
     env = AirHockeyHit(env, include_joints=include_joints, include_ee=include_ee, include_ee_vel=include_ee_vel,
-                       scale_obs=scale_obs, scale_action=scale_action, alpha_r=alpha_r, hit_coeff=hit_coeff,
+                       include_puck=include_puck, remove_last_joint=remove_last_joint, scale_obs=scale_obs, scale_action=scale_action, alpha_r=alpha_r, hit_coeff=hit_coeff,
                        max_path_len=max_path_len)
     env = FlattenObservation(env)
     return env

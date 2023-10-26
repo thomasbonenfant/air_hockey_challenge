@@ -4,6 +4,8 @@ import numpy as np
 env = make_hit_env(include_ee=False,
                    include_ee_vel=True,
                    include_joints=False,
+                   include_puck=False,
+                   remove_last_joint=False,
                    scale_obs=False,
                    alpha_r=10.0,
                    max_path_len=400,
