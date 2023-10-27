@@ -224,8 +224,8 @@ class HierarchicalAgent(AgentBase):
         self.puck_tracker.step(self.state.r_puck_pos)
 
         # Reduce noise with kalman filter # todo (it is present also in the rule based agent and in agents.py)
-        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+        self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
 
         # Convert in WORLD coordinates 2D
         self.state.w_puck_pos, _ = robot_to_world(base_frame=self.frame,
@@ -594,7 +594,7 @@ class HierarchicalAgent(AgentBase):
                 # fast puck
                 if puck_velocity > defend_vel_threshold:
                     if puck_velocity > repel_vel_threshold:
-                        picked_task = "defend"
+                        picked_task = "repel"
                     else:
                         picked_task = "repel"
                 else:
