@@ -217,7 +217,7 @@ class AgentSB3(AgentBase):
     def draw_action(self, observation):
 
         # noise filter
-        observation = self.noise_filter(observation)
+        #observation = self.noise_filter(observation)
 
         self._post_simulation(observation)
 
@@ -255,6 +255,10 @@ class AgentSB3(AgentBase):
         self.ee_pos = self.get_ee_pose(obs)
 
         self.ee_vel = self._apply_forward_velocity_kinematics(self.joint_pos, self.joint_vel)
+
+        if self.puck_pos[0] + self.env_info['robot']['base_frame'][0][:,3][0] > 0:
+            self.has_hit = True
+
         if self.previous_vel is not None:
             previous_vel_norm = np.linalg.norm(self.previous_vel[:2])
             current_vel_norm = np.linalg.norm(self.puck_vel[:2])
