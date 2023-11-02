@@ -1,0 +1,3 @@
+eval:
+  eval_freq: 4000
+  n_eval_episodes: 1000

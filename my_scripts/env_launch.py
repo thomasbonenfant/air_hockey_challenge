@@ -1,4 +1,4 @@
-from envs.env_maker import make_environment, make_hit_env
+from envs.env_maker import make_hrl_environment, make_hit_env
 import numpy as np
 
 env = make_hit_env(include_ee=False,

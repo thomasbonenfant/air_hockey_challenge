@@ -2,12 +2,12 @@ python -m my_scripts.experiment \
 \
 --total_timesteps=4000000 \
 --save_model_dir="/home/airhockey/thomas/data/hit" \
---experiment_label="joints+ee_pos+ee_vel_100alpha" \
+--experiment_label="tanh" \
 \
 --env=hit \
 --scale_obs \
 --scale_action \
---alpha_r=100.0 \
+--alpha_r=10.0 \
 --hit_coeff=1000 \
 --parallel=20 \
 --include_ee \

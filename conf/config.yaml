@@ -1,0 +1,12 @@
+learn:
+  total_timesteps: 4000000
+seed: null
+log_dir: '/tmp/logtest'
+parallel: 1
+label: test_label
+defaults:
+  - callbacks:
+      - eval
+  - algorithm:
+      sac
+
