@@ -729,10 +729,10 @@ class AirHockeyEnv(gym.Env):
                 for constr in ['joint_pos_constr', 'joint_vel_constr', 'ee_constr']:
                     if np.any(np.array(info[constr] > 0)):
                         r -= PENALTY_POINTS[constr]
-            if np.any(np.array(info["jerk"]) > self.min_jerk):
+            if np.any(np.array(info["jerk"] > self.min_jerk)):
                 r -= PENALTY_POINTS["jerk"] + \
                      np.clip(np.array(info["jerk"]), self.min_jerk, self.max_jerk).mean() / self.max_jerk
-            #r += info["success"] * self.large_reward
+            r += info["success"] * self.large_reward
         # if done and not info["success"] and self.t < self._env._mdp_info.horizon:
         # todo in bemune?
         # if not self.start_from_defend and done and self.t < self._env._mdp_info.horizon:

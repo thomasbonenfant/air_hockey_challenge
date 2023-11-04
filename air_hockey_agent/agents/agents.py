@@ -32,8 +32,6 @@ class Agent(AgentBase):
     def __init__(self, env_info, varient, **kwargs):
         super().__init__(env_info, **kwargs)
 
-
-
         torch.set_num_threads(4)
         self.interpolation_order = varient['interpolation_order']
         # self.env_label = env_info['env_name']
@@ -99,6 +97,10 @@ class Agent(AgentBase):
         low_position = self.env_info["rl_info"].observation_space.low[puck_pos_ids]
         low_velocity = self.env_info["rl_info"].observation_space.low[puck_vel_ids]
         high_velocity = self.env_info["rl_info"].observation_space.high[puck_vel_ids]
+        low_joints_acc = self.env_info["robot"]["joint_acc_limit"][0, :]
+        high_joints_acc = self.env_info["robot"]["joint_acc_limit"][1, :]
+        self.low_joints_acc = 0.9 * low_joints_acc
+        self.high_joints_acc = 0.9 * high_joints_acc
         low_timer = np.array([0.0])
         high_timer = np.array([15.0])
         self.dim = 3 if "3" in self.env_label else 7
@@ -192,13 +194,8 @@ class Agent(AgentBase):
 
         self.policy = None
 
-
-
-
-
         self.initial_ee_pos = None
         self.initial = True
-
 
         self.stop_after_hit_ee_pos = None
         self.stopped = False
@@ -227,6 +224,7 @@ class Agent(AgentBase):
     def _post_simulation(self, obs):
         self._obs = obs
         self.puck_pos = self.get_puck_pos(obs)
+        self.pre_previous_vel = self.previous_vel if self.t > 1 else None
         self.previous_vel = self.puck_vel if self.t > 0 else None
         self.puck_vel = self.get_puck_vel(obs)
         self.joint_pos = self.get_joint_pos(obs)
@@ -236,21 +234,30 @@ class Agent(AgentBase):
         if self.opponent:
             self.opponent_ee_pos = self.get_opponent_ee_pose(obs)
         self.ee_vel = self._apply_forward_velocity_kinematics(self.joint_pos, self.joint_vel)
-        if self.previous_vel is not None:
+        # if self.previous_vel is not None:
+        #     previous_vel_norm = np.linalg.norm(self.previous_vel[:2])
+        #     current_vel_norm = np.linalg.norm(self.puck_vel[:2])
+        #     distance = np.linalg.norm(self.puck_pos[:2] - self.ee_pos[:2])
+        #
+        #     # if previous_vel_norm <= current_vel_norm and distance <= (self.puck_radius + self.mallet_radius) * 1.1:
+        #     #     self.has_hit = True
+        #     if np.abs(previous_vel_norm - current_vel_norm) > 0.4 and distance <= (self.puck_radius + self.mallet_radius) * 1.1:
+        #         self.has_hit = True
+
+        if self.pre_previous_vel is not None:
             previous_vel_norm = np.linalg.norm(self.previous_vel[:2])
             current_vel_norm = np.linalg.norm(self.puck_vel[:2])
             distance = np.linalg.norm(self.puck_pos[:2] - self.ee_pos[:2])
-            if previous_vel_norm <= current_vel_norm and distance <= (self.puck_radius + self.mallet_radius) * 1.1:
-                self.has_hit = True
 
-        # if self.puck_pos[0] < 1.51 and (self.puck_is_in_otherside or self.t == 0):  # puck is in our side
-        #     self.puck_is_in_otherside = False
-        #     self.hit_reward_given = False
-        #     self.has_hit = False
-        # elif self.puck_pos[0] < 1.51:
-        #     self.puck_is_in_otherside = False
-        # else:
-        #     self.puck_is_in_otherside = True
+            previous_delta_vel = np.sign(self.previous_vel[:2] - self.pre_previous_vel[:2])
+            current_delta_vel = np.sign(self.puck_vel[:2] - self.previous_vel[:2])
+
+            if ((np.abs(previous_vel_norm - current_vel_norm) > 0.15 or
+                not np.array_equal(previous_delta_vel, current_delta_vel) or
+                 not np.array_equal(np.sign(self.puck_vel[:2]), np.sign(self.previous_vel[:2])))
+                    and distance <= (self.puck_radius + self.mallet_radius) * 1.2):
+                self.has_hit = True
+                # print("hit True")
 
     def _process_info(self, info):
         info["joint_pos_constr"] = info["constraints_value"]["joint_pos_constr"]
@@ -770,6 +777,7 @@ class Agent(AgentBase):
 
         self.last_joint_pos_action = action[0]
         self.last_joint_vel_action = action[1]
+        self.t += 1
 
         return _action
 
@@ -814,10 +822,8 @@ class DefendAgent(Agent):
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Defend_Agent'
         self.env_label = env_label
 
-        if self.env_label == "tournament":
-            path = 'Agents/Defend_Agent'
-        elif self.env_label == "7dof-defend":
-            path = 'Agents/DefendHit_Agent'
+        path = 'Agents/Defend_Agent'
+
 
         path = os.path.join(dir_path, path)
 
@@ -834,6 +840,36 @@ class DefendAgent(Agent):
         self.policy = trainer.policy
         self.trainer = trainer
 
+
+class RepelAgent(Agent):
+    def __init__(self, env_info, env_label, **kwargs ):
+        dir_path = os.path.dirname(os.path.abspath(__file__))
+
+        # modification to run with tournament env
+        env_info['opponent_ee_ids'] = []
+
+        #path = 'air_hockey_agent/agents/Agents/Defend_Agent'
+        path = 'Agents/Defend_Agent'
+
+        # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Defend_Agent'
+        self.env_label = env_label
+
+        path = 'Agents/Repel_Agent'
+
+        path = os.path.join(dir_path, path)
+
+        trainer, self.env12 = self.load_agent(path, baseline_agent=False, env_label=self.env_label, random_agent=False, env_info=env_info)
+
+        variant = json.load(open(os.path.join(path, 'variant.json')))
+
+        # self.obs_dim = env.observation_space.low.size  # TODO needs hardcode
+        # self.action_dim = env.action_space.low.size  # TODO needs hardcode
+        # self.action_space = env.action_space
+
+        super().__init__(env_info, variant, **kwargs)
+
+        self.policy = trainer.policy
+        self.trainer = trainer
 
 
 

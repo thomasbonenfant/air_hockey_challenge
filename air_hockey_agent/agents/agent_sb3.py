@@ -1,5 +1,5 @@
 from air_hockey_challenge.framework import AgentBase
-from my_scripts.utils import variant_util, load_variant
+from air_hockey_agent.utils.sb3_variant_util import variant_util, load_variant
 from gymnasium.spaces import Box, Dict, flatten_space, flatten
 import numpy as np
 from utils.ATACOM_transformation import AtacomTransformation, build_ATACOM_Controller
@@ -10,13 +10,15 @@ import os
 
 
 class AgentSB3(AgentBase):
-    def __init__(self, env_info, path, **kwargs):
+    def __init__(self, env_info, path, acc_ratio=0.1, **kwargs):
         super().__init__(env_info, **kwargs)
         dir_path = os.path.dirname(os.path.abspath(__file__))
 
         path = os.path.join(dir_path, path)
         agent_path = os.path.join(path, 'best_model')
         self.env_info = env_info
+
+        self.acc_ratio = acc_ratio
 
         env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
 
@@ -55,12 +57,19 @@ class AgentSB3(AgentBase):
         high_position = np.array([1.5, 0.5, 0.3])
         ee_pos_norm = high_position - low_position
         joint_pos_ids = self.env_info["joint_pos_ids"]
-        low_joints_pos = self.env_info["rl_info"].observation_space.low[joint_pos_ids][:6]
-        high_joints_pos = self.env_info["rl_info"].observation_space.high[joint_pos_ids][:6]
-        joint_pos_norm = high_joints_pos - low_joints_pos
+        low_joints_pos = self.env_info["rl_info"].observation_space.low[joint_pos_ids]
+        high_joints_pos = self.env_info["rl_info"].observation_space.high[joint_pos_ids]
         joint_vel_ids = self.env_info["joint_vel_ids"]
-        low_joints_vel = self.env_info["rl_info"].observation_space.low[joint_vel_ids][:6]
-        high_joints_vel = self.env_info["rl_info"].observation_space.high[joint_vel_ids][:6]
+        low_joints_vel = self.env_info["rl_info"].observation_space.low[joint_vel_ids]
+        high_joints_vel = self.env_info["rl_info"].observation_space.high[joint_vel_ids]
+
+        if self.remove_last_joint:
+            low_joints_pos = low_joints_pos[:6]
+            high_joints_pos = high_joints_pos[:6]
+            low_joints_vel = low_joints_vel[:6]
+            high_joints_vel = high_joints_vel[:6]
+
+        joint_pos_norm = high_joints_pos - low_joints_pos
         joint_vel_norm = high_joints_vel - low_joints_vel
         self.max_vel = self.env_info["rl_info"].observation_space.high[puck_vel_ids][0]
 
@@ -72,9 +81,13 @@ class AgentSB3(AgentBase):
 
         self.idx_to_delete = np.hstack([puck_pos_ids[2], puck_vel_ids[2], opponent_ee_ids])
 
+        if not self.include_puck:
+            self.idx_to_delete = np.hstack([self.idx_to_delete, puck_pos_ids, puck_vel_ids])
+
         if not self.include_joints:
             self.idx_to_delete = np.hstack([self.idx_to_delete, joint_pos_ids, joint_vel_ids])
-        else:
+
+        if self.remove_last_joint:
             self.idx_to_delete = np.hstack([self.idx_to_delete, joint_pos_ids[-1], joint_vel_ids[-1]])
 
         low_state = np.delete(low_state, self.idx_to_delete, axis=0)
@@ -112,8 +125,12 @@ class AgentSB3(AgentBase):
         self.dict_observation_space = Dict(obs_dict)
         self.observation_space = flatten_space(self.dict_observation_space)
 
-        low_action = self.env_info['robot']['joint_acc_limit'][0][:6]
-        high_action = self.env_info['robot']['joint_acc_limit'][1][:6]
+        low_action = self.acc_ratio * self.env_info['robot']['joint_acc_limit'][0]
+        high_action = self.acc_ratio * self.env_info['robot']['joint_acc_limit'][1]
+
+        if self.remove_last_joint:
+            low_action = low_action[:6]
+            high_action = high_action[:6]
 
         atacom = build_ATACOM_Controller(self.env_info, slack_type='soft_corner', slack_tol=1e-06, slack_beta=4)
         self.atacom_transformation = AtacomTransformation(self.env_info, False, atacom)
@@ -136,6 +153,7 @@ class AgentSB3(AgentBase):
 
     def reset(self):
         self.restart = True
+        self.has_hit = False
         self.atacom_transformation.reset()
 
     def process_state(self, state):
@@ -148,15 +166,7 @@ class AgentSB3(AgentBase):
             mj_model = self.env_info['robot']['robot_model']
             mj_data = self.env_info['robot']['robot_data']
 
-            # Apply FW kinematics
-            ee_pos_robot_frame, rotation = forward_kinematics(
-                mj_model=mj_model,
-                mj_data=mj_data,
-                q=joint_pos,
-                link="ee"
-            )
-
-            obs['ee_pos'] = ee_pos_robot_frame[:2]  # do not include z coordinate
+            obs['ee_pos'] = self.ee_pos[:2]  # do not include z coordinate
 
         if self.include_ee_vel:
             obs['ee_vel'] = self.ee_vel[:2]
@@ -180,6 +190,7 @@ class AgentSB3(AgentBase):
 
     def _scale_action(self, action):
         action = 0.5 * (action + 1) * self.ac_range + self._min_ac
+        action = np.clip(action, self._min_ac, self._min_ac + self.ac_range)
         return action
 
     def noise_filter(self, observation):
@@ -217,8 +228,14 @@ class AgentSB3(AgentBase):
         action = self._scale_action(action)
 
         # add final joint
-        action = np.hstack([action, 0])
+        if self.remove_last_joint:
+            action = np.hstack([action, 0])
+
         action = self.atacom_transformation.draw_action(self._obs, action)
+
+        # check inside boundaries
+        assert np.all(action[1] > 0.95 * self.env_info["robot"]["joint_vel_limit"][0]) and \
+            np.all(action[1] < 0.95 * self.env_info["robot"]["joint_vel_limit"][1])
 
         self.last_joint_pos_action = action[0]
         self.last_joint_vel_action = action[1]

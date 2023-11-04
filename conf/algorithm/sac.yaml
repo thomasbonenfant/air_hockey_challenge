@@ -8,9 +8,11 @@ tau: 0.005
 gamma: 0.997
 train_freq: [20, 'episode']
 gradient_steps: 1
+optimize_memory_usage: false
 ent_coef: auto
 target_update_interval: 1
 target_entropy: auto
+use_sde: false
 sde_sample_freq: -1
 stats_window_size: 100
 tensorboard_log: "./"
