@@ -1,8 +1,8 @@
 alg: ppo
 policy: MlpPolicy
 learning_rate: 3e-4
-n_steps: 4000
-batch_size: 256
+n_steps: 256 # number of steps for each environment
+batch_size: 256 # should be a factor of n_steps * n_envs
 n_epochs: 5
 gamma: 0.997
 gae_lambda: 0.95

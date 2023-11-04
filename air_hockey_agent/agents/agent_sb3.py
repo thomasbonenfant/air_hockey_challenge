@@ -10,7 +10,7 @@ import os
 
 
 class AgentSB3(AgentBase):
-    def __init__(self, env_info, path, acc_ratio=0.1, **kwargs):
+    def __init__(self, env_info, path, acc_ratio=1.0, random=False, **kwargs):
         super().__init__(env_info, **kwargs)
         dir_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -19,6 +19,7 @@ class AgentSB3(AgentBase):
         self.env_info = env_info
 
         self.acc_ratio = acc_ratio
+        self.random = random
 
         env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
 
@@ -189,8 +190,9 @@ class AgentSB3(AgentBase):
         return obs
 
     def _scale_action(self, action):
-        action = 0.5 * (action + 1) * self.ac_range + self._min_ac
-        action = np.clip(action, self._min_ac, self._min_ac + self.ac_range)
+        if self.scale_action:
+            action = 0.5 * (action + 1) * self.ac_range + self._min_ac
+            action = np.clip(action, self._min_ac, self._min_ac + self.ac_range)
         return action
 
     def noise_filter(self, observation):
@@ -223,7 +225,10 @@ class AgentSB3(AgentBase):
 
         obs = self.process_state(observation)
 
-        action, _ = self.agent.predict(obs, deterministic=True)
+        if self.random:
+            action = self.action_space.sample()
+        else:
+            action, _ = self.agent.predict(obs, deterministic=True)
 
         action = self._scale_action(action)
 

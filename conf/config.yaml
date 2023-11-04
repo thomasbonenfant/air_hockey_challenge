@@ -2,12 +2,14 @@ learn:
   total_timesteps: 4000000
 seed: null
 log_dir: '/tmp/logtest'
-log_interval: 5
+log_interval: 5 # log statistics every n episodes
 parallel: 1
 label: test_label
 defaults:
   - callbacks:
       - eval
+      - checkpoint
+      - info_log
   - algorithm:
       sac
 
