@@ -2,6 +2,7 @@ learn:
   total_timesteps: 4000000
 seed: null
 log_dir: '/tmp/logtest'
+log_interval: 5
 parallel: 1
 label: test_label
 defaults:

@@ -1,16 +1,21 @@
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement
 from envs import create_producer
 from stable_baselines3 import PPO, SAC, DQN
+from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 
 from my_scripts.utils import create_log_directory, get_callbacks
-from my_scripts.callbacks.reward_logs_callback import RewardLogsCallback
 import os
 
 from omegaconf import OmegaConf
 import hydra
 import random
+
+alg_dict = {
+    'sac': SAC,
+    'ppo': PPO,
+    'dqn': DQN,
+}
 
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
@@ -23,7 +28,7 @@ def main(cfg):
     env_args = cfg['environment']
     alg_args = cfg['algorithm']
 
-    seed = cfg['seed'] if cfg['seed'] else random.randint(0, 99999)
+    seed = cfg['seed'] if cfg['seed'] else random.randint(0, 999999)
 
     log_dir = create_log_directory(cfg, seed)
     cfg['log_dir'] = log_dir
@@ -45,29 +50,19 @@ def main(cfg):
 
     callback_list = get_callbacks(cfg)
 
-    # try to load an existing experiment:
-    if cfg.algorithm.alg == 'ppo':
-        alg_cls = PPO
-    elif cfg.algorithm.alg == 'sac':
-        alg_cls = SAC
-    elif cfg.algorithm.alg == 'dqn':
-        alg_cls = DQN
-    else:
-        raise NotImplementedError
+    alg_cls = alg_dict[cfg.algorithm.alg]
 
-    # remove alg name
+    # remove alg name from arguments
     alg_args = {k:v for k,v in alg_args.items() if k != 'alg'}
-
+    if 'train_freq' in alg_args:
+        alg_args['train_freq'] = tuple(alg_args['train_freq']) # tuple is required and not list
 
     model = alg_cls(env=env, seed=seed, **alg_args)
-
     model.learn(**cfg.learn, tb_log_name=tb_log_dir, callback=callback_list)
-
     model.save(os.path.join(log_dir, "model.zip"))
 
-    if cfg.algorithm.alg in ('dqn', 'sac'):
+    if isinstance(model, OffPolicyAlgorithm):
         model.save_replay_buffer(os.path.join(log_dir, "replay_buffer"))
-
 
 if __name__ == '__main__':
     main()

@@ -4,6 +4,7 @@ from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from envs.fixed_options_air_hockey import HierarchicalEnv
 from envs.air_hockey_hit import AirHockeyHit
 from gymnasium.wrappers import FlattenObservation
+from envs.info_accumulator_wrapper import InfoStatsWrapper
 
 
 def make_hrl_environment(steps_per_action=100, include_timer=False, include_faults=False,
@@ -37,6 +38,7 @@ def make_hrl_environment(steps_per_action=100, include_timer=False, include_faul
                           include_ee=include_ee)
 
     env = FlattenObservation(env)
+    # env = InfoStatsWrapper(env, info_keywords=['joint_pos_constr', 'joint_vel_constr', 'ee_constr'])
     return env
 
 
@@ -47,6 +49,7 @@ def make_hit_env(include_joints, include_ee, include_ee_vel, include_puck, remov
                        include_puck=include_puck, remove_last_joint=remove_last_joint, scale_obs=scale_obs, scale_action=scale_action, alpha_r=alpha_r, hit_coeff=hit_coeff,
                        max_path_len=max_path_len)
     env = FlattenObservation(env)
+    # env = InfoStatsWrapper(env, info_keywords=['joint_pos_constr', 'joint_vel_constr', 'ee_constr'])
     return env
 
 

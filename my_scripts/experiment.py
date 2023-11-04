@@ -5,7 +5,7 @@ from envs import create_producer
 from stable_baselines3 import PPO, SAC, DQN
 
 from my_scripts.utils import parse_args, create_log_directory, variant_util
-from my_scripts.callbacks.reward_logs_callback import RewardLogsCallback
+from my_scripts.callbacks.info_logs_callback import EpisodicInfoCallback
 import os
 
 def main():
