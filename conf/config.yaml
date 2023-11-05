@@ -1,13 +1,14 @@
+hydra.output_subdir: null
 learn:
-  total_timesteps: 4000000
-seed: null
-log_dir: '/tmp/logtest'
-log_interval: 5 # log statistics every n episodes
-parallel: 1
-label: test_label
+  total_timesteps: 5000000
+seed: 204552
+log_dir: '/home/airhockey/thomas/data/'
+log_interval: 10 # log statistics every n episodes
+parallel: 20
+label: sde_alpha100
 defaults:
   - callbacks:
-      - eval
+      - custom_eval
       - checkpoint
       - info_log
   - algorithm:

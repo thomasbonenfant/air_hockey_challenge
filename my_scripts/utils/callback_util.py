@@ -1,5 +1,5 @@
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
-from my_scripts.callbacks import EpisodicInfoCallback
+from my_scripts.callbacks import RolloutInfoLog, CustomEvalCallback
 from stable_baselines3.common.env_util import make_vec_env, SubprocVecEnv
 from envs import create_producer
 import os
@@ -13,8 +13,8 @@ def get_callbacks(cfg):
 
         args = dict(callback_args)
 
-        if callback_name == 'eval':
-            cb = EvalCallback
+        if callback_name in ('eval', 'custom_eval'):
+            cb = EvalCallback if callback_name == 'eval' else CustomEvalCallback
 
             env_producer = create_producer(cfg['environment'])
             eval_env = make_vec_env(env_producer, n_envs=cfg['parallel'], vec_env_cls=SubprocVecEnv)
@@ -25,7 +25,7 @@ def get_callbacks(cfg):
             args['save_path'] = os.path.join(cfg['log_dir'], args['save_path'])
 
         elif callback_name == 'info_log':
-            cb = EpisodicInfoCallback
+            cb = RolloutInfoLog
 
         else:
             raise NotImplementedError

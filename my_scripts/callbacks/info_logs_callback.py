@@ -5,7 +5,7 @@ import numpy as np
 from collections import deque, defaultdict
 
 
-class EpisodicInfoCallback(BaseCallback):
+class RolloutInfoLog(BaseCallback):
 
     def __init__(self, stats_window_size=100, log_freq=1, info_keywords=None):
         super().__init__()
@@ -36,12 +36,15 @@ class EpisodicInfoCallback(BaseCallback):
 
         if self.log_freq > 0 and self.n_calls % self.log_freq == 0:
             buffer = self.env_infos_buffer
-            all_env_infos = {k: [b[k] for b in buffer] for k in buffer[0].keys()} # list of dict to dict of list
+            all_env_infos = {k: [b[k] for b in buffer] for k in self.info_keywords} # list of dict to dict of list
 
-            for k in buffer[0].keys():
+            for k in self.info_keywords:
                 self.logger.record(f'rollout/max_{k}', np.max(all_env_infos[k]))
                 self.logger.record(f'rollout/avg_{k}', np.mean(all_env_infos[k]))
                 self.logger.record(f'rollout/std_{k}', np.std(all_env_infos[k]))
+
+                # Now that we logged the buffer we can clear it
+                self.env_infos_buffer.clear()
         return True
 
 
