@@ -1,7 +1,25 @@
 from argparse import ArgumentParser, Namespace
 import random
+from omegaconf import OmegaConf
 import json
 import os
+
+
+def get_configuration(path):
+    file_list = os.listdir(path)
+    if 'variant.json' in file_list:
+        print(f'JSON configuration found at {path}')
+        env_args, alg_args, _, log_args, _ = variant_util(load_variant(path))
+        alg = log_args['alg']
+    elif 'config.yaml' in file_list:
+        print(f'YAML configuration found')
+        cfg = OmegaConf.load(os.path.join(path, 'config.yaml'))
+        env_args = dict(cfg.environment)
+        alg = cfg.algorithm.alg
+    else:
+        raise FileNotFoundError("No configuration file was found")
+
+    return env_args, alg
 
 
 def parse_args():
@@ -13,7 +31,7 @@ def parse_args():
 
     parser.add_argument("--save_model_dir", type=str, default="../models")
     parser.add_argument("--experiment_label", type=str, default="")
-    #parser.add_argument("--alg", type=str, default="ppo")
+    # parser.add_argument("--alg", type=str, default="ppo")
 
     # eval args
 
@@ -37,15 +55,15 @@ def parse_args():
     env_group.add_argument("--alpha_r", type=float, default=1.)
     env_group.add_argument("--parallel", type=int, default=1)
 
-    #parser_hit.add_argument("--include_joints", action="store_true")
-    #parser_hit.add_argument('--include_ee', action="store_true")
+    # parser_hit.add_argument("--include_joints", action="store_true")
+    # parser_hit.add_argument('--include_ee', action="store_true")
     env_group.add_argument('--include_ee_vel', action="store_true")
     env_group.add_argument('--scale_action', action='store_true')
     env_group.add_argument('--hit_coeff', type=float, default=1000.0)
     env_group.add_argument('--max_path_len', type=int, default=400)
-    #parser_hit.add_argument("--scale_obs", action="store_true")
-    #parser_hit.add_argument("--alpha_r", type=float, default=1.0)
-    #parser_hit.set_defaults(env="hit")
+    # parser_hit.add_argument("--scale_obs", action="store_true")
+    # parser_hit.add_argument("--alpha_r", type=float, default=1.0)
+    # parser_hit.set_defaults(env="hit")
 
     # learning args
 
@@ -76,7 +94,7 @@ def parse_args():
     parser_ppo.add_argument("--seed", type=int)
     parser_ppo.set_defaults(alg='ppo')
 
-    #sac arguments
+    # sac arguments
     parser_sac = subparsers.add_parser("sac")
     parser_sac.add_argument("--policy", type=str, default="MlpPolicy")
     parser_sac.add_argument("--learning_rate", type=float, default=3e-4)
@@ -106,7 +124,7 @@ def parse_args():
     parser_sac.add_argument("--_init_setup_model", action="store_true")
     parser_sac.set_defaults(alg='sac')
 
-    #dqn arguments
+    # dqn arguments
     parser_dqn = subparsers.add_parser("dqn")
     parser_dqn.add_argument("--policy", type=str, default="MlpPolicy")
     parser_dqn.add_argument("--learning_rate", type=float, default=0.001)
@@ -133,7 +151,6 @@ def parse_args():
     parser_dqn.add_argument("--device", type=str, default="auto")
     parser_dqn.add_argument("--_init_setup_model", action="store_true", default=True)
     parser_dqn.set_defaults(alg='dqn')
-
 
     variant = parser.parse_args()
 
@@ -259,7 +276,6 @@ def variant_util(variant):
         alg_args['seed'] = variant.seed
         alg_args['device'] = variant.device
         alg_args['_init_setup_model'] = variant._init_setup_model
-
 
     learn_args['total_timesteps'] = variant.total_timesteps
     # learn_args['tb_log_name'] = variant.tb_log_name

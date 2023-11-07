@@ -1,9 +1,8 @@
-from my_scripts.utils import variant_util, load_variant
+#from my_scripts.utils import variant_util, load_variant
+from omegaconf import OmegaConf
 from envs.env_maker import create_producer
-from stable_baselines3 import PPO, SAC, DQN
-from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from air_hockey_agent.utils.sb3_variant_util import get_configuration
+from my_scripts.experiment2 import alg_dict
 import os
 import numpy as np
 
@@ -25,7 +24,9 @@ class RandomAgent():
 
 
 def launch(path, num_episodes, random=False, always_action=None, best=False, store_traj=False, seed=None, custom_env_args=None, action_dict=None):
-    env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
+    #env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
+
+    env_args, alg = get_configuration(path)
 
     if custom_env_args is not None:
         for key in custom_env_args:
@@ -33,17 +34,12 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
 
     env = create_producer(env_args)()
 
+    alg_cls = alg_dict[alg]
+
     if always_action is None and not random:
         print(f'Loading {"best" if best else ""} agent at {path}')
         path = (os.path.join(path, 'best_model' if best else 'model'))
-        if log_args['alg'] == 'ppo':
-            agent = PPO.load(path)
-        elif log_args['alg'] == 'sac':
-            agent = SAC.load(path)
-        elif log_args['alg'] == 'dqn':
-            agent = DQN.load(path)
-        else:
-            raise NotImplementedError
+        agent = alg_cls.load(path)
     elif random:
         print(f'Using Random Agent')
         agent = RandomAgent(env.action_space)
@@ -112,18 +108,6 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
     #for i in range(len(env.unwrapped.policies)):
     #    print(f'Policy {i}: {len(actions[actions == i]) / len(actions)}')
 
-
-def eval_agent(path, num_episodes, parallel, always_action=None, render=False):
-    env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
-    env_producer = create_producer(env_args)
-    env = VecMonitor(make_vec_env(env_producer, n_envs=parallel, vec_env_cls=SubprocVecEnv))
-    if always_action is None:
-        agent = PPO.load(os.path.join(path, 'best_model'))
-    else:
-        agent = ConstAgent(2)
-    print(evaluate_policy(agent, env, n_eval_episodes=num_episodes, render=render))
-
-
 if __name__ == '__main__':
     path = '/home/thomas/Downloads/463593'
     path = '/home/thomas/Downloads/299758'
@@ -132,6 +116,7 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/246278'
     path = '/home/thomas/Downloads/259224'
     path = '/home/thomas/Downloads/604409'
+    path = '/home/thomas/Downloads/switcher'
 
     #path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb+home_rb/541699'
 
@@ -140,18 +125,17 @@ if __name__ == '__main__':
     }
 
     action_dict = {
-        0: 'Hit',
-        1: 'Defend',
-        2: 'Repel',
+        0: 'Repel',
+        1: 'Home',
+        2: 'Hit',
         3: 'Prepare',
-        4: 'Home',
     }
 
     launch(path,
            num_episodes=10,
            random=False,
            always_action=None,
-           best=True,
+           best=False,
            store_traj=False,
            seed=1,
            custom_env_args=custom_env_args,

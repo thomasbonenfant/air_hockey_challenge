@@ -226,10 +226,6 @@ class AirHockeyHit(gym.Env):
         obs = {'orig_obs': obs}
 
         if self.include_ee:
-            joint_pos = state[self.env_info['joint_pos_ids']]
-            mj_model = self.env_info['robot']['robot_model']
-            mj_data = self.env_info['robot']['robot_data']
-
             obs['ee_pos'] = self.ee_pos[:2]  # do not include z coordinate
 
         if self.include_ee_vel:
@@ -238,6 +234,16 @@ class AirHockeyHit(gym.Env):
         if self.scale_obs:
             obs = self._scale_obs(obs)
 
+        obs = self._clip_obs(obs)
+
+        return obs
+
+    def _clip_obs(self, obs):
+        obs_sp = self.observation_space
+
+        for k in ('orig_obs', 'ee_pos', 'ee_vel'):
+            box_sp = obs_sp[k]
+            np.clip(obs[k], a_min=box_sp.low, a_max=box_sp.high)
         return obs
 
     def _scale_obs(self, obs):

@@ -12,7 +12,7 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 class HierarchicalEnv(gym.Env):
     def __init__(self, env: AirHockeyDouble, steps_per_action: int, policies: list, policy_state_processors: dict, render_flag: bool,
-                 include_timer=False, include_faults=False, large_reward=100, fault_risk_penalty=0.1, fault_penalty=33.33,
+                 include_timer=False, include_faults=False, include_prev_action=False, large_reward=100, fault_risk_penalty=0.1, fault_penalty=33.33,
                  scale_obs=True, alpha_r=1., use_history=False, include_joints=False, include_ee=False):
 
         # Set Arguments
@@ -21,6 +21,7 @@ class HierarchicalEnv(gym.Env):
         self.render_flag = render_flag
         self.include_timer = include_timer
         self.include_faults = include_faults
+        self.include_prev_action = include_prev_action
         self.scale_obs = scale_obs
         self.reward = large_reward
         self.fault_penalty = fault_penalty
@@ -105,11 +106,16 @@ class HierarchicalEnv(gym.Env):
                 ee_obs = Box(low_position[:2], high_position[:2])
             obs_dict['ee_pos'] = ee_obs
 
+        if self.include_prev_action:
+            prev_action_obs = Discrete(len(self.policies))
+            obs_dict['prev_action'] = prev_action_obs
+
         self.observation_space = Dict(obs_dict)
 
         self.action_space = Discrete(len(self.policies))
 
         self.state = None
+        self.prev_action = 0
 
         # variables to log
 
@@ -130,6 +136,11 @@ class HierarchicalEnv(gym.Env):
 
     def reset(self, seed=0, options=None):
         np.random.seed(seed)
+        self.faults = np.zeros((2,))
+        self.score = np.zeros((2,))
+
+        self.prev_action = 0
+
         self.state = self.env.reset()
         for policy in self.policies:
             policy.reset()
@@ -168,6 +179,8 @@ class HierarchicalEnv(gym.Env):
 
             obs['ee_pos'] = ee_pos_robot_frame[:2] # do not include z coordinate
 
+        if self.include_prev_action:
+            obs['prev_action'] = self.prev_action
         if self.scale_obs:
             obs = self._scale_obs(obs)
 
@@ -276,4 +289,7 @@ class HierarchicalEnv(gym.Env):
         for key in reward_dict:
             info[key] = reward_dict[key]
 
-        return self.process_state(self.state, info), reward, done, False, info
+        state = self.process_state(self.state, info)
+        self.prev_action = action
+
+        return state, reward, done, False, info

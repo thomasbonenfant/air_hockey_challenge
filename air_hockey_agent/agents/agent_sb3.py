@@ -1,5 +1,5 @@
 from air_hockey_challenge.framework import AgentBase
-from air_hockey_agent.utils.sb3_variant_util import variant_util, load_variant
+from air_hockey_agent.utils.sb3_variant_util import get_configuration
 from gymnasium.spaces import Box, Dict, flatten_space, flatten
 import numpy as np
 from utils.ATACOM_transformation import AtacomTransformation, build_ATACOM_Controller
@@ -7,6 +7,11 @@ from air_hockey_challenge.utils.kinematics import forward_kinematics, jacobian
 from stable_baselines3 import PPO, SAC
 from air_hockey_agent.agents.kalman_filter import PuckTracker
 import os
+
+alg_dict = {
+    'sac': SAC,
+    'ppo': PPO
+}
 
 
 class AgentSB3(AgentBase):
@@ -21,16 +26,11 @@ class AgentSB3(AgentBase):
         self.acc_ratio = acc_ratio
         self.random = random
 
-        env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
-
-        if log_args['alg'] == 'sac':
-            self.agent = SAC.load(agent_path)
-        elif log_args['alg'] == 'ppo':
-            self.agent = PPO.load(agent_path)
-        else:
-            raise NotImplementedError
+        env_args, alg = get_configuration(path)
 
         del env_args['env']
+
+        self.agent = alg_dict[alg].load(agent_path)
 
         for key in env_args:
             setattr(self, key, env_args[key])
@@ -175,9 +175,18 @@ class AgentSB3(AgentBase):
         if self.scale_obs:
             obs = self._scale_obs(obs)
 
-        # flatten observation
+        #obs = self._clip_obs(obs)
 
+        # flatten observation
         return flatten(self.dict_observation_space, obs)
+
+    def _clip_obs(self, obs):
+        obs_sp = self.observation_space
+
+        for k in ('orig_obs', 'ee_pos', 'ee_vel'):
+            box_sp = obs_sp[k]
+            np.clip(obs[k], a_min=box_sp.low, a_max=box_sp.high)
+        return obs
 
     def _scale_obs(self, obs):
         obs['orig_obs'] = (obs['orig_obs'] - self._min_obs_original) / self.obs_original_range * 2 - 1
@@ -219,7 +228,7 @@ class AgentSB3(AgentBase):
     def draw_action(self, observation):
 
         # noise filter
-        observation = self.noise_filter(observation)
+        #observation = self.noise_filter(observation)
 
         self._post_simulation(observation)
 
@@ -240,7 +249,7 @@ class AgentSB3(AgentBase):
 
         # check inside boundaries
         assert np.all(action[1] > 0.95 * self.env_info["robot"]["joint_vel_limit"][0]) and \
-            np.all(action[1] < 0.95 * self.env_info["robot"]["joint_vel_limit"][1])
+               np.all(action[1] < 0.95 * self.env_info["robot"]["joint_vel_limit"][1])
 
         self.last_joint_pos_action = action[0]
         self.last_joint_vel_action = action[1]
@@ -299,8 +308,3 @@ class AgentSB3(AgentBase):
     def get_opponent_ee_pose(self, obs):
 
         return obs[self.env_info['opponent_ee_ids']]
-
-
-
-
-

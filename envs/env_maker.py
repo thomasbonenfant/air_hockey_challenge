@@ -16,13 +16,13 @@ policy_dict = {
     'repel_oac': lambda env_info: RepelAgent(env_info, env_label='7dof-defend'),
     'prepare_rb': lambda env_info: PolicyAgent(env_info, agent_id=1, task='prepare'),
     'home_rb': lambda env_info: PolicyAgent(env_info, agent_id=1, task='home'),
-    'home_sb3': lambda env_info: AgentSB3(env_info, path="Agents/Home_Agent")
+    'home_sb3': lambda env_info: AgentSB3(env_info, acc_ratio=0.1, path="Agents/Home_Agent")
 }
 
 
 def make_hrl_environment(policies, steps_per_action=100, include_timer=False, include_faults=False,
                          render=False, large_reward=100, fault_penalty=33.33, fault_risk_penalty=0.1,
-                         scale_obs=False, alpha_r=1., include_joints=False, include_ee=False):
+                         scale_obs=False, alpha_r=1., include_joints=False, include_ee=False, include_prev_action=False):
     env = AirHockeyDouble(interpolation_order=3)
     env_info = env.env_info
 
@@ -41,7 +41,8 @@ def make_hrl_environment(policies, steps_per_action=100, include_timer=False, in
                           fault_risk_penalty=fault_risk_penalty,
                           scale_obs=scale_obs,
                           alpha_r=alpha_r,
-                          include_ee=include_ee)
+                          include_ee=include_ee,
+                          include_prev_action=include_prev_action)
 
     env = FlattenObservation(env)
     # env = InfoStatsWrapper(env, info_keywords=['joint_pos_constr', 'joint_vel_constr', 'ee_constr'])
@@ -62,6 +63,7 @@ def make_hit_env(include_joints, include_ee, include_ee_vel, include_puck, remov
 
 def create_producer(env_args):
     env_name = env_args['env']
+    print(f'Environment: {env_name}')
 
     env_args = {k: v for k, v in env_args.items() if k != 'env'}  # exclude env name
 
