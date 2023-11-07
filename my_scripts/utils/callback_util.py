@@ -19,6 +19,8 @@ def get_callbacks(cfg):
             env_producer = create_producer(cfg['environment'])
             eval_env = make_vec_env(env_producer, n_envs=cfg['parallel'], vec_env_cls=SubprocVecEnv)
             args['eval_env'] = eval_env
+            args['best_model_save_path'] = cfg['log_dir']
+            args['log_path'] = cfg['log_dir']
         elif callback_name == 'checkpoint':
             cb = CheckpointCallback
 
