@@ -136,9 +136,6 @@ class HierarchicalEnv(gym.Env):
 
     def reset(self, seed=0, options=None):
         np.random.seed(seed)
-        self.faults = np.zeros((2,))
-        self.score = np.zeros((2,))
-
         self.prev_action = 0
 
         self.state = self.env.reset()

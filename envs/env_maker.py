@@ -4,6 +4,7 @@ from air_hockey_agent.agents.agent_sb3 import AgentSB3
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from envs.fixed_options_air_hockey import HierarchicalEnv
 from envs.air_hockey_hit import AirHockeyHit
+from envs.air_hockey_goal import AirHockeyGoal
 from gymnasium.wrappers import FlattenObservation
 from envs.info_accumulator_wrapper import InfoStatsWrapper
 
@@ -22,7 +23,8 @@ policy_dict = {
 
 def make_hrl_environment(policies, steps_per_action=100, include_timer=False, include_faults=False,
                          render=False, large_reward=100, fault_penalty=33.33, fault_risk_penalty=0.1,
-                         scale_obs=False, alpha_r=1., include_joints=False, include_ee=False, include_prev_action=False):
+                         scale_obs=False, alpha_r=1., include_joints=False, include_ee=False,
+                         include_prev_action=False):
     env = AirHockeyDouble(interpolation_order=3)
     env_info = env.env_info
 
@@ -61,6 +63,16 @@ def make_hit_env(include_joints, include_ee, include_ee_vel, include_puck, remov
     return env
 
 
+def make_goal_env(include_joints, include_ee, include_ee_vel, include_puck, remove_last_joint,
+                  scale_obs, scale_action, alpha_r, max_path_len):
+    env = AirHockeyDouble(interpolation_order=3)
+    env = AirHockeyGoal(env, include_joints=include_joints, include_ee=include_ee, include_ee_vel=include_ee_vel,
+                        include_puck=include_puck, remove_last_joint=remove_last_joint, scale_obs=scale_obs,
+                        scale_action=scale_action, alpha_r=alpha_r, max_path_len=max_path_len)
+    #env = FlattenObservation(env)
+    return env
+
+
 def create_producer(env_args):
     env_name = env_args['env']
     print(f'Environment: {env_name}')
@@ -71,4 +83,6 @@ def create_producer(env_args):
         return lambda: make_hrl_environment(**env_args)
     if env_name == 'hit':
         return lambda: make_hit_env(**env_args)
+    if env_name == 'goal':
+        return lambda: make_goal_env(**env_args)
     raise NotImplementedError
