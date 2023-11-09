@@ -46,7 +46,7 @@ def make_hrl_environment(policies, steps_per_action=100, include_timer=False, in
                           scale_obs=scale_obs,
                           alpha_r=alpha_r,
                           include_ee=include_ee,
-                          include_opponent=include_opponent
+                          include_opponent=include_opponent,
                           include_prev_action=include_prev_action)
 
     env = FlattenObservation(env)
