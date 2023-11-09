@@ -13,7 +13,7 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 class HierarchicalEnv(gym.Env):
     def __init__(self, env: AirHockeyDouble, steps_per_action: int, policies: list, policy_state_processors: dict, render_flag: bool,
                  include_timer=False, include_faults=False, include_prev_action=False, large_reward=100, fault_risk_penalty=0.1, fault_penalty=33.33,
-                 scale_obs=True, alpha_r=1., use_history=False, include_joints=False, include_ee=False):
+                 scale_obs=True, alpha_r=1., use_history=False, include_joints=False, include_ee=False, include_opponent=False):
 
         # Set Arguments
         self.env = env
@@ -35,6 +35,7 @@ class HierarchicalEnv(gym.Env):
         self.use_history = use_history # not implemented
         self.include_joints = include_joints
         self.include_ee = include_ee
+        self.include_opponent= include_opponent
 
         self.low_level_history = []
 
@@ -69,6 +70,9 @@ class HierarchicalEnv(gym.Env):
         }
 
         self.idx_to_delete = [puck_pos_ids[2], puck_vel_ids[2], opponent_ee_ids[2]] # remove puck's theta and dtheta and ee z
+
+        if not self.include_opponent:
+            self.idx_to_delete = np.hstack([self.idx_to_delete, opponent_ee_ids])
 
         if not self.include_joints:
             self.idx_to_delete = np.hstack([self.idx_to_delete, joint_pos_ids, joint_vel_ids])

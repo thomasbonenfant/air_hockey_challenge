@@ -26,7 +26,7 @@ policy_dict = {
 def make_hrl_environment(policies, steps_per_action=100, include_timer=False, include_faults=False,
                          render=False, large_reward=100, fault_penalty=33.33, fault_risk_penalty=0.1,
                          scale_obs=False, alpha_r=1., include_joints=False, include_ee=False,
-                         include_prev_action=False):
+                         include_prev_action=False, include_opponent=False):
     env = AirHockeyDouble(interpolation_order=3)
     env_info = env.env_info
 
@@ -46,6 +46,7 @@ def make_hrl_environment(policies, steps_per_action=100, include_timer=False, in
                           scale_obs=scale_obs,
                           alpha_r=alpha_r,
                           include_ee=include_ee,
+                          include_opponent=include_opponent
                           include_prev_action=include_prev_action)
 
     env = FlattenObservation(env)
