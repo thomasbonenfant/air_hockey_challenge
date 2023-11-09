@@ -449,7 +449,7 @@ class AirHockeyOAC(gym.Env):
 
         reward_hit -= self.c_r * np.linalg.norm(action)
         reward_constraints = self._reward_constraints(info)
-        return (reward_hit + self.alpha_r * reward_constraints) / 2  # negative rewards should never go below -1
+        return reward_hit + self.alpha_r * reward_constraints
 
     def _game_reward(self, action, info):
         r = 0
@@ -1219,7 +1219,8 @@ class AirHockeyOAC(gym.Env):
                 r += discount * reward
                 k += 1
 
-        done = self.has_hit or self.t >= self.max_path_length # ends episode only if reached max_path or hit puck
+        if self.has_hit or self.t >= self.max_path_length:
+            done = True
         reward = r
 
         return obs, reward, done, info
