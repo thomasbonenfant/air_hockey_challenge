@@ -1,7 +1,7 @@
 import os
 
-from gym import Env
-from gym.spaces import Box, Discrete, Tuple
+from gymnasium import Env
+from gymnasium.spaces import Box, Discrete, Tuple
 import numpy as np
 
 #from envs.humanoid_clipped import HumanoidClipped
