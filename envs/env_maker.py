@@ -5,7 +5,9 @@ from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from envs.fixed_options_air_hockey import HierarchicalEnv
 from envs.air_hockey_hit import AirHockeyHit
 from envs.air_hockey_goal import AirHockeyGoal
-from gymnasium.wrappers import FlattenObservation
+from envs.air_hockey_oac import AirHockeyOAC
+from gymnasium.wrappers import FlattenObservation, EnvCompatibility
+from utils.env_utils import NormalizedBoxEnv
 from envs.info_accumulator_wrapper import InfoStatsWrapper
 
 policy_dict = {
@@ -69,7 +71,69 @@ def make_goal_env(include_joints, include_ee, include_ee_vel, include_puck, remo
     env = AirHockeyGoal(env, include_joints=include_joints, include_ee=include_ee, include_ee_vel=include_ee_vel,
                         include_puck=include_puck, remove_last_joint=remove_last_joint, scale_obs=scale_obs,
                         scale_action=scale_action, alpha_r=alpha_r, max_path_len=max_path_len)
-    #env = FlattenObservation(env)
+    # env = FlattenObservation(env)
+    return env
+
+
+def make_airhockey_oac(env, interpolation_order=3,
+                       simple_reward=False, high_level_action=False, agent_id=1, delta_action=False, delta_ratio=0.1,
+                       jerk_only=False, include_joints=True, shaped_reward=True, clipped_penalty=0.5, large_reward=100,
+                       large_penalty=100, min_jerk=10000, max_jerk=10000, alpha_r=1., c_r=0., include_hit=False,
+                       history=0,
+                       use_atacom=True, stop_after_hit=False, punish_jerk=False, acceleration=False, max_accel=0.2,
+                       include_old_action=False, use_aqp=False, aqp_terminates=False, speed_decay=0.5, clip_vel=False,
+                       whole_game_reward=False, score_reward=10, fault_penalty=5, load_second_agent=True,
+                       dont_include_timer_in_states=True, action_persistence=1, stop_when_puck_otherside=False,
+                       curriculum_learning_step1=False, curriculum_learning_step2=False, curriculum_learning_step3=False
+                       , start_from_defend=False, original_env=False, start_curriculum_transition=3000,
+                       end_curriculum_transition=4000, curriculum_transition=False, **kwargs):
+
+    env = AirHockeyOAC(env, interpolation_order=interpolation_order,
+                       simple_reward=simple_reward,
+                       high_level_action=high_level_action,
+                       agent_id=agent_id,
+                       delta_action=delta_action,
+                       delta_ratio=delta_ratio,
+                       jerk_only=jerk_only,
+                       include_joints=include_joints,
+                       shaped_reward=shaped_reward,
+                       clipped_penalty=clipped_penalty,
+                       large_reward=large_reward,
+                       large_penalty=large_penalty,
+                       min_jerk=min_jerk,
+                       max_jerk=max_jerk,
+                       alpha_r=alpha_r,
+                       c_r=c_r,
+                       include_hit=include_hit,
+                       history=history,
+                       use_atacom=use_atacom,
+                       stop_after_hit=stop_after_hit,
+                       punish_jerk=punish_jerk,
+                       acceleration=acceleration,
+                       max_accel=max_accel,
+                       include_old_action=include_old_action,
+                       use_aqp=use_aqp,
+                       aqp_terminates=aqp_terminates,
+                       speed_decay=speed_decay,
+                       clip_vel=clip_vel,
+                       whole_game_reward=whole_game_reward,
+                       score_reward=score_reward,
+                       fault_penalty=fault_penalty,
+                       load_second_agent=load_second_agent,
+                       dont_include_timer_in_states=dont_include_timer_in_states,
+                       action_persistence=action_persistence,
+                       stop_when_puck_otherside=stop_when_puck_otherside,
+                       curriculum_learning_step1=curriculum_learning_step1,
+                       curriculum_learning_step2=curriculum_learning_step2,
+                       curriculum_learning_step3=curriculum_learning_step3,
+                       start_from_defend=start_from_defend,
+                       original_env=original_env,
+                       start_curriculum_transition=start_curriculum_transition,
+                       end_curriculum_transition=end_curriculum_transition,
+                       curriculum_transition=curriculum_transition,
+                       **kwargs)
+    env = NormalizedBoxEnv(env)
+    env = EnvCompatibility(env)
     return env
 
 
@@ -85,4 +149,8 @@ def create_producer(env_args):
         return lambda: make_hit_env(**env_args)
     if env_name == 'goal':
         return lambda: make_goal_env(**env_args)
+    if env_name.startswith('oac_'):
+        # needs an argument named env in the constructor
+        env_args['env'] = env_name.split('oac_')[1]
+        return lambda: make_airhockey_oac(**env_args)
     raise NotImplementedError

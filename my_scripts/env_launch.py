@@ -23,7 +23,7 @@ env = make_hrl_environment(['hit_rb', 'repel_oac', 'home_sb3', 'prepare_rb'],
                            render=True,
                            include_joints=False,
                            include_timer=True,
-                           )'''
+                           )
 env = make_goal_env(include_joints=True,
                     include_ee=True,
                     include_ee_vel=True,
@@ -32,11 +32,9 @@ env = make_goal_env(include_joints=True,
                     scale_action=False,
                     remove_last_joint=False,
                     max_path_len=100,
-                    scale_obs=False)
+                    scale_obs=False)'''
 
-from envs.air_hockey import AirHockeyEnv
-from utils.env_utils import NormalizedBoxEnv
-#env = NormalizedBoxEnv(AirHockeyEnv('tournament', interpolation_order=3, use_atacom=True, use_aqp=False, high_level_action=False))
+env = make_airhockey_oac('7dof-hit')
 
 seed = 666
 env.reset(seed=seed)
@@ -50,10 +48,10 @@ for i in range(10):
     while not done:
         action = env.action_space.sample()
         s, r, done, term, info = env.step(action)
-        goal_pos = env.goal['ee_pos'].copy()
-        goal_pos[0] -= 1.51
+        #goal_pos = env.goal['ee_pos'].copy()
+        #goal_pos[0] -= 1.51
 
-        env.env.base_env._data.site("goal_vis").xpos = np.hstack([goal_pos, 0])
+        #env.env.base_env._data.site("goal_vis").xpos = np.hstack([goal_pos, 0])
 
         env.render()
 

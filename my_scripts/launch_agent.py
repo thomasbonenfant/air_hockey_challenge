@@ -23,7 +23,7 @@ class RandomAgent():
         return self.ac.sample(), None
 
 
-def launch(path, num_episodes, random=False, always_action=None, best=False, store_traj=False, seed=None, custom_env_args=None, action_dict=None):
+def launch(path, num_episodes, random=False, always_action=None, best=False, store_traj=False, seed=None, custom_env_args=None, action_dict=None, render=False):
     #env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
 
     env_args, alg = get_configuration(path)
@@ -58,6 +58,7 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
     fault_risk_penalty = []
 
     for episode in range(num_episodes):
+        print(f'Episode: {episode}/{num_episodes}')
         obs, _ = env.reset()
         done = False
         steps = 0
@@ -77,7 +78,8 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
 
             obs, rew, done, _, info = env.step(action)
             #print(rew)
-            env.render()
+            if render:
+                env.render()
             steps += 1
             cumulative_reward += rew
 
@@ -117,6 +119,7 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/259224'
     path = '/home/thomas/Downloads/604409'
     path = '/home/thomas/Downloads/switcher'
+    path = '/home/thomas/Downloads/172317'
 
     #path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb+home_rb/541699'
 
@@ -139,5 +142,6 @@ if __name__ == '__main__':
            store_traj=False,
            seed=1,
            custom_env_args=custom_env_args,
-           action_dict=None)
+           action_dict=action_dict,
+           render=True)
     #eval_agent(path, num_episodes=10, parallel=1, render=True)
