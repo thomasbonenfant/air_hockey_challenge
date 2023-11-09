@@ -240,8 +240,12 @@ class AirHockeyHit(gym.Env):
 
     def _clip_obs(self, obs):
         obs_sp = self.observation_space
-
-        for k in ('orig_obs', 'ee_pos', 'ee_vel'):
+        keys = ['orig_obs']
+        if self.include_ee:
+            keys.append('ee_pos')
+        if self.include_ee_vel:
+            keys.append('ee_vel')
+        for k in keys:
             box_sp = obs_sp[k]
             np.clip(obs[k], a_min=box_sp.low, a_max=box_sp.high)
         return obs

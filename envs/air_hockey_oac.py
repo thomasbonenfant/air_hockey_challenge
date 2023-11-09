@@ -203,6 +203,7 @@ class AirHockeyOAC(gym.Env):
             high_action = ac_space.high
             low_state = obs_space.low
             high_state = obs_space.high
+            idx_to_delete = [2, 5, 20, 21, 22]
             low_position = np.array([0.54, -0.5, 0])
             high_position = np.array([1.5, 0.5, 0.3])
             low_state = np.concatenate([low_state, low_position, low_velocity[:2]])
@@ -216,9 +217,10 @@ class AirHockeyOAC(gym.Env):
             high_state = np.concatenate([high_state, np.array([1.])])
 
         if 'opponent_ee_ids' in env_info and len(env_info["opponent_ee_ids"]) > 0:
-            self.opponent = True
-            low_state = np.concatenate([low_state, low_position])  # -.1 z of ee
-            high_state = np.concatenate([high_state, high_position])
+            self.opponent = False
+            #self.opponent = True
+            #low_state = np.concatenate([low_state, low_position])  # -.1 z of ee
+            #high_state = np.concatenate([high_state, high_position])
         else:
             self.opponent = False
 
