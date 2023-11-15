@@ -1,0 +1,11 @@
+env: goal
+include_joints: true
+include_ee: true
+include_ee_vel: true
+scale_obs: true
+scale_action: false
+remove_last_joint: false
+include_puck: false
+alpha_r: 1.0
+goal_horizon: 30
+max_path_len: 120

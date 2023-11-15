@@ -4,6 +4,7 @@ from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from air_hockey_agent.agents.dummy_agent import DummyAgent
 from air_hockey_agent.agents.agents import DefendAgent, RepelAgent
 from air_hockey_agent.agents.agent_sb3 import AgentSB3
+from air_hockey_agent.agents.agent_sb3_old_env import AgentSB3OldEnv
 
 import pickle
 
@@ -28,5 +29,6 @@ def build_agent(env_info, **kwargs):
 
     # Default return, in case of tournament
     #return HierarchicalAgent(env_info, **kwargs)
-    return AgentSB3(env_info, "Agents/Hit_Agent", random=False)
+    #return AgentSB3(env_info, "Agents/Hit_Agent", random=False)
     #return RepelAgent(env_info, env_label="7dof-defend")
+    return AgentSB3OldEnv(path='/home/thomas/Downloads/markov/data/oac_7dof-hit/sac/old_env_alpha100/442439', env_info=env_info, random=False)

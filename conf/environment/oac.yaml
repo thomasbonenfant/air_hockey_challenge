@@ -1,8 +1,9 @@
-env: 'oac_tournament'
+env: 'oac_7dof-hit'
 interpolation_order: 3
 simple_reward: False
 high_level_action: False
 agent_id: 1
+max_path_length: 400
 delta_action: False
 delta_ratio: 0.1
 jerk_only: False
@@ -13,7 +14,7 @@ large_reward: 100
 large_penalty: 100
 min_jerk: 10000
 max_jerk: 10000
-alpha_r: 1.0
+alpha_r: 0.0
 c_r: 0.0
 include_hit: False
 history: 0

@@ -1,5 +1,3 @@
-#from my_scripts.utils import variant_util, load_variant
-from omegaconf import OmegaConf
 from envs.env_maker import create_producer
 from air_hockey_agent.utils.sb3_variant_util import get_configuration
 from my_scripts.experiment2 import alg_dict
@@ -24,8 +22,6 @@ class RandomAgent():
 
 
 def launch(path, num_episodes, random=False, always_action=None, best=False, store_traj=False, seed=None, custom_env_args=None, action_dict=None, render=False):
-    #env_args, alg_args, learn_args, log_args, variant = variant_util(load_variant(path))
-
     env_args, alg = get_configuration(path)
 
     if custom_env_args is not None:
@@ -52,10 +48,6 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
 
     episode_reward = []
     actions = []
-    large_reward = []
-    fault_penalty = []
-    constr_penalty= []
-    fault_risk_penalty = []
 
     for episode in range(num_episodes):
         print(f'Episode: {episode}/{num_episodes}')
@@ -63,11 +55,6 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
         done = False
         steps = 0
         cumulative_reward = 0
-
-        cumulative_large_reward= 0
-        cumulative_fault_penalty = 0
-        cumulative_fault_risk_penalty = 0
-        cumulative_constr_penalty = 0
 
         while not done:
             action, _ = agent.predict(observation=obs, deterministic=True)
@@ -83,43 +70,19 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
             steps += 1
             cumulative_reward += rew
 
-            #cumulative_large_reward += info['large_reward']
-            #cumulative_fault_penalty += info['fault_penalty']
-            #cumulative_fault_risk_penalty += info['fault_risk_penalty']
-            #cumulative_constr_penalty += info['constr_penalty']
-
         episode_reward.append(cumulative_reward)
-        large_reward.append(cumulative_large_reward)
-        fault_penalty.append(cumulative_fault_penalty)
-        constr_penalty.append(cumulative_constr_penalty)
-        fault_risk_penalty.append(cumulative_fault_risk_penalty)
 
     episode_reward = np.array(episode_reward)
-    fault_penalty = np.array(fault_penalty)
-    constr_penalty = np.array(constr_penalty)
-    fault_risk_penalty = np.array(fault_risk_penalty)
+
     print(f'Average Reward {np.mean(episode_reward)} +- {2 * np.std(episode_reward) / np.sqrt(episode_reward.shape[0])}')
 
-    #print(f'Average Large Reward: {np.mean(episode_reward)}\t {np.std(episode_reward) / np.sqrt(episode_reward.shape[0])}')
-    #print(f'Average Fault Penalty: {np.mean(fault_penalty)}\t {np.std(fault_penalty) / np.sqrt(fault_penalty.shape[0])}')
-    #print(f'Average Constr Penalty: {np.mean(constr_penalty)}\t {np.std(constr_penalty) / np.sqrt(constr_penalty.shape[0])}')
-    #rint(f'Fault Risk Penalty: {np.mean(fault_risk_penalty)}\t {np.std(fault_risk_penalty) / np.sqrt(fault_risk_penalty.shape[0])}')
-
-    #print('Actions Stats:')
-    #actions = np.array(actions)
-    #for i in range(len(env.unwrapped.policies)):
-    #    print(f'Policy {i}: {len(actions[actions == i]) / len(actions)}')
 
 if __name__ == '__main__':
-    path = '/home/thomas/Downloads/463593'
-    path = '/home/thomas/Downloads/299758'
-    path = '/home/thomas/Downloads/172658'
-    path = '/home/thomas/Downloads/38050'
-    path = '/home/thomas/Downloads/246278'
-    path = '/home/thomas/Downloads/259224'
-    path = '/home/thomas/Downloads/604409'
-    path = '/home/thomas/Downloads/switcher'
-    path = '/home/thomas/Downloads/172317'
+    path = '/home/thomas/Downloads/markov/data/'
+    subpath = 'oac_7dof-hit/sac/old_env_alpha100/442439'
+    #subpath = 'goal/sac/goal_30__ee/290727'
+
+    path = os.path.join(path, subpath)
 
     #path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb+home_rb/541699'
 
@@ -135,13 +98,12 @@ if __name__ == '__main__':
     }
 
     launch(path,
-           num_episodes=10,
+           num_episodes=20,
            random=False,
            always_action=None,
-           best=False,
+           best=True,
            store_traj=False,
-           seed=1,
+           seed=666,
            custom_env_args=custom_env_args,
-           action_dict=action_dict,
+           action_dict=None,
            render=True)
-    #eval_agent(path, num_episodes=10, parallel=1, render=True)

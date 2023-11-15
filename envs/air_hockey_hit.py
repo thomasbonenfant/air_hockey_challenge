@@ -11,7 +11,7 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 
 class AirHockeyHit(gym.Env):
-    def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False,
+    def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False, joint_acc_clip=None,
                  scale_obs=True, hit_coeff=100, max_path_len=400, scale_action=True, remove_last_joint=True, include_puck=True, alpha_r=1.0):
         self.env = env
         self.env_info = self.env.env_info
@@ -19,6 +19,7 @@ class AirHockeyHit(gym.Env):
         self.include_puck = include_puck
         self.include_ee = include_ee
         self.include_ee_vel = include_ee_vel
+        self.joint_acc_clip = joint_acc_clip
         self.remove_last_joint = remove_last_joint
         self.scale_obs = scale_obs
         self.scale_action = scale_action
@@ -123,6 +124,10 @@ class AirHockeyHit(gym.Env):
 
         low_action = self.env_info['robot']['joint_acc_limit'][0]
         high_action = self.env_info['robot']['joint_acc_limit'][1]
+
+        if self.joint_acc_clip is not None:
+            low_action = np.clip(low_action, -self.joint_acc_clip, 0)
+            high_action = np.clip(high_action, 0, self.joint_acc_clip)
 
         if self.remove_last_joint:
             low_action = low_action[:6]
