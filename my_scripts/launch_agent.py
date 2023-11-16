@@ -81,6 +81,11 @@ if __name__ == '__main__':
     path = '/home/thomas/Downloads/markov/data/'
     subpath = 'oac_7dof-hit/sac/old_env_alpha100/442439'
     #subpath = 'goal/sac/goal_30__ee/290727'
+    subpath = 'hit/sac/sde_alpha100/204552'
+    #subpath = 'hit/sac/clip_acceleration_6dof/802676'
+    subpath = 'hit/sac/clip_acceleration_aim_6dof/461264'
+    subpath = 'goal/sac/goal_30__ee__ee_vel/31108'
+    #subpath = 'hrl/ppo/without_opponent/82530'
 
     path = os.path.join(path, subpath)
 
@@ -101,9 +106,9 @@ if __name__ == '__main__':
            num_episodes=20,
            random=False,
            always_action=None,
-           best=True,
+           best=False,
            store_traj=False,
-           seed=666,
+           seed=None,
            custom_env_args=custom_env_args,
            action_dict=None,
            render=True)

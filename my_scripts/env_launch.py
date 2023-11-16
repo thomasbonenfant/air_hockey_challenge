@@ -5,7 +5,7 @@ import numpy as np
 from pprint import pprint
 from gymnasium.spaces import unflatten
 
-env = make_hit_env(include_ee=True,
+'''env = make_hit_env(include_ee=True,
                    include_ee_vel=True,
                    include_joints=True,
                    include_puck=True,
@@ -14,9 +14,10 @@ env = make_hit_env(include_ee=True,
                    alpha_r=10.0,
                    max_path_len=50,
                    scale_action=False,
-                   hit_coeff=1000,
+                   hit_coeff=50,
+                   aim_coeff=50,
                    joint_acc_clip=1.0)
-'''
+
 
 env = make_hrl_environment(['hit_rb', 'repel_oac', 'home_sb3', 'prepare_rb'],
                            steps_per_action=15,
@@ -25,7 +26,7 @@ env = make_hrl_environment(['hit_rb', 'repel_oac', 'home_sb3', 'prepare_rb'],
                            render=True,
                            include_joints=False,
                            include_timer=True,
-                           )
+                           )'''
 env = make_goal_env(include_joints=True,
                     include_ee=True,
                     include_ee_vel=True,
@@ -35,7 +36,8 @@ env = make_goal_env(include_joints=True,
                     remove_last_joint=False,
                     max_path_len=100,
                     scale_obs=True,
-                    goal_horizon=30)'''
+                    goal_horizon=30,
+                    joint_acc_clip=1.0)
 
 '''env = make_airhockey_oac('7dof-hit', high_level_action=False,use_atacom=True)'''
 

@@ -2,7 +2,7 @@ from air_hockey_challenge.framework import AgentBase
 from air_hockey_agent.utils.sb3_variant_util import get_configuration
 from gymnasium.spaces import Box, Dict, flatten_space, flatten
 import numpy as np
-from utils.ATACOM_transformation import AtacomTransformation, build_ATACOM_Controller
+from air_hockey_agent.utils.ATACOM_transformation import AtacomTransformation, build_ATACOM_Controller
 from air_hockey_challenge.utils.kinematics import forward_kinematics, jacobian
 from stable_baselines3 import PPO, SAC
 from air_hockey_agent.agents.kalman_filter import PuckTracker
@@ -80,7 +80,10 @@ class AgentSB3(AgentBase):
             'ee_constr': np.concatenate([ee_pos_norm[:2], ee_pos_norm[:2], ee_pos_norm[:2]])[:5]
         }
 
-        self.idx_to_delete = np.hstack([puck_pos_ids[2], puck_vel_ids[2], opponent_ee_ids])
+        self.idx_to_delete = np.hstack([puck_pos_ids[2], puck_vel_ids[2]])
+
+        if len(opponent_ee_ids) > 0:
+            self.idx_to_delete = np.hstack([self.idx_to_delete, opponent_ee_ids])
 
         if not self.include_puck:
             self.idx_to_delete = np.hstack([self.idx_to_delete, puck_pos_ids, puck_vel_ids])

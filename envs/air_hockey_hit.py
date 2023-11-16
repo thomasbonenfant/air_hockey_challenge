@@ -12,7 +12,7 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 class AirHockeyHit(gym.Env):
     def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False, joint_acc_clip=None,
-                 scale_obs=True, hit_coeff=100, max_path_len=400, scale_action=True, remove_last_joint=True, include_puck=True, alpha_r=1.0):
+                 scale_obs=True, hit_coeff=50, aim_coeff=50, max_path_len=400, scale_action=True, remove_last_joint=True, include_puck=True, alpha_r=1.0):
         self.env = env
         self.env_info = self.env.env_info
         self.include_joints = include_joints
@@ -24,6 +24,7 @@ class AirHockeyHit(gym.Env):
         self.scale_obs = scale_obs
         self.scale_action = scale_action
         self.hit_coeff = hit_coeff
+        self.aim_coeff = aim_coeff
         self.max_path_len = max_path_len
 
         self.alpha_r = alpha_r
@@ -37,6 +38,7 @@ class AirHockeyHit(gym.Env):
         self.table_length = self.env_info['table']['length']
         self.table_width = self.env_info['table']['width']
         self.table_diag = np.sqrt(self.table_length ** 2 + self.table_width ** 2)
+        self.goal_width = self.env_info['table']['goal_width']
 
         obs_space = self.env.env_info['rl_info'].observation_space
         low_state = obs_space.low
@@ -210,12 +212,40 @@ class AirHockeyHit(gym.Env):
         reward_constraints = - reward_constraints / penalty_sums
         return reward_constraints
 
+    def aim_reward(self):
+        if self.puck_vel[0] <= 0:
+            return 0
+
+        # compute upper and lower bound of max reward zone
+        top_goal = np.array([1.51 + self.table_length / 2, self.goal_width])
+        bottom_goal = np.array([1.51 + self.table_length / 2, -self.goal_width])
+        top_angle = np.arctan2(top_goal[1] - self.puck_pos[1], top_goal[0] - self.puck_pos[0])
+        bottom_angle = np.arctan2(bottom_goal[1] - self.puck_pos[1], bottom_goal[0] - self.puck_pos[0])
+
+        vel_angle = np.arctan2(self.puck_vel[1], self.puck_vel[0])
+
+        if bottom_angle <= vel_angle <= top_angle:
+            return 1
+
+        if self.puck_vel[1] > 0 or (self.puck_vel[1] == 0 and self.puck_pos[1] > 0):
+            alpha = np.pi / 2 - vel_angle
+            beta = vel_angle - top_angle
+
+        else:
+            alpha = np.pi / 2 + vel_angle
+            beta = - vel_angle + bottom_angle
+
+        reward = alpha / (alpha + beta)
+        return reward
+
     def reward(self, info):
         reward = 0
         if self.has_hit:
             if self.puck_vel[0] > 0:
-                reward = self.hit_coeff * (self.puck_vel[0] / self.max_vel)
-                #reward = self.hit_coeff * (np.linalg.norm(self.puck_vel[:2]) / self.max_vel)
+                #reward = self.hit_coeff * (self.puck_vel[0] / self.max_vel)
+                reward = self.hit_coeff * (np.linalg.norm(self.puck_vel[:2]) / self.max_vel)
+                reward += self.aim_coeff * self.aim_reward()
+
         else:
             reward = - (np.linalg.norm(self.ee_pos[:2] - self.puck_pos[:2]) / (0.5 * self.table_diag))
 

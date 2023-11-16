@@ -59,7 +59,7 @@ def main(cfg):
         alg_args['train_freq'] = tuple(alg_args['train_freq']) # tuple is required and not list
 
     model = alg_cls(env=env, seed=seed, **alg_args)
-    model.learn(**cfg.learn, tb_log_name=tb_log_dir, callback=callback_list)
+    model.learn(**cfg.learn, tb_log_name=tb_log_dir, callback=callback_list, reset_num_timesteps=False)
     model.save(os.path.join(log_dir, "model.zip"))
 
     if isinstance(model, OffPolicyAlgorithm):

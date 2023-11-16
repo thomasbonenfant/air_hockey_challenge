@@ -55,23 +55,24 @@ def make_hrl_environment(policies, steps_per_action=100, include_timer=False, in
 
 
 def make_hit_env(include_joints, include_ee, include_ee_vel, joint_acc_clip, include_puck, remove_last_joint,
-                 scale_obs, scale_action, alpha_r, hit_coeff, max_path_len):
+                 scale_obs, scale_action, alpha_r, hit_coeff, aim_coeff, max_path_len):
     env = AirHockeyDouble(interpolation_order=3)
     env = AirHockeyHit(env, include_joints=include_joints, include_ee=include_ee, include_ee_vel=include_ee_vel,
                        include_puck=include_puck, remove_last_joint=remove_last_joint, scale_obs=scale_obs,
                        joint_acc_clip=joint_acc_clip, scale_action=scale_action, alpha_r=alpha_r, hit_coeff=hit_coeff,
-                       max_path_len=max_path_len)
+                       aim_coeff=aim_coeff, max_path_len=max_path_len)
     env = FlattenObservation(env)
     # env = InfoStatsWrapper(env, info_keywords=['joint_pos_constr', 'joint_vel_constr', 'ee_constr'])
     return env
 
 
 def make_goal_env(include_joints, include_ee, include_ee_vel, include_puck, remove_last_joint,
-                  scale_obs, scale_action, alpha_r, goal_horizon, max_path_len):
+                  scale_obs, scale_action, alpha_r, goal_horizon, max_path_len, joint_acc_clip):
     env = AirHockeyDouble(interpolation_order=3)
     env = AirHockeyGoal(env, include_joints=include_joints, include_ee=include_ee, include_ee_vel=include_ee_vel,
                         include_puck=include_puck, remove_last_joint=remove_last_joint, scale_obs=scale_obs,
-                        scale_action=scale_action, alpha_r=alpha_r, goal_horizon=goal_horizon, max_path_len=max_path_len)
+                        scale_action=scale_action, alpha_r=alpha_r, goal_horizon=goal_horizon, max_path_len=max_path_len,
+                        joint_acc_clip=joint_acc_clip)
     env = FlattenObservation(env)
     return env
 

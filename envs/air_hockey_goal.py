@@ -12,7 +12,7 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 class AirHockeyGoal(gym.Env):
     def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False,
-                 scale_obs=True, hit_coeff=100, max_path_len=400, scale_action=True, remove_last_joint=True,
+                 joint_acc_clip=None, scale_obs=True, max_path_len=400, scale_action=True, remove_last_joint=True,
                  include_puck=True, alpha_r=1.0, goal_horizon=30):
         self.env = env
         self.env_info = self.env.env_info
@@ -20,10 +20,10 @@ class AirHockeyGoal(gym.Env):
         self.include_puck = include_puck
         self.include_ee = include_ee
         self.include_ee_vel = include_ee_vel
+        self.joint_acc_clip = joint_acc_clip
         self.remove_last_joint = remove_last_joint
         self.scale_obs = scale_obs
         self.scale_action = scale_action
-        self.hit_coeff = hit_coeff
         self.max_path_len = max_path_len
 
         self.alpha_r = alpha_r
@@ -124,18 +124,20 @@ class AirHockeyGoal(gym.Env):
                 ee_vel = Box(-self.max_vel * np.ones((2,)), self.max_vel * np.ones((2,)))
             obs_dict['ee_vel'] = ee_vel
 
-        obs_dict['goal_step'] = Discrete(self.goal_horizon)
+        print(obs_dict['ee_pos'])
+        goal_dict = {'g_' + k: v for k, v in obs_dict.items() if k in ('ee_pos', 'ee_vel')}
 
         self.state_space: Dict = Dict(obs_dict)
-        self.goal_space = Dict({k: v for k, v in obs_dict.items() if k in ('ee_pos')})  # copy of observation space
+        self.goal_space = Dict(goal_dict)
 
-        self.observation_space = Dict({
-            'obs': self.state_space,
-            'goal': self.goal_space
-        })
+        self.observation_space = Dict({**obs_dict, **goal_dict})
 
         low_action = self.env_info['robot']['joint_acc_limit'][0]
         high_action = self.env_info['robot']['joint_acc_limit'][1]
+
+        if self.joint_acc_clip is not None:
+            low_action = np.clip(low_action, -self.joint_acc_clip, 0)
+            high_action = np.clip(high_action, 0, self.joint_acc_clip)
 
         if self.remove_last_joint:
             low_action = low_action[:6]
@@ -164,7 +166,7 @@ class AirHockeyGoal(gym.Env):
         return action
 
     def relative_goal(self, obs: dict, goal: dict):
-        obs = {k: obs[k] for k in self.goal_space.keys()}
+        obs = {k: obs[k.split('g_')[1]] for k in self.goal_space.keys()}
         obs_flatten = flatten(self.goal_space, obs)
         goal_flatten = flatten(self.goal_space, goal)
 
@@ -202,8 +204,13 @@ class AirHockeyGoal(gym.Env):
         if self.t >= self.max_path_len:
             done = True
 
-        obs_and_goal = {'obs': obs,
-                        'goal': self.relative_goal(obs, self.goal)}
+        rel_goal = self.relative_goal(obs, self.goal)
+
+        # check if goal is reached
+        #if np.linalg.norm(flatten(self.goal_space, rel_goal)) < 0.1:
+        #    done = True
+
+        obs_and_goal = {**obs, **rel_goal}
 
         self.prev_obs = obs
 
@@ -223,8 +230,7 @@ class AirHockeyGoal(gym.Env):
 
         self.goal = self.goal_space.sample()
 
-        obs_and_goal = {'obs': obs,
-                        'goal': self.relative_goal(obs, self.goal)}
+        obs_and_goal = {**obs, **self.relative_goal(obs, self.goal)}
 
         return obs_and_goal, None
 
@@ -257,7 +263,7 @@ class AirHockeyGoal(gym.Env):
 
         # parameterized reward
         goal_array = flatten(self.goal_space, self.goal)
-        obs_array = flatten(self.goal_space, {k: obs[k] for k in self.goal_space.keys()})
+        obs_array = flatten(self.goal_space, {k: obs[k.split('g_')[1]] for k in self.goal_space.keys()})
         reward = - np.linalg.norm(goal_array - obs_array) # distance from the goal
 
         reward_constraint = self.alpha_r * self._reward_constraints(info)
@@ -339,6 +345,14 @@ class AirHockeyGoal(gym.Env):
         return self.env.seed(seed)
 
     def render(self, render_mode='human'):
+        goal_pos = self.goal['g_ee_pos'].copy()
+
+        if self.scale_obs:
+            goal_pos = self.min_dict['ee_pos'] + (goal_pos + 1) * 0.5 * self.range_dict['ee_pos']
+
+        goal_pos[0] -= 1.51
+
+        self.env.base_env._data.site("goal_vis").xpos = np.hstack([goal_pos, 0])
         self.env.render()
 
     def get_puck_pos(self, obs):
