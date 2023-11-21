@@ -124,7 +124,6 @@ class AirHockeyGoal(gym.Env):
                 ee_vel = Box(-self.max_vel * np.ones((2,)), self.max_vel * np.ones((2,)))
             obs_dict['ee_vel'] = ee_vel
 
-        print(obs_dict['ee_pos'])
         goal_dict = {'g_' + k: v for k, v in obs_dict.items() if k in ('ee_pos', 'ee_vel')}
 
         self.state_space: Dict = Dict(obs_dict)
@@ -207,8 +206,8 @@ class AirHockeyGoal(gym.Env):
         rel_goal = self.relative_goal(obs, self.goal)
 
         # check if goal is reached
-        #if np.linalg.norm(flatten(self.goal_space, rel_goal)) < 0.1:
-        #    done = True
+        if np.linalg.norm(rel_goal['g_ee_pos']) < 0.1:
+            done = True
 
         obs_and_goal = {**obs, **rel_goal}
 
@@ -262,9 +261,25 @@ class AirHockeyGoal(gym.Env):
         """
 
         # parameterized reward
-        goal_array = flatten(self.goal_space, self.goal)
+        '''goal_array = flatten(self.goal_space, self.goal)
         obs_array = flatten(self.goal_space, {k: obs[k.split('g_')[1]] for k in self.goal_space.keys()})
-        reward = - np.linalg.norm(goal_array - obs_array) # distance from the goal
+        reward = - np.linalg.norm(goal_array - obs_array) # distance from the goal'''
+
+        goal_pos = self.goal['g_ee_pos']
+        ee_pos = obs['ee_pos']
+        pos_rew = - np.linalg.norm(goal_pos - ee_pos) / (2 * np.sqrt(2))
+
+        rel_goal = self.relative_goal(obs, self.goal)
+
+        vel_rew = 0
+        epsilon = 0.01 # if goal velocity is reached the vel reward is 100
+
+        if np.linalg.norm(rel_goal['g_ee_pos']) < 0.1: # If reached the position
+            goal_vel = self.goal['g_ee_vel']
+            ee_vel = obs['ee_vel']
+            vel_rew = 1 / (np.linalg.norm(goal_vel - ee_vel) + epsilon)
+
+        reward = pos_rew + vel_rew
 
         reward_constraint = self.alpha_r * self._reward_constraints(info)
         reward += reward_constraint

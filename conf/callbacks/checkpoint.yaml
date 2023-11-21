@@ -1,5 +1,5 @@
 checkpoint:
-  save_freq: 100000
+  save_freq: 10000
   save_path: checkpoints
   name_prefix: ckpt
   save_replay_buffer: true

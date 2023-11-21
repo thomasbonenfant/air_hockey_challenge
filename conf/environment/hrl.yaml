@@ -12,5 +12,5 @@ fault_risk_penalty: 0
 policies:
   - repel_oac
   - home_sb3
-  - hit_rb
+  - hit_sb3
   - prepare_rb

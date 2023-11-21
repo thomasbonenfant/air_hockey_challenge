@@ -4,8 +4,9 @@ include_ee: true
 include_ee_vel: true
 scale_obs: true
 scale_action: false
-remove_last_joint: false
+remove_last_joint: true
 include_puck: false
 alpha_r: 1.0
-goal_horizon: 30
-max_path_len: 120
+goal_horizon: 1000
+max_path_len: 100
+joint_acc_clip: 1.0
