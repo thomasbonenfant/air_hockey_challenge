@@ -3,6 +3,7 @@ from air_hockey_agent.utils.sb3_variant_util import get_configuration
 from my_scripts.experiment2 import alg_dict
 import os
 import numpy as np
+from my_scripts.utils.logger import Logger
 
 
 class ConstAgent():
@@ -21,7 +22,7 @@ class RandomAgent():
         return self.ac.sample(), None
 
 
-def launch(path, num_episodes, random=False, always_action=None, best=False, store_traj=False, seed=None, custom_env_args=None, action_dict=None, render=False):
+def launch(path, num_episodes, random=False, always_action=None, best=False, logger=None, seed=None, custom_env_args=None, action_dict=None, render=False):
     env_args, alg = get_configuration(path)
 
     if custom_env_args is not None:
@@ -64,7 +65,10 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
                 print(f'Action: {action_dict[int(action)]}')
 
             obs, rew, done, _, info = env.step(action)
-            #print(rew)
+
+            if logger:
+                logger.store(action, obs, rew, done, info)
+
             if render:
                 env.render()
             steps += 1
@@ -73,6 +77,10 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, sto
         episode_reward.append(cumulative_reward)
 
     episode_reward = np.array(episode_reward)
+
+    if logger:
+        logger.dump()
+        logger.save_env_info(env.env.env_info)
 
     print(f'Average Reward {np.mean(episode_reward)} +- {2 * np.std(episode_reward) / np.sqrt(episode_reward.shape[0])}')
 
@@ -84,15 +92,19 @@ if __name__ == '__main__':
     subpath = 'hit/sac/sde_alpha100/204552'
     #subpath = 'hit/sac/clip_acceleration_6dof/802676'
     subpath = 'hit/sac/clip_acceleration_aim_6dof/461264'
-    subpath = 'goal/sac/goal_30__ee__ee_vel/31108'
+    #subpath = 'goal/sac/goal_30__ee__ee_vel/31108'
     #subpath = 'hrl/ppo/without_opponent/82530'
+    #subpath = 'hrl/ppo/new_hit/643566'
+    #subpath = 'goal/sac/new_reward_gamma_0.999/955943'
 
     path = os.path.join(path, subpath)
 
     #path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb+home_rb/541699'
 
     custom_env_args = {
-
+        #'joint_acc_clip': [6, 11, 5, 6, 1, 9, 100],
+        #'scale_action': True
+        'stop_after_hit': True
     }
 
     action_dict = {
@@ -102,12 +114,14 @@ if __name__ == '__main__':
         3: 'Prepare',
     }
 
+    logger = Logger(log_path="/home/thomas/Desktop/sb3_logs")
+
     launch(path,
-           num_episodes=20,
+           num_episodes=10,
            random=False,
            always_action=None,
-           best=False,
-           store_traj=False,
+           best=True,
+           logger=None,
            seed=None,
            custom_env_args=custom_env_args,
            action_dict=None,

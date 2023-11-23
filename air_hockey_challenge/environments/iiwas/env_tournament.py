@@ -67,7 +67,7 @@ class AirHockeyTournament(AirHockeyDouble):
         return 0
 
     def is_absorbing(self, obs):
-        puck_pos, puck_vel = self.get_puck(obs)
+        '''puck_pos, puck_vel = self.get_puck(obs)
 
         # Puck stuck on one side for more than 15s
         if np.sign(puck_pos[0]) == self.prev_side:
@@ -104,6 +104,12 @@ class AirHockeyTournament(AirHockeyDouble):
 
         # Puck stuck in the middle
         if np.abs(puck_pos[0]) < 0.15 and np.linalg.norm(puck_vel[0]) < 0.025:
+            return True
+        return super(AirHockeyTournament, self).is_absorbing(obs)'''
+
+        puck_pos, puck_vel = self.get_puck(obs)
+        # Stop if the puck bounces back on the opponents wall
+        if puck_pos[0] > 0 and puck_vel[0] < 0:
             return True
         return super(AirHockeyTournament, self).is_absorbing(obs)
 

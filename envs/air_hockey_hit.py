@@ -12,20 +12,23 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 class AirHockeyHit(gym.Env):
     def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False, joint_acc_clip=None,
-                 scale_obs=True, hit_coeff=50, aim_coeff=50, max_path_len=400, scale_action=True, remove_last_joint=True, include_puck=True, alpha_r=1.0):
+                 scale_obs=True, hit_coeff=50, aim_coeff=50, max_path_len=400, scale_action=True, remove_last_joint=True, include_puck=True, alpha_r=1.0,
+                 stop_after_hit=False):
         self.env = env
         self.env_info = self.env.env_info
         self.include_joints = include_joints
         self.include_puck = include_puck
         self.include_ee = include_ee
         self.include_ee_vel = include_ee_vel
-        self.joint_acc_clip = joint_acc_clip
+        self.joint_acc_clip = np.array(joint_acc_clip)
         self.remove_last_joint = remove_last_joint
         self.scale_obs = scale_obs
         self.scale_action = scale_action
         self.hit_coeff = hit_coeff
         self.aim_coeff = aim_coeff
         self.max_path_len = max_path_len
+
+        self.stop_after_hit = stop_after_hit
 
         self.alpha_r = alpha_r
 
@@ -147,6 +150,7 @@ class AirHockeyHit(gym.Env):
 
         self._obs = None
         self.has_hit = False
+        self.hit_rew_given = False
 
         self.t = 0
 
@@ -170,10 +174,27 @@ class AirHockeyHit(gym.Env):
 
         self._post_simulation(obs)
         info = self.process_info(info)
-        reward, info = self.reward(info)
+        reward, info = self.reward(info, done)
 
         if self.has_hit:
-            done = True
+        #    done = True
+            if self.stop_after_hit:
+                while not done:
+                    # draws random action
+                    action = self.action_space.sample()
+                    if self.remove_last_joint:
+                        action = np.hstack([action, 0])
+                    action = self.atacom_transformation.draw_action(self._obs, action)
+
+                    obs, rew, done, info = self.env.step(action)
+                    self.env.render()
+                    self._post_simulation(obs)
+                    info = self.process_info(info)
+                    rew, info = self.reward(info, done)
+
+                    reward += rew
+            else:
+                done = True
 
         if self.t >= self.max_path_len:
             done = True
@@ -184,6 +205,7 @@ class AirHockeyHit(gym.Env):
         obs = self.env.reset()
         self.t = 0
         self.has_hit = False
+        self.hit_rew_given = False
 
         self._post_simulation(obs)
         self.atacom_transformation.reset()
@@ -238,16 +260,25 @@ class AirHockeyHit(gym.Env):
         reward = alpha / (alpha + beta)
         return reward
 
-    def reward(self, info):
+    def reward(self, info, done):
         reward = 0
-        if self.has_hit:
-            if self.puck_vel[0] > 0:
-                #reward = self.hit_coeff * (self.puck_vel[0] / self.max_vel)
-                reward = self.hit_coeff * (np.linalg.norm(self.puck_vel[:2]) / self.max_vel)
-                reward += self.aim_coeff * self.aim_reward()
 
+        if done:
+            reward = self.hit_coeff * info['success']
+            print(reward)
         else:
-            reward = - (np.linalg.norm(self.ee_pos[:2] - self.puck_pos[:2]) / (0.5 * self.table_diag))
+
+            if self.has_hit and not self.hit_rew_given:
+                self.hit_rew_given = True
+                if self.puck_vel[0] > 0:
+                    #reward = self.hit_coeff * (self.puck_vel[0] / self.max_vel)
+                    reward = self.hit_coeff * (np.linalg.norm(self.puck_vel[:2]) / self.max_vel)
+                    reward += self.aim_coeff * self.aim_reward()
+
+            else:
+                reward = - (np.linalg.norm(self.ee_pos[:2] - self.puck_pos[:2]) / (0.5 * self.table_diag))
+
+
 
         reward_constraint = self.alpha_r * self._reward_constraints(info)
         reward += reward_constraint
