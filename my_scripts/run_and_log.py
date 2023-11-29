@@ -7,7 +7,7 @@ from my_scripts.utils.logger import Logger
 import numpy as np
 
 env = AirHockeyChallengeWrapper('tournament')
-agent1 = AgentSB3(env_info=env.env_info, path="Agents/Hit_Agent")
+agent1 = AgentSB3(env_info=env.env_info, path="/home/thomas/Downloads/markov/data/hit/sac/fineTunedClip_6dof_withoutOpponent/561982")
 #agent1 = BaselineAgent(env_info=env.env_info, agent_id=1)
 agent2 = DelayedBaseline(env_info=env.env_info, start_time=50)
 
@@ -43,7 +43,7 @@ while step < n_steps:
 
     step += 1
 
-    #logger.store(action1, obs1, reward, done, info)
+    logger.store(action1, obs1, reward, done, info)
 
-#logger.dump()
+logger.dump()
 

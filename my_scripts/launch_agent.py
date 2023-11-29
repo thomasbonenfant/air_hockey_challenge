@@ -96,15 +96,17 @@ if __name__ == '__main__':
     #subpath = 'hrl/ppo/without_opponent/82530'
     #subpath = 'hrl/ppo/new_hit/643566'
     #subpath = 'goal/sac/new_reward_gamma_0.999/955943'
+    subpath = 'hit/sac/fineTunedClip_6dof_withoutOpponent/561982'
 
     path = os.path.join(path, subpath)
 
     #path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb+home_rb/541699'
 
     custom_env_args = {
-        #'joint_acc_clip': [6, 11, 5, 6, 1, 9, 100],
+        #'joint_acc_clip': [1, 1, 1, 1, 1, 1, 100],
         #'scale_action': True
-        'stop_after_hit': True
+        #'stop_after_hit': True
+        'include_opponent': False
     }
 
     action_dict = {
@@ -117,11 +119,11 @@ if __name__ == '__main__':
     logger = Logger(log_path="/home/thomas/Desktop/sb3_logs")
 
     launch(path,
-           num_episodes=10,
+           num_episodes=20,
            random=False,
            always_action=None,
            best=True,
-           logger=None,
+           logger=logger,
            seed=None,
            custom_env_args=custom_env_args,
            action_dict=None,

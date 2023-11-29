@@ -31,10 +31,12 @@ class AirHockeyDouble(AirHockeyBase):
                                                       np.array([0.65, 0., 0.1645]),
                                                       R.from_euler('xyz', [0, 5 / 6 * np.pi, 0]).as_matrix(),
                                                       initial_q=init_state)
-        positions = np.load('home_init/joint_pos.npz')
-        self.init_state2 = positions[randint(0, positions.shape[0] - 1), :]
+        positions_filtered = np.load('home_init/joint_pos.npz')
+        positions_all = np.load('home_init/joint_pos_all.npz')
+        self.init_state = positions_all[randint(0, positions_all.shape[0] - 1), :]
+        self.init_state2 = positions_filtered[randint(0, positions_filtered.shape[0] - 1), :]
 
-        assert success is True
+        #assert success is True
 
     def get_ee(self, robot=1):
         """
@@ -134,7 +136,7 @@ class AirHockeyDouble(AirHockeyBase):
             self._data.joint("iiwa_2/joint_" + str(i + 1)).qpos = self.init_state2[i]
 
             self.q_pos_prev[i] = self.init_state[i]
-            self.q_pos_prev[i + 7] = self.init_state[i]
+            self.q_pos_prev[i + 7] = self.init_state2[i]
             self.q_vel_prev[i] = self._data.joint("iiwa_1/joint_" + str(i + 1)).qvel
             self.q_vel_prev[i + 7] = self._data.joint("iiwa_2/joint_" + str(i + 1)).qvel
 

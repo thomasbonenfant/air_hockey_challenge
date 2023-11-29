@@ -17,9 +17,9 @@ alg_dict = {
 class AgentSB3(AgentBase):
     def __init__(self, env_info, path, acc_ratio=1.0, random=False, **kwargs):
         super().__init__(env_info, **kwargs)
-        dir_path = os.path.dirname(os.path.abspath(__file__))
+        #dir_path = os.path.dirname(os.path.abspath(__file__))
 
-        path = os.path.join(dir_path, path)
+        #path = os.path.join(dir_path, path)
         agent_path = os.path.join(path, 'best_model')
         self.env_info = env_info
 
@@ -83,7 +83,10 @@ class AgentSB3(AgentBase):
         self.idx_to_delete = np.hstack([puck_pos_ids[2], puck_vel_ids[2]])
 
         if len(opponent_ee_ids) > 0:
-            self.idx_to_delete = np.hstack([self.idx_to_delete, opponent_ee_ids])
+            self.idx_to_delete = np.hstack([self.idx_to_delete, opponent_ee_ids[:2]])
+
+            if not hasattr(self, 'include_opponent') or not self.include_opponent:
+                self.idx_to_delete = np.hstack([self.idx_to_delete, opponent_ee_ids])
 
         if not self.include_puck:
             self.idx_to_delete = np.hstack([self.idx_to_delete, puck_pos_ids, puck_vel_ids])
@@ -131,6 +134,10 @@ class AgentSB3(AgentBase):
 
         low_action = self.acc_ratio * self.env_info['robot']['joint_acc_limit'][0]
         high_action = self.acc_ratio * self.env_info['robot']['joint_acc_limit'][1]
+
+        if self.joint_acc_clip:
+            low_action = np.clip(low_action, -self.joint_acc_clip, 0)
+            high_action = np.clip(high_action, 0, self.joint_acc_clip)
 
         if self.remove_last_joint:
             low_action = low_action[:6]

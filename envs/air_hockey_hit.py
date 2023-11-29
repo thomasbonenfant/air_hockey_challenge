@@ -11,13 +11,14 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 
 class AirHockeyHit(gym.Env):
-    def __init__(self, env: AirHockeyDouble, include_joints=False, include_ee=False, include_ee_vel=False, joint_acc_clip=None,
+    def __init__(self, env: AirHockeyDouble, include_joints=False, include_opponent=False, include_ee=False, include_ee_vel=False, joint_acc_clip=None,
                  scale_obs=True, hit_coeff=50, aim_coeff=50, max_path_len=400, scale_action=True, remove_last_joint=True, include_puck=True, alpha_r=1.0,
                  stop_after_hit=False):
         self.env = env
         self.env_info = self.env.env_info
         self.include_joints = include_joints
         self.include_puck = include_puck
+        self.include_opponent = include_opponent
         self.include_ee = include_ee
         self.include_ee_vel = include_ee_vel
         self.joint_acc_clip = np.array(joint_acc_clip)
@@ -81,7 +82,10 @@ class AirHockeyHit(gym.Env):
             'ee_constr': np.concatenate([ee_pos_norm[:2], ee_pos_norm[:2], ee_pos_norm[:2]])[:5]
         }
 
-        self.idx_to_delete = np.hstack([puck_pos_ids[2], puck_vel_ids[2], opponent_ee_ids])
+        self.idx_to_delete = np.hstack([puck_pos_ids[2], puck_vel_ids[2], opponent_ee_ids[2]])
+
+        if not self.include_opponent:
+            self.idx_to_delete = np.hstack([self.idx_to_delete, opponent_ee_ids])
 
         if not self.include_puck:
             self.idx_to_delete = np.hstack([self.idx_to_delete, puck_pos_ids, puck_vel_ids])
@@ -179,7 +183,7 @@ class AirHockeyHit(gym.Env):
         if self.has_hit:
         #    done = True
             if self.stop_after_hit:
-                while not done:
+                while not done and self.t < self.max_path_len:
                     # draws random action
                     action = self.action_space.sample()
                     if self.remove_last_joint:
@@ -187,7 +191,8 @@ class AirHockeyHit(gym.Env):
                     action = self.atacom_transformation.draw_action(self._obs, action)
 
                     obs, rew, done, info = self.env.step(action)
-                    self.env.render()
+                    self.t += 1
+                    #self.env.render()
                     self._post_simulation(obs)
                     info = self.process_info(info)
                     rew, info = self.reward(info, done)
