@@ -1,11 +1,11 @@
 hydra.output_subdir: null
 learn:
-  total_timesteps: 35000000
+  total_timesteps: 10000000
 seed: null
 log_dir: '/home/airhockey/thomas/data/'
 log_interval: 10 # log statistics every n episodes
 parallel: 20
-label: fineTunedClip_6dof
+label: goal_new_termination
 defaults:
   - callbacks:
       - custom_eval

@@ -192,7 +192,7 @@ class AirHockeyHit(gym.Env):
 
                     obs, rew, done, info = self.env.step(action)
                     self.t += 1
-                    #self.env.render()
+                    self.env.render()
                     self._post_simulation(obs)
                     info = self.process_info(info)
                     rew, info = self.reward(info, done)
@@ -270,7 +270,6 @@ class AirHockeyHit(gym.Env):
 
         if done:
             reward = self.hit_coeff * info['success']
-            print(reward)
         else:
 
             if self.has_hit and not self.hit_rew_given:
@@ -282,8 +281,6 @@ class AirHockeyHit(gym.Env):
 
             else:
                 reward = - (np.linalg.norm(self.ee_pos[:2] - self.puck_pos[:2]) / (0.5 * self.table_diag))
-
-
 
         reward_constraint = self.alpha_r * self._reward_constraints(info)
         reward += reward_constraint

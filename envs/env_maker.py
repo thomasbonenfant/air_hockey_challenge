@@ -1,4 +1,5 @@
 from envs.airhockeydoublewrapper import AirHockeyDouble
+from air_hockey_challenge.framework import AirHockeyChallengeWrapper
 from air_hockey_agent.agents.agents import DefendAgent, HitAgent, PrepareAgent, RepelAgent
 from air_hockey_agent.agents.agent_sb3 import AgentSB3
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
@@ -6,9 +7,11 @@ from envs.fixed_options_air_hockey import HierarchicalEnv
 from envs.air_hockey_hit import AirHockeyHit
 from envs.air_hockey_goal import AirHockeyGoal
 from envs.air_hockey_oac import AirHockeyOAC
+from envs.air_hockey_option_task import AirHockeyOptionTask
 from gymnasium.wrappers import FlattenObservation, EnvCompatibility
 from utils.env_utils import NormalizedBoxEnv
 from envs.info_accumulator_wrapper import InfoStatsWrapper
+from envs.utils import PuckDirectionTask, PuckPositionVelocity, DummyTask, reward_hit
 
 policy_dict = {
     'hit_rb': lambda env_info: PolicyAgent(env_info, agent_id=1, task="hit"),
@@ -21,6 +24,30 @@ policy_dict = {
     'home_rb': lambda env_info: PolicyAgent(env_info, agent_id=1, task='home'),
     'home_sb3': lambda env_info: AgentSB3(env_info, acc_ratio=0.1, path="Agents/Home_Agent")
 }
+
+
+def make_option_environment(task, include_joints, include_ee, include_ee_vel, joint_acc_clip, include_puck, remove_last_joint,
+                 scale_obs, scale_action, alpha_r, max_path_len, stop_after_hit):
+    assert task in ['hit', 'defend', 'prepare']
+
+    if task == 'hit':
+        reward_fn = reward_hit
+    else:
+        raise NotImplementedError
+
+    task_obj = DummyTask()
+
+    env = AirHockeyChallengeWrapper('7dof-' + task, interpolation_order=3)
+    env = AirHockeyOptionTask(reward_fn, env=env, include_ee=include_ee, include_ee_vel=include_ee_vel,
+                          include_puck=include_puck, remove_last_joint=remove_last_joint, joint_acc_clip=joint_acc_clip,
+                          scale_obs=scale_obs, scale_action=scale_action, alpha_r=alpha_r, max_path_len=max_path_len,
+                          include_joints=include_joints, stop_after_hit=stop_after_hit)
+
+    env.set_task(task_obj)
+
+    #env = FlattenObservation(env)
+
+    return env
 
 
 def make_hrl_environment(policies, steps_per_action=100, include_timer=False, include_faults=False,
@@ -156,4 +183,6 @@ def create_producer(env_args):
         # needs an argument named env in the constructor
         env_args['env'] = env_name.split('oac_')[1]
         return lambda: make_airhockey_oac(**env_args)
+    if env_name == 'option':
+        return lambda: make_option_environment(**env_args)
     raise NotImplementedError

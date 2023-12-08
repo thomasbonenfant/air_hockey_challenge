@@ -26,7 +26,7 @@ env = make_hrl_environment(['hit_rb', 'repel_oac', 'home_sb3', 'prepare_rb'],
                            render=True,
                            include_joints=False,
                            include_timer=True,
-                           )'''
+                           )
 env = make_goal_env(include_joints=True,
                     include_ee=True,
                     include_ee_vel=True,
@@ -37,11 +37,24 @@ env = make_goal_env(include_joints=True,
                     max_path_len=100,
                     scale_obs=True,
                     goal_horizon=30,
-                    joint_acc_clip=1.0)
+                    joint_acc_clip=1.0)'''
 
 '''env = make_airhockey_oac('7dof-hit', high_level_action=False,use_atacom=True)'''
 
-seed = 666
+env = make_option_environment(task='hit',
+                              include_joints=True,
+                              include_ee=True,
+                              include_ee_vel=True,
+                              include_puck=True,
+                              joint_acc_clip=1,
+                              max_path_len=300,
+                              stop_after_hit=False,
+                              scale_action=False,
+                              alpha_r=0.0,
+                              scale_obs=True,
+                              remove_last_joint=True)
+
+seed = 1
 env.reset(seed=seed)
 env.action_space.seed(seed)
 
@@ -53,7 +66,7 @@ for i in range(10):
     while not done:
         action = env.action_space.sample()
         s, r, done, term, info = env.step(action)
-
+        print(s)
 
         #goal_pos = env.goal['g_ee_pos'].copy()
         #goal_pos[0] -= 1.51

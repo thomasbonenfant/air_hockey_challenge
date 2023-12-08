@@ -69,7 +69,7 @@ class AirHockeyGoal(gym.Env):
         joint_vel_norm = high_joints_vel - low_joints_vel
         joint_pos_norm = high_joints_pos - low_joints_pos
 
-        self.max_vel = self.env_info["rl_info"].observation_space.high[puck_vel_ids][0]
+        self.max_vel = 5 # self.env_info["rl_info"].observation_space.high[puck_vel_ids][0]
 
         self._constr_scales = {
             'joint_pos_constr': np.concatenate([joint_pos_norm, joint_pos_norm]),
@@ -206,7 +206,7 @@ class AirHockeyGoal(gym.Env):
         rel_goal = self.relative_goal(obs, self.goal)
 
         # check if goal is reached
-        if np.linalg.norm(rel_goal['g_ee_pos']) < 0.1:
+        if np.linalg.norm(rel_goal['g_ee_pos']) < 0.1 and np.linalg.norm(rel_goal['g_ee_vel']) < 0.1:
             done = True
 
         obs_and_goal = {**obs, **rel_goal}
@@ -261,11 +261,11 @@ class AirHockeyGoal(gym.Env):
         """
 
         # parameterized reward
-        '''goal_array = flatten(self.goal_space, self.goal)
+        goal_array = flatten(self.goal_space, self.goal)
         obs_array = flatten(self.goal_space, {k: obs[k.split('g_')[1]] for k in self.goal_space.keys()})
-        reward = - np.linalg.norm(goal_array - obs_array) # distance from the goal'''
+        reward = - np.linalg.norm(goal_array - obs_array) # distance from the goal
 
-        goal_pos = self.goal['g_ee_pos']
+        '''goal_pos = self.goal['g_ee_pos']
         ee_pos = obs['ee_pos']
         pos_rew = - np.linalg.norm(goal_pos - ee_pos) / (2 * np.sqrt(2))
 
@@ -279,7 +279,7 @@ class AirHockeyGoal(gym.Env):
             ee_vel = obs['ee_vel']
             vel_rew = 1 / (np.linalg.norm(goal_vel - ee_vel) + epsilon)
 
-        reward = pos_rew + vel_rew
+        reward = pos_rew + vel_rew'''
 
         reward_constraint = self.alpha_r * self._reward_constraints(info)
         reward += reward_constraint

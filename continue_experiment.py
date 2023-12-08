@@ -5,7 +5,7 @@ from omegaconf import OmegaConf
 from envs.env_maker import create_producer
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
-from my_scripts.utils import get_callbacks
+from exp_utils.utils import get_callbacks
 import os
 
 alg_dict = {
@@ -14,7 +14,7 @@ alg_dict = {
 }
 
 
-@hydra.main(version_base=None, config_path="../conf", config_name="load")
+@hydra.main(version_base=None, config_path="conf", config_name="load")
 def main(cfg):
     path = cfg['path']
 

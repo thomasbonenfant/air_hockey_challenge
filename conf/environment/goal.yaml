@@ -6,7 +6,7 @@ scale_obs: true
 scale_action: false
 remove_last_joint: true
 include_puck: false
-alpha_r: 1.0
+alpha_r: 0.0
 goal_horizon: 1000
-max_path_len: 100
+max_path_len: 200
 joint_acc_clip: 1.0

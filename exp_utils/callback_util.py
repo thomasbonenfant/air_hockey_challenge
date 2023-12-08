@@ -1,5 +1,5 @@
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
-from my_scripts.callbacks import RolloutInfoLog, CustomEvalCallback
+from exp_utils.callbacks import RolloutInfoLog, CustomEvalCallback
 from stable_baselines3.common.env_util import make_vec_env, SubprocVecEnv
 from envs import create_producer
 import os

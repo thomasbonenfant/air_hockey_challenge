@@ -4,10 +4,10 @@ import numpy as np
 
 
 class AirHockeyDouble(AirHockeyChallengeWrapper):
-    def __init__(self, interpolation_order=3, **kwargs):
+    def __init__(self, interpolation_order=3, opponent_delay=500, **kwargs):
         super().__init__("tournament", interpolation_order=interpolation_order, **kwargs)
 
-        self.second_agent = DelayedBaseline(self.env_info,start_time=500, agent_id=2)
+        self.second_agent = DelayedBaseline(self.env_info,start_time=opponent_delay, agent_id=2)
         self.second_agent_obs = None
 
         self.action_idx = (np.arange(self.base_env.action_shape[0][0]),

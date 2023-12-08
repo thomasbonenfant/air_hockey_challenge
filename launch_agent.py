@@ -1,9 +1,9 @@
 from envs.env_maker import create_producer
 from air_hockey_agent.utils.sb3_variant_util import get_configuration
-from my_scripts.experiment2 import alg_dict
+from experiment import alg_dict
 import os
 import numpy as np
-from my_scripts.utils.logger import Logger
+from exp_utils.logger import Logger
 
 
 class ConstAgent():
@@ -97,6 +97,8 @@ if __name__ == '__main__':
     #subpath = 'hrl/ppo/new_hit/643566'
     #subpath = 'goal/sac/new_reward_gamma_0.999/955943'
     subpath = 'hit/sac/fineTunedClip_6dof_withoutOpponent/561982'
+    #subpath = 'goal/sac/goal_new_termination/116338'
+    subpath = 'hit/sac/fineTunedClip_6dof/366766'
 
     path = os.path.join(path, subpath)
 
@@ -105,8 +107,8 @@ if __name__ == '__main__':
     custom_env_args = {
         #'joint_acc_clip': [1, 1, 1, 1, 1, 1, 100],
         #'scale_action': True
-        #'stop_after_hit': True
-        'include_opponent': False
+        #'stop_after_hit': True,
+        #'include_opponent': False
     }
 
     action_dict = {
@@ -119,7 +121,7 @@ if __name__ == '__main__':
     logger = Logger(log_path="/home/thomas/Desktop/sb3_logs")
 
     launch(path,
-           num_episodes=20,
+           num_episodes=10,
            random=False,
            always_action=None,
            best=True,

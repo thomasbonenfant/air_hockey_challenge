@@ -4,7 +4,7 @@ from envs import create_producer
 from stable_baselines3 import PPO, SAC, DQN
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 
-from my_scripts.utils import create_log_directory, get_callbacks
+from exp_utils.utils import create_log_directory, get_callbacks
 import os
 
 from omegaconf import OmegaConf
@@ -19,7 +19,7 @@ alg_dict = {
 }
 
 
-@hydra.main(version_base=None, config_path="../conf", config_name="config")
+@hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg):
     # print(OmegaConf.to_yaml(cfg))
     if 'environment' not in cfg:

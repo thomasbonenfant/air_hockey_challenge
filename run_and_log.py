@@ -1,8 +1,7 @@
 from air_hockey_agent.agents.hierarchical_agent import AgentSB3
-from baseline.baseline_agent.baseline_agent import BaselineAgent
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper
 from air_hockey_agent.delayed_baseline import DelayedBaseline
-from my_scripts.utils.logger import Logger
+from exp_utils.logger import Logger
 
 import numpy as np
 
