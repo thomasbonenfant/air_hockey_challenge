@@ -26,26 +26,26 @@ policy_dict = {
 }
 
 
-def make_option_environment(task, include_joints, include_ee, include_ee_vel, joint_acc_clip, include_puck, remove_last_joint,
-                 scale_obs, scale_action, alpha_r, max_path_len, stop_after_hit):
+def make_option_environment(task, include_opponent, include_joints, include_ee, include_ee_vel, joint_acc_clip, include_puck, remove_last_joint,
+                 scale_obs, scale_action, alpha_r, max_path_len, stop_after_hit, **kwargs):
     assert task in ['hit', 'defend', 'prepare']
 
     if task == 'hit':
         reward_fn = reward_hit
+        task_obj = PuckDirectionTask()
     else:
         raise NotImplementedError
 
-    task_obj = DummyTask()
 
     env = AirHockeyChallengeWrapper('7dof-' + task, interpolation_order=3)
-    env = AirHockeyOptionTask(reward_fn, env=env, include_ee=include_ee, include_ee_vel=include_ee_vel,
+    env = AirHockeyOptionTask(reward_fn, env=env, include_opponent=include_opponent, include_ee=include_ee, include_ee_vel=include_ee_vel,
                           include_puck=include_puck, remove_last_joint=remove_last_joint, joint_acc_clip=joint_acc_clip,
                           scale_obs=scale_obs, scale_action=scale_action, alpha_r=alpha_r, max_path_len=max_path_len,
                           include_joints=include_joints, stop_after_hit=stop_after_hit)
 
     env.set_task(task_obj)
 
-    #env = FlattenObservation(env)
+    env = FlattenObservation(env)
 
     return env
 

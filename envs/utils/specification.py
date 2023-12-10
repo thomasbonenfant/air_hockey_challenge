@@ -41,7 +41,7 @@ class Specification(object):
         self.include_opponent = include_opponent
         self.remove_last_joint = remove_last_joint
         self.alpha_r = alpha_r
-        self.joint_acc_clip = joint_acc_clip
+        self.joint_acc_clip = np.array(joint_acc_clip)
         self.max_path_len = max_path_len
         self.stop_after_hit = stop_after_hit
         self.scale_obs = scale_obs

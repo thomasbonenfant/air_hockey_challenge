@@ -12,9 +12,9 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 
 class AirHockeyOption(gym.Env):
-    def __init__(self, env, include_joints=False, include_ee=False, include_ee_vel=False,
+    def __init__(self, env, include_opponent=False, include_joints=False, include_ee=False, include_ee_vel=False,
                  joint_acc_clip=None, scale_obs=True, max_path_len=400, scale_action=True, remove_last_joint=True,
-                 include_puck=True, alpha_r=1.0, stop_after_hit=False):
+                 include_puck=True, alpha_r=1.0, stop_after_hit=False, **kwargs):
         self.env = env
         #self.env_info = self.env.env_info
 
@@ -23,7 +23,7 @@ class AirHockeyOption(gym.Env):
                                    include_ee=include_ee,
                                    include_ee_vel=include_ee_vel,
                                    include_puck=include_puck,
-                                   include_opponent=False, # for options we do not need the opponent
+                                   include_opponent=include_opponent, # for options we do not need the opponent
                                    joint_acc_clip=joint_acc_clip,
                                    scale_obs=scale_obs,
                                    scale_action=scale_action,

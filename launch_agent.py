@@ -3,7 +3,7 @@ from air_hockey_agent.utils.sb3_variant_util import get_configuration
 from experiment import alg_dict
 import os
 import numpy as np
-from exp_utils.logger import Logger
+from exp_utils import Logger
 
 
 class ConstAgent():
@@ -38,7 +38,7 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, log
         path = (os.path.join(path, 'best_model' if best else 'model'))
         agent = alg_cls.load(path)
     elif random:
-        print(f'Using Random Agent')
+        print('Using Random Agent')
         agent = RandomAgent(env.action_space)
     else:
         print(f'Always selecting action: {always_action}')
@@ -96,19 +96,21 @@ if __name__ == '__main__':
     #subpath = 'hrl/ppo/without_opponent/82530'
     #subpath = 'hrl/ppo/new_hit/643566'
     #subpath = 'goal/sac/new_reward_gamma_0.999/955943'
-    subpath = 'hit/sac/fineTunedClip_6dof_withoutOpponent/561982'
+    #subpath = 'hit/sac/fineTunedClip_6dof_withoutOpponent/561982'
     #subpath = 'goal/sac/goal_new_termination/116338'
-    subpath = 'hit/sac/fineTunedClip_6dof/366766'
+    #subpath = 'hit/sac/fineTunedClip_6dof/366766'
 
     path = os.path.join(path, subpath)
 
     #path = 'models/ppo/rb_hit+defend_oac+repel_oac+prepare_rb+home_rb/541699'
 
     custom_env_args = {
+        #'env': 'option',
+        #'task': 'hit',
         #'joint_acc_clip': [1, 1, 1, 1, 1, 1, 100],
         #'scale_action': True
-        #'stop_after_hit': True,
-        #'include_opponent': False
+        'stop_after_hit': False,
+        'include_opponent': False
     }
 
     action_dict = {
@@ -125,7 +127,7 @@ if __name__ == '__main__':
            random=False,
            always_action=None,
            best=True,
-           logger=logger,
+           logger=None,
            seed=None,
            custom_env_args=custom_env_args,
            action_dict=None,
