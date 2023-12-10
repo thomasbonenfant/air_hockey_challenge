@@ -8,8 +8,8 @@ def reward_hit(env, info, done):
 
     if not env.has_hit:
         reward = - (np.linalg.norm(env.ee_pos[:2] - env.puck_pos[:2]) / (0.5 * env.specs.table_diag))
-    '''else:
-        reward =  1 / (task.distance(env, info, done) + epsilon)'''
+    else:
+        reward = 1 / (env.task.distance(env, info, done) + epsilon)
 
     reward_constraint = env.specs.alpha_r * env._reward_constraints(info)
     reward += reward_constraint

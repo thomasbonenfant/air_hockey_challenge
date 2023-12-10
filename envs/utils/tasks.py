@@ -5,6 +5,9 @@ import numpy as np
 from envs.utils.interfaces import StateInterface
 
 
+def terminate_after_hit(env):
+    return env.has_hit
+
 class Task(ABC):
 
     @abstractmethod
@@ -26,6 +29,10 @@ class Task(ABC):
     @abstractmethod
     def distance(self, env: StateInterface, info, done):
         pass
+
+    @staticmethod
+    def done_condition(env):
+        return False
 
 class DummyTask(Task):
 
@@ -73,6 +80,10 @@ class PuckDirectionTask(Task):
 
     def get_task_obs(self):
         return {'puck_dir': self.task}
+
+    @staticmethod
+    def done_condition(env):
+        return terminate_after_hit(env)
 
 
 class PuckPositionVelocity(Task):

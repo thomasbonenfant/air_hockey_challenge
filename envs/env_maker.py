@@ -36,7 +36,6 @@ def make_option_environment(task, include_opponent, include_joints, include_ee, 
     else:
         raise NotImplementedError
 
-
     env = AirHockeyChallengeWrapper('7dof-' + task, interpolation_order=3)
     env = AirHockeyOptionTask(reward_fn, env=env, include_opponent=include_opponent, include_ee=include_ee, include_ee_vel=include_ee_vel,
                           include_puck=include_puck, remove_last_joint=remove_last_joint, joint_acc_clip=joint_acc_clip,

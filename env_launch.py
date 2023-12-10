@@ -1,3 +1,5 @@
+import random
+
 import torch
 
 from envs.env_maker import *
@@ -54,7 +56,10 @@ env = make_option_environment(task='hit',
                               alpha_r=0.0,
                               scale_obs=False,
                               remove_last_joint=True)
-seed = 1
+seed = 10
+random.seed(seed)
+np.random.seed(seed)
+torch.random.manual_seed(seed)
 env.reset(seed=seed)
 env.action_space.seed(seed)
 
@@ -66,6 +71,7 @@ for i in range(10):
     while not done:
         action = env.action_space.sample()
         s, r, done, term, info = env.step(action)
+        print(r)
 
         #goal_pos = env.goal['g_ee_pos'].copy()
         #goal_pos[0] -= 1.51

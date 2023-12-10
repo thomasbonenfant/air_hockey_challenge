@@ -10,7 +10,7 @@ class AirHockeyOptionTask(AirHockeyOption, StateInterface):
     def __init__(self, reward_fn: Callable, **kwargs):
         super().__init__(**kwargs)
         self.task = None
-        self.reward = lambda done, info : reward_fn(self, done, info)
+        self.reward = lambda info, done : reward_fn(self, info, done)
 
     def set_task(self, task: Task):
         self.task = task
@@ -19,6 +19,11 @@ class AirHockeyOptionTask(AirHockeyOption, StateInterface):
         self.observation_space = self.task.update_space(self.observation_space, self.specs)
 
         self.task.reset()
+
+    def step(self, action):
+        s, r, d, t, i = super().step(action)
+        d = d or self.task.done_condition(self)
+        return s, r, d, t, i
 
     def reset(self, seed=0, options=None):
         self.task.reset()

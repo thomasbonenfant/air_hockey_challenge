@@ -5,7 +5,7 @@ seed: null
 log_dir: '/home/airhockey/thomas/data/'
 log_interval: 10 # log statistics every n episodes
 parallel: 20
-label: goal_new_termination
+label: option_hit
 defaults:
   - callbacks:
       - custom_eval

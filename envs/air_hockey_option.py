@@ -1,6 +1,4 @@
 import gymnasium as gym
-from gymnasium.spaces import Box, Dict
-from envs.airhockeydoublewrapper import AirHockeyDouble
 from air_hockey_challenge.utils.kinematics import forward_kinematics, jacobian
 import numpy as np
 from utils.ATACOM_transformation import AtacomTransformation, build_ATACOM_Controller
