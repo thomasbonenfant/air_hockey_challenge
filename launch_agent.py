@@ -4,6 +4,7 @@ from experiment import alg_dict
 import os
 import numpy as np
 from exp_utils import Logger
+from gymnasium.spaces import unflatten
 
 
 class ConstAgent():
@@ -22,7 +23,8 @@ class RandomAgent():
         return self.ac.sample(), None
 
 
-def launch(path, num_episodes, random=False, always_action=None, best=False, logger=None, seed=None, custom_env_args=None, action_dict=None, render=False):
+def launch(path, num_episodes, random=False, always_action=None, best=False, logger=None, seed=None,
+           custom_env_args=None, action_dict=None, render=False, log_obs=False, log_reward=False):
     env_args, alg = get_configuration(path)
 
     if custom_env_args is not None:
@@ -66,6 +68,14 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, log
 
             obs, rew, done, _, info = env.step(action)
 
+            if log_obs:
+                obs_unflattened = unflatten(env.unwrapped.observation_space, obs)
+                print(obs_unflattened)
+
+            if log_reward:
+                if rew != 0.0:
+                    print(f'R: {rew}')
+
             if logger:
                 logger.store(action, obs, rew, done, info)
 
@@ -99,6 +109,7 @@ if __name__ == '__main__':
     #subpath = 'hit/sac/fineTunedClip_6dof_withoutOpponent/561982'
     #subpath = 'goal/sac/goal_new_termination/116338'
     #subpath = 'hit/sac/fineTunedClip_6dof/366766'
+    subpath = 'option/sac/hit/829284'
 
     path = os.path.join(path, subpath)
 
@@ -109,8 +120,8 @@ if __name__ == '__main__':
         #'task': 'hit',
         #'joint_acc_clip': [1, 1, 1, 1, 1, 1, 100],
         #'scale_action': True
-        'stop_after_hit': False,
-        'include_opponent': False
+        #'stop_after_hit': False,
+        #'include_opponent': False
     }
 
     action_dict = {
@@ -128,7 +139,9 @@ if __name__ == '__main__':
            always_action=None,
            best=True,
            logger=None,
-           seed=None,
+           seed=666,
            custom_env_args=custom_env_args,
            action_dict=None,
-           render=True)
+           render=True,
+           log_obs=False,
+           log_reward=True)

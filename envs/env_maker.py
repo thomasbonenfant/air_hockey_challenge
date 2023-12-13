@@ -11,7 +11,7 @@ from envs.air_hockey_option_task import AirHockeyOptionTask
 from gymnasium.wrappers import FlattenObservation, EnvCompatibility
 from utils.env_utils import NormalizedBoxEnv
 from envs.info_accumulator_wrapper import InfoStatsWrapper
-from envs.utils import PuckDirectionTask, PuckPositionVelocity, DummyTask, reward_hit
+from envs.utils import *
 
 policy_dict = {
     'hit_rb': lambda env_info: PolicyAgent(env_info, agent_id=1, task="hit"),
@@ -33,6 +33,12 @@ def make_option_environment(task, include_opponent, include_joints, include_ee, 
     if task == 'hit':
         reward_fn = reward_hit
         task_obj = PuckDirectionTask()
+    elif task == 'defend':
+        reward_fn = reward_defend
+        task_obj = PuckDirectionDefendTask()
+    elif task == 'prepare':
+        reward_fn = reward_prepare
+        task_obj = PuckPositionTask()
     else:
         raise NotImplementedError
 

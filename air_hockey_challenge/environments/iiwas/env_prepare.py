@@ -41,9 +41,9 @@ class AirHockeyPrepare(AirHockeySingle):
         return 0
 
     def is_absorbing(self, obs):
-        puck_pos, puck_vel = self.get_puck(obs)
+        '''puck_pos, puck_vel = self.get_puck(obs)
         if puck_pos[0] > 0 or np.abs(puck_pos[1]) < 1e-2:
-            return True
+            return True'''
         return super(AirHockeyPrepare, self).is_absorbing(obs)
 
 

@@ -34,11 +34,15 @@ class AirHockeyOptionTask(AirHockeyOption, StateInterface):
         state.update(self.task.get_task_obs())
         return state
 
+    def render(self, render_mode='human'):
+        self.task.render(self)
+        super().render(render_mode=render_mode)
+
     def get_state(self):
         res = {
             'ee_pos': self.ee_pos,
             'ee_vel': self.ee_vel,
-            'puck_pos': self.puck_pos,
+            'puck_pos': self.puck_pos[:2],
             'puck_vel': self.puck_vel
         }
         return deepcopy(res)

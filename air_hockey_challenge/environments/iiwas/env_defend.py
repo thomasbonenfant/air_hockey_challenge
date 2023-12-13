@@ -40,10 +40,10 @@ class AirHockeyDefend(AirHockeySingle):
     def is_absorbing(self, state):
         puck_pos, puck_vel = self.get_puck(state)
         # If puck is over the middle line and moving towards opponent
-        if puck_pos[0] > 0 and puck_vel[0] > 0:
+        '''if puck_pos[0] > 0 and puck_vel[0] > 0:
             return True
         if np.linalg.norm(puck_vel[:2]) < 0.1:
-            return True
+            return True'''
         return super().is_absorbing(state)
 
 

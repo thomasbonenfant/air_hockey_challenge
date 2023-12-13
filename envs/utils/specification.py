@@ -8,6 +8,7 @@ class Specification(object):
                  max_path_len, scale_action, remove_last_joint, include_puck, alpha_r, stop_after_hit):
         self._robot_model = env_info['robot']['robot_model']
         self._robot_data = env_info['robot']['robot_data']
+        self._robot_frame = env_info['robot']['base_frame']
         self._puck_radius = env_info["puck"]["radius"]
         self._mallet_radius = env_info["mallet"]["radius"]
         self._dt = env_info['dt']
@@ -32,7 +33,7 @@ class Specification(object):
         high_position = np.array([1.5, 0.5, 0.3])
         ee_pos_norm = high_position - low_position
 
-        self._max_vel = obs_space.high[self.puck_vel_ids][0]
+        self._max_vel = 5 #obs_space.high[self.puck_vel_ids][0]
 
         self.include_ee = include_ee
         self.include_ee_vel = include_ee_vel
@@ -186,6 +187,10 @@ class Specification(object):
     @property
     def robot_data(self):
         return self._robot_data
+
+    @property
+    def robot_frame(self):
+        return self._robot_frame
 
     @property
     def puck_radius(self):

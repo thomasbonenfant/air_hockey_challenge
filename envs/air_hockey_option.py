@@ -68,6 +68,10 @@ class AirHockeyOption(gym.Env):
 
         self._post_simulation(obs)
         info = self.process_info(info)
+
+        if self.t >= self.specs.max_path_len:
+            done = True
+
         reward, info = self.reward(info, done)
 
         if self.has_hit and self.specs.stop_after_hit:
@@ -87,8 +91,6 @@ class AirHockeyOption(gym.Env):
 
                 reward += rew
 
-        if self.t >= self.specs.max_path_len:
-            done = True
 
         return self.process_state(obs, None), reward, done, False, info
 

@@ -71,7 +71,6 @@ for i in range(10):
     while not done:
         action = env.action_space.sample()
         s, r, done, term, info = env.step(action)
-        print(r)
 
         #goal_pos = env.goal['g_ee_pos'].copy()
         #goal_pos[0] -= 1.51

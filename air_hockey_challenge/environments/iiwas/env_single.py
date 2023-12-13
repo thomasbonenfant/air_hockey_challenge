@@ -5,6 +5,8 @@ from scipy.spatial.transform import Rotation as R
 from air_hockey_challenge.environments.iiwas import AirHockeyBase
 from air_hockey_challenge.utils.kinematics import inverse_kinematics
 
+from random import randint
+
 
 class AirHockeySingle(AirHockeyBase):
     """
@@ -30,6 +32,9 @@ class AirHockeySingle(AirHockeyBase):
                                                       np.array([0.65, 0., 0.1645]),
                                                       R.from_euler('xyz', [0, 5 / 6 * np.pi, 0]).as_matrix(),
                                                       initial_q=init_state)
+
+        positions_all = np.load('home_init/joint_pos_all.npz')
+        self.init_state = positions_all[randint(0, positions_all.shape[0] - 1), :]
 
         assert success is True
 
@@ -92,6 +97,7 @@ class AirHockeySingle(AirHockeyBase):
         return new_obs
 
     def setup(self, obs):
+        self._compute_init_state()
         for i in range(7):
             self._data.joint("iiwa_1/joint_" + str(i + 1)).qpos = self.init_state[i]
             self.q_pos_prev[i] = self.init_state[i]
