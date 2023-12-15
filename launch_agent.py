@@ -97,11 +97,11 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, log
 
 if __name__ == '__main__':
     path = '/home/thomas/Downloads/markov/data/'
-    subpath = 'oac_7dof-hit/sac/old_env_alpha100/442439'
+    #subpath = 'oac_7dof-hit/sac/old_env_alpha100/442439'
     #subpath = 'goal/sac/goal_30__ee/290727'
-    subpath = 'hit/sac/sde_alpha100/204552'
+    #subpath = 'hit/sac/sde_alpha100/204552'
     #subpath = 'hit/sac/clip_acceleration_6dof/802676'
-    subpath = 'hit/sac/clip_acceleration_aim_6dof/461264'
+    #subpath = 'hit/sac/clip_acceleration_aim_6dof/461264'
     #subpath = 'goal/sac/goal_30__ee__ee_vel/31108'
     #subpath = 'hrl/ppo/without_opponent/82530'
     #subpath = 'hrl/ppo/new_hit/643566'
@@ -110,6 +110,7 @@ if __name__ == '__main__':
     #subpath = 'goal/sac/goal_new_termination/116338'
     #subpath = 'hit/sac/fineTunedClip_6dof/366766'
     subpath = 'option/sac/hit/829284'
+    subpath = 'option/sac/defend/123199'
 
     path = os.path.join(path, subpath)
 
@@ -120,8 +121,8 @@ if __name__ == '__main__':
         #'task': 'hit',
         #'joint_acc_clip': [1, 1, 1, 1, 1, 1, 100],
         #'scale_action': True
-        #'stop_after_hit': False,
-        #'include_opponent': False
+        #'stop_after_hit': True,
+        #'include_opponent': True
     }
 
     action_dict = {

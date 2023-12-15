@@ -57,6 +57,9 @@ class DummyTask(Task):
     def distance(self, env: StateInterface, info, done):
         return 0
 
+class DummyDefendTask(DummyTask):
+    def done_condition(self, env):
+        return env.puck_pos[0] >= 1.51 and env.puck_vel[0] > 0
 
 class PuckDirectionTask(Task):
     def __init__(self):
@@ -233,4 +236,5 @@ class PuckDirectionDefendTask(PuckDirectionTask):
         if w_puck_pos[0] < -env.specs.table_length / 2 + env.specs.mallet_radius:
             return True
 
-        return np.linalg.norm(puck_vel) < 0.1 and self.distance(env, {}, False) < np.pi / 6
+        return (np.linalg.norm(puck_vel) < 0.1 and self.distance(env, {}, False) < np.pi / 6) or \
+            (puck_vel[0] > 0 and puck_pos[0] >= 1.51)

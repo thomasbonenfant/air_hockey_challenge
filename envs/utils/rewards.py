@@ -8,7 +8,7 @@ def linear(distance, max_distance):
 
 def hyperbolic(delta, max_delta):
     epsilon = 0.001
-    #return 1 / (delta/max_delta + epsilon)
+    # return 1 / (delta/max_delta + epsilon)
     return 1 / (delta / 100 + epsilon) - (100 * delta / max_delta) / (np.pi + epsilon)
 
 
@@ -20,7 +20,7 @@ def reward_hit(env, info, done):
     else:
         if not env.hit_rew_given:
             delta = env.task.distance(env, info, done)
-            reward = hyperbolic(delta, np.pi)
+            reward = linear(delta, np.pi)
             reward *= np.linalg.norm(env.puck_vel[:2]) / env.specs.max_vel
             env.hit_rew_given = True
 
@@ -51,6 +51,26 @@ def reward_defend(env, info, done):
     return reward, info
 
 
+def reward_defend2(env, info, done):
+    reward = 0
+
+    w_puck_pos, _ = robot_to_world(env.specs.robot_frame[0], env.puck_pos)
+
+    # if hits the border or makes goal
+    if w_puck_pos[0] < -env.specs.table_length / 2 + env.specs.mallet_radius:
+        reward = -1000
+
+    if env.puck_vel[0] > 0 and w_puck_pos[0] >= 0:
+        reward = -100
+
+    reward += -np.linalg.norm(env.puck_vel[:2])
+
+    reward_constraint = env.specs.alpha_r * env._reward_constraints(info)
+    reward += reward_constraint
+    info['constr_reward'] = reward_constraint
+    return reward, info
+
+
 def reward_prepare(env, info, done):
     reward = 0
 
@@ -64,13 +84,7 @@ def reward_prepare(env, info, done):
         if done:
             reward = 100 if env.task.distance(env, info, done) < 0.2 else -100
 
-
     reward_constraint = env.specs.alpha_r * env._reward_constraints(info)
     reward += reward_constraint
     info['constr_reward'] = reward_constraint
     return reward, info
-
-
-
-
-

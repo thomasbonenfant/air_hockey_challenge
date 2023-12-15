@@ -5,7 +5,7 @@ from omegaconf import OmegaConf
 from envs.env_maker import create_producer
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
-from exp_utils.utils import get_callbacks
+from exp_utils.callback_util import get_callbacks
 import os
 
 alg_dict = {

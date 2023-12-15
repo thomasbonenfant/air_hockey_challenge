@@ -1,4 +1,4 @@
 hydra.output_subdir: null
-path: '/home/airhockey/thomas/data/hit/sac/clip_acceleration_6dof/802676'
+path: '/home/airhockey/thomas/data/option/sac/hit/829284'
 learn:
   total_timesteps: 5000000

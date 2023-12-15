@@ -2,10 +2,10 @@ hydra.output_subdir: null
 learn:
   total_timesteps: 10000000
 seed: null
-log_dir: '/tmp/test'
+log_dir: '/home/airhockey/thomas/data/'
 log_interval: 10 # log statistics every n episodes
-parallel: 1
-label: hit
+parallel: 10
+label: defend
 defaults:
   - callbacks:
       - custom_eval

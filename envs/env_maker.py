@@ -28,19 +28,22 @@ policy_dict = {
 
 def make_option_environment(task, include_opponent, include_joints, include_ee, include_ee_vel, joint_acc_clip, include_puck, remove_last_joint,
                  scale_obs, scale_action, alpha_r, max_path_len, stop_after_hit, **kwargs):
-    assert task in ['hit', 'defend', 'prepare']
-
     if task == 'hit':
         reward_fn = reward_hit
         task_obj = PuckDirectionTask()
     elif task == 'defend':
         reward_fn = reward_defend
         task_obj = PuckDirectionDefendTask()
+    elif task == 'defend_simple':
+        reward_fn = reward_defend2
+        task_obj = DummyDefendTask()
     elif task == 'prepare':
         reward_fn = reward_prepare
         task_obj = PuckPositionTask()
     else:
         raise NotImplementedError
+
+    task = task.split('_')[0]
 
     env = AirHockeyChallengeWrapper('7dof-' + task, interpolation_order=3)
     env = AirHockeyOptionTask(reward_fn, env=env, include_opponent=include_opponent, include_ee=include_ee, include_ee_vel=include_ee_vel,
