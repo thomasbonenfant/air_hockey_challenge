@@ -26,8 +26,9 @@ policy_dict = {
 }
 
 
-def make_option_environment(task, include_opponent, include_joints, include_ee, include_ee_vel, joint_acc_clip, include_puck, remove_last_joint,
-                 scale_obs, scale_action, alpha_r, max_path_len, stop_after_hit, include_hit_flag):
+def make_option_environment(task, include_opponent, include_joints, include_ee, include_ee_vel, joint_acc_clip,
+                            include_puck, remove_last_joint,
+                            scale_obs, scale_action, alpha_r, max_path_len, stop_after_hit, include_hit_flag):
     if task == 'hit':
         reward_fn = goal_reward_hit
         task_obj = PuckDirectionTask()
@@ -46,14 +47,27 @@ def make_option_environment(task, include_opponent, include_joints, include_ee, 
     task = task.split('_')[0]
 
     env = AirHockeyChallengeWrapper('7dof-' + task, interpolation_order=3)
-    env = AirHockeyOptionTask(reward_her=reward_fn, env=env, include_opponent=include_opponent, include_ee=include_ee, include_ee_vel=include_ee_vel,
-                              include_puck=include_puck, remove_last_joint=remove_last_joint, joint_acc_clip=joint_acc_clip,
-                              scale_obs=scale_obs, scale_action=scale_action, alpha_r=alpha_r, max_path_len=max_path_len,
-                              include_joints=include_joints, stop_after_hit=stop_after_hit, include_hit_flag=include_hit_flag)
+
+    specs = Specification(env_info=env.env_info,
+                          include_joints=include_joints,
+                          include_ee=include_ee,
+                          include_ee_vel=include_ee_vel,
+                          include_puck=include_puck,
+                          include_opponent=include_opponent,
+                          joint_acc_clip=joint_acc_clip,
+                          scale_obs=scale_obs,
+                          scale_action=scale_action,
+                          max_path_len=max_path_len,
+                          remove_last_joint=remove_last_joint,
+                          alpha_r=alpha_r,
+                          stop_after_hit=stop_after_hit,
+                          include_hit_flag=include_hit_flag)
+
+    env = AirHockeyOptionTask(specification=specs, reward_her=reward_fn, env=env)
 
     env.set_task(task_obj)
 
-    #env = FlattenObservation(env)
+    # env = FlattenObservation(env)
 
     return env
 
@@ -89,7 +103,8 @@ def make_hrl_environment(policies, steps_per_action=100, include_timer=False, in
     return env
 
 
-def make_hit_env(include_joints, include_opponent, include_ee, include_ee_vel, joint_acc_clip, include_puck, remove_last_joint,
+def make_hit_env(include_joints, include_opponent, include_ee, include_ee_vel, joint_acc_clip, include_puck,
+                 remove_last_joint,
                  scale_obs, scale_action, alpha_r, hit_coeff, aim_coeff, max_path_len, stop_after_hit):
     env = AirHockeyDouble(interpolation_order=3)
     env = AirHockeyHit(env, include_joints=include_joints, include_opponent=include_opponent,
@@ -107,7 +122,8 @@ def make_goal_env(include_joints, include_ee, include_ee_vel, include_puck, remo
     env = AirHockeyDouble(interpolation_order=3)
     env = AirHockeyGoal(env, include_joints=include_joints, include_ee=include_ee, include_ee_vel=include_ee_vel,
                         include_puck=include_puck, remove_last_joint=remove_last_joint, scale_obs=scale_obs,
-                        scale_action=scale_action, alpha_r=alpha_r, goal_horizon=goal_horizon, max_path_len=max_path_len,
+                        scale_action=scale_action, alpha_r=alpha_r, goal_horizon=goal_horizon,
+                        max_path_len=max_path_len,
                         joint_acc_clip=joint_acc_clip)
     env = FlattenObservation(env)
     return env
@@ -125,7 +141,6 @@ def make_airhockey_oac(env, interpolation_order=3,
                        curriculum_learning_step1=False, curriculum_learning_step2=False, curriculum_learning_step3=False
                        , start_from_defend=False, original_env=False, start_curriculum_transition=3000,
                        end_curriculum_transition=4000, curriculum_transition=False, **kwargs):
-
     env = AirHockeyOAC(env, interpolation_order=interpolation_order,
                        simple_reward=simple_reward,
                        high_level_action=high_level_action,
