@@ -7,8 +7,9 @@ scale_obs: true
 scale_action: false
 remove_last_joint: true
 include_puck: true
+include_hit_flag: false
 stop_after_hit: false
 alpha_r: 0.0
 max_path_len: 300
 joint_acc_clip: 1.0
-task: defend
+task: prepare

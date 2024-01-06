@@ -109,8 +109,9 @@ if __name__ == '__main__':
     #subpath = 'hit/sac/fineTunedClip_6dof_withoutOpponent/561982'
     #subpath = 'goal/sac/goal_new_termination/116338'
     #subpath = 'hit/sac/fineTunedClip_6dof/366766'
-    subpath = 'option/sac/hit/829284'
-    subpath = 'option/sac/defend/123199'
+    #subpath = 'option/sac/hit/829284'
+    #subpath = 'option/sac/defend/123199'
+    subpath = 'option/sac/hit_noher/541830'
 
     path = os.path.join(path, subpath)
 

@@ -119,6 +119,19 @@ class CustomEvalCallback(EventCallback):
             if maybe_is_success is not None:
                 self._is_success_buffer.append(maybe_is_success)
 
+    def _log_task_distance_callback(self, locals_: Dict[str, Any], globals_: Dict[str, Any]) -> None:
+        """
+
+        """
+
+        info = locals_["info"]
+
+        if locals_["done"]:
+            maybe_task_distance = info.get("task_distance")
+
+            if maybe_task_distance is not None:
+                self._task_distance_buffer.append(maybe_task_distance)
+
     def _log_info_callback(self, locals_: Dict[str, Any], globals_: Dict[str, Any]) -> None:
         info = locals_["info"]
         self._info_buffer.append(info)
@@ -126,6 +139,7 @@ class CustomEvalCallback(EventCallback):
     def _main_callback(self, locals_: Dict[str, Any], globals_: Dict[str, Any]) -> None:
         self._log_success_callback(locals_, globals_)
         self._log_info_callback(locals_, globals_)
+        self._log_task_distance_callback(locals_, globals_)
 
     def _on_step(self) -> bool:
         continue_training = True
@@ -147,6 +161,9 @@ class CustomEvalCallback(EventCallback):
 
             # Reset info buffer
             self._info_buffer = []
+
+            # Task Distance Buffer
+            self._task_distance_buffer = []
 
             episode_rewards, episode_lengths = evaluate_policy(
                 self.model,
@@ -208,6 +225,15 @@ class CustomEvalCallback(EventCallback):
                 self.logger.record(f'eval/min_{k}', np.min(all_env_infos[k]))
                 self.logger.record(f'eval/avg_{k}', np.mean(all_env_infos[k]))
                 self.logger.record(f'eval/std_{k}', np.std(all_env_infos[k]))
+
+            # Log task distance
+
+            if len(self._task_distance_buffer) > 0:
+                self.logger.record(f'eval/mean_task_distance', np.mean(self._task_distance_buffer))
+                self.logger.record(f'eval/max_task_distance', np.max(self._task_distance_buffer))
+                self.logger.record(f'eval/min_task_distance', np.min(self._task_distance_buffer))
+                self.logger.record(f'eval/std_task_distance', np.std(self._task_distance_buffer))
+
 
             # Dump log so the evaluation results are printed with the correct timestep
             self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")

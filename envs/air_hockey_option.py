@@ -1,8 +1,10 @@
 import gymnasium as gym
+from gymnasium.spaces import flatten
 from air_hockey_challenge.utils.kinematics import forward_kinematics, jacobian
 import numpy as np
 from utils.ATACOM_transformation import AtacomTransformation, build_ATACOM_Controller
 from envs.utils import Specification
+from typing import Callable
 
 PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, "jerk": 1,
                   "computation_time_minor": 0.5,
@@ -10,11 +12,12 @@ PENALTY_POINTS = {"joint_pos_constr": 2, "ee_constr": 3, "joint_vel_constr": 1, 
 
 
 class AirHockeyOption(gym.Env):
-    def __init__(self, env, include_opponent=False, include_joints=False, include_ee=False, include_ee_vel=False,
+    def __init__(self, env, reward_fn: Callable = None, include_opponent=False, include_joints=False, include_ee=False, include_ee_vel=False,
                  joint_acc_clip=None, scale_obs=True, max_path_len=400, scale_action=True, remove_last_joint=True,
-                 include_puck=True, alpha_r=1.0, stop_after_hit=False, **kwargs):
+                 include_puck=True, alpha_r=1.0, stop_after_hit=False, include_hit_flag=False, **kwargs):
         self.env = env
-        #self.env_info = self.env.env_info
+        self.reward = (lambda info, done: reward_fn(self, info, done)) if reward_fn is not None else \
+            (lambda info, done: (0, info))
 
         self.specs = Specification(env_info=env.env_info,
                                    include_joints=include_joints,
@@ -28,7 +31,8 @@ class AirHockeyOption(gym.Env):
                                    max_path_len=max_path_len,
                                    remove_last_joint=remove_last_joint,
                                    alpha_r=alpha_r,
-                                   stop_after_hit=stop_after_hit)
+                                   stop_after_hit=stop_after_hit,
+                                   include_hit_flag=include_hit_flag)
 
         self.state = None
 
@@ -47,10 +51,6 @@ class AirHockeyOption(gym.Env):
     def _scale_action(self, action):
         action = 0.5 * (action + 1) * self.specs.ac_range + self.specs._min_ac
         return action
-
-    def reward(self, done, info):
-        '''dummy reward function'''
-        return 0, info
 
     def step(self, action):
         if self.specs.scale_action:
@@ -91,7 +91,6 @@ class AirHockeyOption(gym.Env):
 
                 reward += rew
 
-
         return self.process_state(obs, None), reward, done, False, info
 
     def reset(self, seed=0, options=None):
@@ -120,6 +119,12 @@ class AirHockeyOption(gym.Env):
             idx_to_delete = []
         for constr in ['joint_pos_constr', 'joint_vel_constr']:
             info[constr] = np.delete(info[constr], idx_to_delete, axis=0)
+
+        info['puck_vel'] = self.puck_vel[:2]
+        info['puck_distance'] = np.linalg.norm(self.puck_pos[:2] - self.ee_pos[:2])
+
+        del info['jerk']
+
         return info
 
     def _reward_constraints(self, info):
@@ -155,6 +160,9 @@ class AirHockeyOption(gym.Env):
 
         if self.specs.include_ee_vel:
             obs['ee_vel'] = self.ee_vel[:2]
+
+        if self.specs.include_hit_flag:
+            obs['has_hit'] = self.has_hit
 
         if self.specs.scale_obs:
             obs = self._scale_obs(obs)

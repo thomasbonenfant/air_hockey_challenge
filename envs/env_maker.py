@@ -27,18 +27,18 @@ policy_dict = {
 
 
 def make_option_environment(task, include_opponent, include_joints, include_ee, include_ee_vel, joint_acc_clip, include_puck, remove_last_joint,
-                 scale_obs, scale_action, alpha_r, max_path_len, stop_after_hit, **kwargs):
+                 scale_obs, scale_action, alpha_r, max_path_len, stop_after_hit, include_hit_flag):
     if task == 'hit':
-        reward_fn = reward_hit
+        reward_fn = goal_reward_hit
         task_obj = PuckDirectionTask()
     elif task == 'defend':
         reward_fn = reward_defend
-        task_obj = PuckDirectionDefendTask()
+        task_obj = None
     elif task == 'defend_simple':
         reward_fn = reward_defend2
         task_obj = DummyDefendTask()
     elif task == 'prepare':
-        reward_fn = reward_prepare
+        reward_fn = goal_reward_prepare
         task_obj = PuckPositionTask()
     else:
         raise NotImplementedError
@@ -46,14 +46,14 @@ def make_option_environment(task, include_opponent, include_joints, include_ee, 
     task = task.split('_')[0]
 
     env = AirHockeyChallengeWrapper('7dof-' + task, interpolation_order=3)
-    env = AirHockeyOptionTask(reward_fn, env=env, include_opponent=include_opponent, include_ee=include_ee, include_ee_vel=include_ee_vel,
-                          include_puck=include_puck, remove_last_joint=remove_last_joint, joint_acc_clip=joint_acc_clip,
-                          scale_obs=scale_obs, scale_action=scale_action, alpha_r=alpha_r, max_path_len=max_path_len,
-                          include_joints=include_joints, stop_after_hit=stop_after_hit)
+    env = AirHockeyOptionTask(reward_her=reward_fn, env=env, include_opponent=include_opponent, include_ee=include_ee, include_ee_vel=include_ee_vel,
+                              include_puck=include_puck, remove_last_joint=remove_last_joint, joint_acc_clip=joint_acc_clip,
+                              scale_obs=scale_obs, scale_action=scale_action, alpha_r=alpha_r, max_path_len=max_path_len,
+                              include_joints=include_joints, stop_after_hit=stop_after_hit, include_hit_flag=include_hit_flag)
 
     env.set_task(task_obj)
 
-    env = FlattenObservation(env)
+    #env = FlattenObservation(env)
 
     return env
 

@@ -1,11 +1,11 @@
 import numpy as np
-from gymnasium.spaces import Box, Dict
+from gymnasium.spaces import Box, Dict, Discrete, flatten_space
 from itertools import islice
 
 
 class Specification(object):
     def __init__(self, env_info, include_joints, include_ee, include_ee_vel, include_opponent, joint_acc_clip, scale_obs,
-                 max_path_len, scale_action, remove_last_joint, include_puck, alpha_r, stop_after_hit):
+                 max_path_len, scale_action, remove_last_joint, include_puck, alpha_r, stop_after_hit, include_hit_flag):
         self._robot_model = env_info['robot']['robot_model']
         self._robot_data = env_info['robot']['robot_data']
         self._robot_frame = env_info['robot']['base_frame']
@@ -47,6 +47,7 @@ class Specification(object):
         self.stop_after_hit = stop_after_hit
         self.scale_obs = scale_obs
         self.scale_action = scale_action
+        self.include_hit_flag = include_hit_flag
 
         if self.remove_last_joint:
             self.f_joint_pos_ids = self.joint_pos_ids[:6]
@@ -159,6 +160,9 @@ class Specification(object):
             else:
                 ee_vel = Box(-self.max_vel * np.ones((2,)), self.max_vel * np.ones((2,)))
             obs_dict['ee_vel'] = ee_vel
+
+        if self.include_hit_flag:
+            obs_dict['has_hit'] = Discrete(2, start=0)
 
         self.observation_space = Dict(obs_dict)
 
