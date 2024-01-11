@@ -1,5 +1,5 @@
 replay_buffer_class: her
 replay_buffer_kwargs:
-  n_sampled_goal: 4
-  goal_selection_strategy: future
+  n_sampled_goal: 1
+  goal_selection_strategy: final
   copy_info_dict: true

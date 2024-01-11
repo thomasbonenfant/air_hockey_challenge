@@ -38,7 +38,7 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, log
     if always_action is None and not random:
         print(f'Loading {"best" if best else ""} agent at {path}')
         path = (os.path.join(path, 'best_model' if best else 'model'))
-        agent = alg_cls.load(path)
+        agent = alg_cls.load(path, env=env)
     elif random:
         print('Using Random Agent')
         agent = RandomAgent(env.action_space)
@@ -96,7 +96,7 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, log
 
 
 if __name__ == '__main__':
-    path = '/home/thomas/Downloads/markov/data/'
+    path = '/home/thomas/Downloads/turing'
     #subpath = 'oac_7dof-hit/sac/old_env_alpha100/442439'
     #subpath = 'goal/sac/goal_30__ee/290727'
     #subpath = 'hit/sac/sde_alpha100/204552'
@@ -111,7 +111,10 @@ if __name__ == '__main__':
     #subpath = 'hit/sac/fineTunedClip_6dof/366766'
     #subpath = 'option/sac/hit/829284'
     #subpath = 'option/sac/defend/123199'
-    subpath = 'option/sac/hit_noher/541830'
+    #subpath = 'option/sac/hit_noher/541830'
+    #subpath = 'option/sac/prepare_her/514281'
+    subpath = 'option/sac/hit/583806'
+
 
     path = os.path.join(path, subpath)
 

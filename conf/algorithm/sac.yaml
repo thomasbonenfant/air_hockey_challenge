@@ -1,5 +1,5 @@
 alg: sac
-policy: MultiInputPolicy
+policy: MlpPolicy #MultiInputPolicy
 learning_rate: 0.001
 buffer_size: 1000000
 learning_starts: 1000
@@ -21,4 +21,4 @@ device: auto
 _init_setup_model: true
 
 defaults:
-  - replay_buffer: her
+  - replay_buffer: auto

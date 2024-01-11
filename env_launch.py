@@ -43,20 +43,20 @@ env = make_goal_env(include_joints=True,
 
 '''env = make_airhockey_oac('7dof-hit', high_level_action=False,use_atacom=True)'''
 
-env = make_option_environment(task='prepare',
+env = make_option_environment(task='hit',
                               include_joints=True,
                               include_opponent=False,
                               include_ee=True,
-                              include_ee_vel=False,
+                              include_ee_vel=True,
                               include_puck=True,
                               joint_acc_clip=1,
-                              max_path_len=300,
+                              max_path_len=200,
                               stop_after_hit=False,
                               scale_action=False,
                               alpha_r=0.0,
                               scale_obs=True,
                               remove_last_joint=True,
-                              include_hit_flag=True)
+                              include_hit_flag=False)
 seed = 10
 random.seed(seed)
 np.random.seed(seed)
@@ -64,7 +64,7 @@ torch.random.manual_seed(seed)
 env.reset(seed=seed)
 env.action_space.seed(seed)
 
-for i in range(10):
+for i in range(100):
     s, _ = env.reset()
 
     done = False
@@ -72,8 +72,8 @@ for i in range(10):
     while not done:
         action = env.action_space.sample()
         s, r, done, term, info = env.step(action)
-        print(s)
 
+        print(unflatten(env.specs.observation_space, s['observation']))
         #goal_pos = env.goal['g_ee_pos'].copy()
         #goal_pos[0] -= 1.51
 

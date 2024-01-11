@@ -10,6 +10,6 @@ include_puck: true
 include_hit_flag: false
 stop_after_hit: false
 alpha_r: 0.0
-max_path_len: 300
+max_path_len: 200
 joint_acc_clip: 1.0
-task: prepare
+task: hit_her

@@ -1,6 +1,6 @@
 hydra.output_subdir: null
 learn:
-  total_timesteps: 10000000
+  total_timesteps: 20000000
 seed: null
 #log_dir: '/home/airhockey/thomas/data/'
 log_dir: '/data/air_hockey/thomas/data/'

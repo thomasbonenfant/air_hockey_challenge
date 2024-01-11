@@ -79,8 +79,10 @@ class Specification(object):
         low_joints_vel = obs_space.low[self.f_joint_vel_ids]
         high_joints_vel = obs_space.high[self.f_joint_vel_ids]
 
-        low_puck_pos = low_state[self.f_puck_pos_ids]
-        high_puck_pos = high_state[self.f_puck_pos_ids]
+        #low_puck_pos = low_state[self.f_puck_pos_ids]
+        #high_puck_pos = high_state[self.f_puck_pos_ids]
+        low_puck_pos = np.array([-self._table_length / 2 + self._puck_radius + 1.51, -self._table_width / 2 + self._puck_radius])
+        high_puck_pos = np.array([0 - self._puck_radius + 1.51, self._table_width / 2 - self._puck_radius])
         low_puck_vel = low_state[self.f_puck_vel_ids]
         high_puck_vel = high_state[self.f_puck_vel_ids]
 

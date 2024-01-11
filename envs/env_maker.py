@@ -8,6 +8,7 @@ from envs.air_hockey_hit import AirHockeyHit
 from envs.air_hockey_goal import AirHockeyGoal
 from envs.air_hockey_oac import AirHockeyOAC
 from envs.air_hockey_option_task import AirHockeyOptionTask
+from envs.air_hockey_option import AirHockeyOption
 from gymnasium.wrappers import FlattenObservation, EnvCompatibility
 from utils.env_utils import NormalizedBoxEnv
 from envs.info_accumulator_wrapper import InfoStatsWrapper
@@ -25,24 +26,55 @@ policy_dict = {
     'home_sb3': lambda env_info: AgentSB3(env_info, acc_ratio=0.1, path="Agents/Home_Agent")
 }
 
+REWARD_HER = 'reward_HER'
+REWARD_FN = 'reward_fn'
+TASK_CLS = 'task_obj'
+TASK_ARGS = 'task_args'
+
+
+task_dict = {
+    'hit_her': {
+        REWARD_HER: goal_reward_hit,
+        REWARD_FN: None,
+        TASK_CLS: PuckDirectionTask,
+        TASK_ARGS: {'include_achieved': True, 'include_hit_flag': False},
+        'flatten_space': False
+    },
+    'hit': {
+        REWARD_HER: None,
+        REWARD_FN: reward_hit,
+        TASK_CLS: PuckDirectionTask,
+        TASK_ARGS: {'include_achieved': False, 'include_hit_flag': False},
+        'flatten_space': True
+    },
+    'defend': {
+        REWARD_HER: None,
+        REWARD_FN: reward_defend2,
+        TASK_CLS: None,
+        TASK_ARGS: {},
+        'flatten_space': True
+    },
+    'prepare_her': {
+        REWARD_HER: goal_reward_prepare,
+        REWARD_FN: None,
+        TASK_CLS: PuckPositionTask,
+        TASK_ARGS: {},
+        'flatten_space': False
+
+    }
+}
+
 
 def make_option_environment(task, include_opponent, include_joints, include_ee, include_ee_vel, joint_acc_clip,
                             include_puck, remove_last_joint,
                             scale_obs, scale_action, alpha_r, max_path_len, stop_after_hit, include_hit_flag):
-    if task == 'hit':
-        reward_fn = goal_reward_hit
-        task_obj = PuckDirectionTask()
-    elif task == 'defend':
-        reward_fn = reward_defend
-        task_obj = None
-    elif task == 'defend_simple':
-        reward_fn = reward_defend2
-        task_obj = DummyDefendTask()
-    elif task == 'prepare':
-        reward_fn = goal_reward_prepare
-        task_obj = PuckPositionTask()
-    else:
-        raise NotImplementedError
+    reward_fn = task_dict[task][REWARD_FN]
+    reward_her = task_dict[task][REWARD_HER]
+    task_cls = task_dict[task][TASK_CLS]
+    task_args = task_dict[task][TASK_ARGS]
+    flatten_space = task_dict[task]['flatten_space']
+
+    assert (reward_fn and not reward_her) or (reward_her and not reward_fn)
 
     task = task.split('_')[0]
 
@@ -62,12 +94,16 @@ def make_option_environment(task, include_opponent, include_joints, include_ee, 
                           alpha_r=alpha_r,
                           stop_after_hit=stop_after_hit,
                           include_hit_flag=include_hit_flag)
+    if task_cls:
+        env = AirHockeyOptionTask(specification=specs, reward_her=reward_her, reward_fn=reward_fn, env=env)
+        task_obj = task_cls(**task_args)
 
-    env = AirHockeyOptionTask(specification=specs, reward_her=reward_fn, env=env)
+        env.set_task(task_obj)
+    else:
+        env = AirHockeyOption(env=env, specification=specs, reward_fn=reward_fn)
 
-    env.set_task(task_obj)
-
-    # env = FlattenObservation(env)
+    if flatten_space:
+        env = FlattenObservation(env)
 
     return env
 

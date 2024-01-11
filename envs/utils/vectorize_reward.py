@@ -11,7 +11,7 @@ def vectorize(reward_func):
                 reward_arr.append(r)
                 info_arr.append(i)
 
-            return np.array(reward_arr), np.array(info_arr)
+            return np.vstack(reward_arr), np.array(info_arr)
         return reward_func(env, achieved_goals, desired_goals, infos)
     return vectorized_reward_fun
 

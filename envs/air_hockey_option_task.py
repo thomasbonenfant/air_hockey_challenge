@@ -18,10 +18,9 @@ class AirHockeyOptionTask(AirHockeyOption, StateInterface):
 
         if reward_her is not None:
             self.reward_HER = lambda achieved, desired, info: reward_her(self, achieved, desired, info)
-            self.compute_reward = lambda a, d, i: self.reward_HER(a, d, i)[0] # reward_HER returns also a modified info
+            self.compute_reward = lambda a, d, i: self.reward_HER(a, d, i)[0]  # reward_HER returns also a modified info
 
-        self.observation_space = Dict({'observation': flatten_space(self.observation_space)}) # for HER
-
+        self.observation_space = Dict({'observation': flatten_space(self.observation_space)})  # for HER
 
     def set_task(self, task: Task):
         self.task = task
@@ -38,6 +37,7 @@ class AirHockeyOptionTask(AirHockeyOption, StateInterface):
         # for HER use copmute_reward interface and ignore old env reward
         if self.reward_HER is not None:
             r, i = self.reward_HER(s['achieved_goal'], s['desired_goal'], i)
+
         return s, r, d, t, i
 
     def reset(self, seed=0, options=None):
@@ -47,12 +47,13 @@ class AirHockeyOptionTask(AirHockeyOption, StateInterface):
     def process_state(self, state, info):
         state = super().process_state(state, info)
 
-        # Converts state for HER compatibility
         state = {
             'observation': flatten(self.specs.observation_space, state),
-             'desired_goal': self.task.get_desired_goal(),
-             'achieved_goal': self.task.get_achieved_goal(self)
+            'desired_goal': self.task.get_desired_goal()
         }
+
+        if self.reward_HER is not None:
+            state.update({'achieved_goal': self.task.get_achieved_goal(self)})
 
         return state
 

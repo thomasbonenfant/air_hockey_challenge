@@ -107,6 +107,7 @@ class AirHockeyOption(gym.Env):
 
         info['puck_vel'] = self.puck_vel[:2]
         info['puck_distance'] = np.linalg.norm(self.puck_pos[:2] - self.ee_pos[:2])
+        info['has_hit'] = self.has_hit
 
         del info['jerk']
 
