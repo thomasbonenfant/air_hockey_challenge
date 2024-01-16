@@ -47,6 +47,13 @@ task_dict = {
         TASK_ARGS: {'include_achieved': False, 'include_hit_flag': False},
         'flatten_space': True
     },
+    'repel_her': {
+        REWARD_HER: goal_reward_repel,
+        REWARD_FN: None,
+        TASK_CLS: PuckDirectionTask,
+        TASK_ARGS: {'include_achieved': True, 'include_hit_flag': False},
+        'flatten_space': False
+    },
     'defend': {
         REWARD_HER: None,
         REWARD_FN: reward_defend2,
@@ -77,6 +84,10 @@ def make_option_environment(task, include_opponent, include_joints, include_ee, 
     assert (reward_fn and not reward_her) or (reward_her and not reward_fn)
 
     task = task.split('_')[0]
+
+    # convert repel to defend
+    if task == "repel":
+        task = "defend"
 
     env = AirHockeyChallengeWrapper('7dof-' + task, interpolation_order=3)
 

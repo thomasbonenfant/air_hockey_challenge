@@ -44,6 +44,9 @@ class AirHockeyDefend(AirHockeySingle):
             return True
         if np.linalg.norm(puck_vel[:2]) < 0.1:
             return True'''
+        if puck_vel[0] > 0:
+            return True
+
         return super().is_absorbing(state)
 
 

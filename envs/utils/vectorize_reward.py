@@ -1,7 +1,9 @@
 import numpy as np
+from functools import wraps
 
 
 def vectorize(reward_func):
+    @wraps(reward_func)
     def vectorized_reward_fun(env, achieved_goals, desired_goals, infos):
         if achieved_goals.ndim > 1:
             reward_arr = []

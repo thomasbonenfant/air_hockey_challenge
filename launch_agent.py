@@ -96,7 +96,7 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, log
 
 
 if __name__ == '__main__':
-    path = '/home/thomas/Downloads/turing'
+    path = '/home/thomas/Downloads/turing/'
     #subpath = 'oac_7dof-hit/sac/old_env_alpha100/442439'
     #subpath = 'goal/sac/goal_30__ee/290727'
     #subpath = 'hit/sac/sde_alpha100/204552'
@@ -114,6 +114,8 @@ if __name__ == '__main__':
     #subpath = 'option/sac/hit_noher/541830'
     #subpath = 'option/sac/prepare_her/514281'
     subpath = 'option/sac/hit/583806'
+    #subpath = 'option/sac/hit_her/725760'
+    #subpath = 'option/sac/repel_her/187455'
 
 
     path = os.path.join(path, subpath)
@@ -144,7 +146,7 @@ if __name__ == '__main__':
            always_action=None,
            best=True,
            logger=None,
-           seed=666,
+           seed=None,
            custom_env_args=custom_env_args,
            action_dict=None,
            render=True,

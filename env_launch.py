@@ -43,7 +43,7 @@ env = make_goal_env(include_joints=True,
 
 '''env = make_airhockey_oac('7dof-hit', high_level_action=False,use_atacom=True)'''
 
-env = make_option_environment(task='hit',
+env = make_option_environment(task='prepare_her',
                               include_joints=True,
                               include_opponent=False,
                               include_ee=True,
@@ -72,8 +72,8 @@ for i in range(100):
     while not done:
         action = env.action_space.sample()
         s, r, done, term, info = env.step(action)
-
-        print(unflatten(env.specs.observation_space, s['observation']))
+        print(r)
+        #print(unflatten(env.specs.observation_space, s['observation']))
         #goal_pos = env.goal['g_ee_pos'].copy()
         #goal_pos[0] -= 1.51
 

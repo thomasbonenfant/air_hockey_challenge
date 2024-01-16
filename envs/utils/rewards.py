@@ -32,7 +32,7 @@ def goal_reward_hit(env, achieved_goal, desired_goal, info):
             delta = 2 * np.pi - delta
 
         reward = hyperbolic(delta, np.pi / 2)
-        reward += 500 * np.linalg.norm(puck_vel[:2]) / env.specs.max_vel
+        reward += 1000 * np.linalg.norm(puck_vel[:2]) / env.specs.max_vel
 
         task_error = np.squeeze(delta)
         info['task_distance'] = task_error
@@ -41,8 +41,22 @@ def goal_reward_hit(env, achieved_goal, desired_goal, info):
     reward += reward_constraint
     info['constr_reward'] = reward_constraint
 
-
     return np.array(reward).squeeze(), info
+
+
+@vectorize
+def goal_reward_repel(env, achieved_goal, desired_goal, info):
+
+    # check goal or our border touched
+    puck_pos_x = info['puck_pos'][0]
+    puck_vel_x = info['puck_vel'][0]
+
+    border = 1.51 - env.specs.table_length / 2
+
+    if puck_pos_x <= border or (not info['has_hit'] and puck_vel_x > 0):
+        return -1000, info
+
+    return goal_reward_hit.__wrapped__(env, achieved_goal, desired_goal, info)
 
 
 @vectorize
@@ -56,14 +70,14 @@ def goal_reward_prepare(env, achieved_goal, desired_goal, info):
 
     if not info['has_hit']:
         rew += - info['puck_distance'] / (0.5 * env.specs.table_diag)
+    else:
+        threshold = 0.1
+        if env.specs.scale_obs:
+            threshold /= 0.5 * env.specs.table_diag
 
-    threshold = 0.1
-    if env.specs.scale_obs:
-        threshold /= 0.5 * env.specs.table_diag
-
-    if distance < threshold:
-        rew += 1000 - 100 * np.linalg.norm(puck_vel)
-        info['is_success'] = True
+        if distance < threshold:
+            rew += 1000 - 100 * np.linalg.norm(puck_vel)
+            info['is_success'] = True
 
     return rew, info
 
@@ -95,7 +109,7 @@ def reward_defend(env, info, done):
     w_puck_pos, _ = robot_to_world(env.specs.robot_frame[0], env.puck_pos)
 
     # if hits the border or makes goal
-    if w_puck_pos[0] < -env.specs.table_length / 2 + env.specs.mallet_radius:
+    if w_puck_pos[0] < -env.specs.table_length / 2 + env.specs.puck_radius:
         reward = -1000
 
     if env.has_hit:

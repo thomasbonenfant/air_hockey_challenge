@@ -237,9 +237,10 @@ class PuckPositionTask(Task):
 
     def done_condition(self, env):
         threshold = 0.1
+        vel_threshold = 0.1
         if self.scale_obs:
             threshold /= 0.5 * env.specs.table_diag
-        return self.distance(env, {}, False) < threshold
+        return self.distance(env, {}, False) < threshold and np.linalg.norm(env.puck_vel[:2]) < 0.1
 
     def get_achieved_goal(self, env: StateInterface):
         achieved_goal = env.get_state().get('puck_pos')
