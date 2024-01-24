@@ -2,6 +2,7 @@
 Agent working with multiple low level agents
 High-level action: control the end-effector
 """
+import copy
 # Libraries
 import math
 import os.path
@@ -65,7 +66,8 @@ class HierarchicalAgent(AgentBase):
 
         # INSTANTIATE AGENTS -------------------------------------------------------------------
         self.rule_based_agent = PolicyAgent(env_info, **kwargs)
-        self.home_agent = AgentSB3(env_info, 'Agents/Home_Agent', acc_ratio=0.1, **kwargs)
+        self.home_agent = AgentSB3(env_info, 'air_hockey_agent/agents/Agents/Home_Agent', acc_ratio=0.1, **kwargs)
+        self.hit_agent = AgentSB3(env_info, '/home/thomas/Downloads/markov/data/hit/sac/fineTunedClip_6dof_withoutOpponent/561982', **kwargs)
         self.baseline_agent = BaselineAgent(env_info, **kwargs)
         self.repel_agent = RepelAgent(env_info, env_label="7dof-defend", **kwargs)
         self.defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
@@ -140,6 +142,14 @@ class HierarchicalAgent(AgentBase):
         self.joint_pos_log = []
         self.joint_vel_log = []
 
+
+        # Parameters for PGPE
+        self.parameters = np.array([0.3, 4.0, 0.2])
+        self.tot_params = self.parameters.shape[0]
+
+    def set_parameters(self, thetas):
+        self.parameters = copy.deepcopy(thetas)
+
     def reset(self):
         # Generic stuff
         self.previous_beta = PREV_BETA
@@ -182,6 +192,7 @@ class HierarchicalAgent(AgentBase):
         # Resetting agents
         self.rule_based_agent.reset()
         self.home_agent.reset()
+        self.hit_agent.reset()
         self.defend_agent.reset()
         self.repel_agent.reset()
         self.baseline_agent.reset()
@@ -243,7 +254,7 @@ class HierarchicalAgent(AgentBase):
         self.task = self.state_machine.explicit_select_state(previous_state=self.previous_task, desired_next_state=self.task)
 
         if self.previous_task != self.task:
-            print(f'{self.previous_task} --> {self.task}')
+            #print(f'{self.previous_task} --> {self.task}')
 
             # SAVE FILES
             # Save the task changing and timestamp
@@ -265,6 +276,7 @@ class HierarchicalAgent(AgentBase):
             # Reset agents
             self.rule_based_agent.reset()
             self.home_agent.reset()
+            self.hit_agent.reset()
             self.defend_agent.reset()
             self.repel_agent.reset()
             self.baseline_agent.reset()
@@ -277,6 +289,10 @@ class HierarchicalAgent(AgentBase):
         elif self.task == "repel":
             action = self.repel_agent.draw_action(observation)
             if self.repel_agent.has_hit or self.state.r_puck_vel[0] > 0 or np.linalg.norm(self.state.r_puck_vel[:2]) < 0.2:
+                self.done = True
+        elif self.task == "hit":
+            action = self.hit_agent.draw_action(observation)
+            if self.hit_agent.has_hit:
                 self.done = True
 
         # AGENT THAT GOES HOME
@@ -348,142 +364,6 @@ class HierarchicalAgent(AgentBase):
         self.last_action = action
         return action
 
-    def old_draw_action(self, observation):
-        """
-        Description:
-            This function draws an action given the observation and the task.
-
-        Args:
-            observation (numpy.array([...])): see env
-
-        Returns:
-            numpy.array(2, 7): desired joint positions and velocities
-        """
-        # Increase the time step
-        # self.time += self.env_info["dt"]
-        self.time["abs"] += 1
-        self.iteration_counter += 1
-
-        # set the self.prev
-        if self.timer == 0:
-            self.prev_side = np.sign(self.get_puck_pos(observation)[0] - 1.51) * -1
-
-        # Get useful info from the state
-        self.state.r_puck_pos = observation[0:3]
-        self.state.r_puck_vel = observation[3:6]
-
-        if self.time["abs"] == 1:
-            self.state.r_joint_pos = observation[6:13]
-            self.state.r_joint_vel = observation[13:20]
-
-        if self.time["abs"] > 1:
-            self.state.r_joint_pos = self.last_action[0]
-            self.state.r_joint_vel = self.last_action[1]
-
-        self.state.r_adv_ee_pos = observation[-3:]  # adversary ee position in robot coordinates
-
-        # Compute EE pos
-        self.state.r_ee_pos = self._apply_forward_kinematics(joint_pos=self.state.r_joint_pos)
-
-        # KALMAN FILTER ----------------------------------------------------------
-        # reset filter with the initial positions
-        if self.reset_filter:
-            self.reset_filter = False
-            self.puck_tracker.reset(self.state.r_puck_pos)
-
-        # predict next state, step does a single prediction step
-        self.puck_tracker.step(self.state.r_puck_pos)
-
-        # Reduce noise with kalman filter
-        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
-
-        # Convert in WORLD coordinates 2D
-        self.state.w_puck_pos, _ = robot_to_world(base_frame=self.frame,
-                                                  translation=self.state.r_puck_pos)
-        self.state.w_ee_pos, _ = robot_to_world(base_frame=self.frame,
-                                                translation=self.state.r_ee_pos)
-        self.state.w_adv_ee_pos, _ = robot_to_world(base_frame=self.frame,
-                                                    translation=self.state.r_adv_ee_pos)
-
-        # PICK THE ACTION ----------------------------------------------------------
-        if not self.changing_task:
-            self.previous_task = self.task
-
-        # Perform the same task for a given amount of steps
-        if self.step_counter > 20:
-            # self.task = self.simplified_pick_task()
-            self.task = self.select_task()
-
-        if self.previous_task != self.task and not self.changing_task:
-            self.last_ds = self.rule_based_agent.last_ds
-            self.changing_task = True
-            self.step_counter = 0
-            # self.rule_based_agent.reset()
-            # self.defend_agent.reset()
-            # self.repel_defend_agent.reset()
-
-            # Force going home after defend repel or hit
-            if self.previous_task == "defend" or self.previous_task == "repel" or self.previous_task == "hit":
-                self.task = "home"
-
-            if self.previous_task == "hit" and self.task == "prepare":
-                self.task = "hit"
-
-            if self.previous_task == "defend" and self.task == "repel":
-                self.task = "defend"
-
-            if self.previous_task == "repel" and self.task == "defend":
-                self.task = "repel"
-
-            '''
-            if (self.previous_task == "hit") and self.task == "home":
-                if self.rule_based_agent.has_hit:
-                    radius = np.sqrt(
-                        (self.state.w_ee_pos[0] - DEFAULT_POS[0]) ** 2 + (self.state.w_ee_pos[1] - DEFAULT_POS[1]) ** 2
-                    )
-
-                    rounded_radius = round(radius - (self.mallet_radius + self.puck_radius), 5)
-
-                    if rounded_radius <= 0.2:
-                        self.task = "home"
-                        self.changing_task = True
-                    else:
-                        print('here')
-                        self.task = "hit"
-                        self.changing_task = False
-            '''
-
-        # self.changing_task = False
-        if self.changing_task:
-            action = self.change_action_smoothly(previous_task=self.previous_task, current_task=self.task,
-                                                 observation=observation, steps=10)
-        else:
-            if self.task == "defend":
-                action = self.defend_agent.draw_action(observation)
-            elif self.task == "repel":
-                action = self.repel_agent.draw_action(observation)
-            # elif self.task == "home":
-            #    action = self.baseline_agent.draw_action(observation)
-            else:
-                self.rule_based_agent.set_task(self.task)
-                action = self.rule_based_agent.draw_action(observation)
-
-        if self.state.w_ee_pos[2] <= 0:
-            # self.reset()
-            print('WRONG EE POS, RESET')
-
-        # UPDATE TIMER
-        if np.sign(self.get_puck_pos(observation)[0] - 1.51) == self.prev_side:
-            self.timer += self.env_info['dt']
-            self.defend_agent.set_timer(self.timer)
-            self.repel_agent.set_timer(self.timer)
-        else:
-            self.prev_side *= -1
-            self.timer = 0
-
-        self.step_counter += 1
-        return action
 
     def switcher(self):
         new_task = self.task
@@ -523,48 +403,6 @@ class HierarchicalAgent(AgentBase):
 
         return new_task
 
-    def select_task(self):
-
-        selected_task = self.task  # Keep the same task by default
-        r_puck_pos = self.state.r_puck_pos[:2]
-        w_puck_pos = self.state.w_puck_pos[:2]
-        r_puck_vel = self.state.r_puck_vel[:2]
-        w_puck_vel = self.state.w_puck_vel[:2]
-
-        puck_velocity = np.linalg.norm(r_puck_vel)
-
-        defend_vel_threshold = 0.3
-        repel_vel_threshold = 0.8
-
-        # HOME CONDITIONS
-        if r_puck_pos[0] > 1.36:
-            if self.rule_based_agent.hit_completed or self.rule_based_agent.prepare_completed:
-                selected_task = "home"
-
-        # HIT CONDITIONS
-        if r_puck_pos[0] < 1.36:
-            if puck_velocity < defend_vel_threshold:
-                if self.check_enough_space():
-                    selected_task = "hit"
-
-        # PREPARE CONDITIONS
-        if r_puck_pos[0] < 1.36:
-            if puck_velocity < defend_vel_threshold:
-                if not self.check_enough_space():
-                    selected_task = "prepare"
-
-        # DEFEND CONDITIONS
-        if r_puck_pos[0] <= 1.66:
-            if puck_velocity >= defend_vel_threshold:
-                selected_task = "defend"
-
-        # REPEL CONDITIONS
-        if r_puck_pos[0] <= 1.66:
-            if puck_velocity >= repel_vel_threshold:
-                selected_task = "repel"
-
-        return selected_task
-
     def simplified_pick_task(self):
         """
         Naïve version of the pick task but apparently te best one
@@ -575,8 +413,8 @@ class HierarchicalAgent(AgentBase):
         """
 
         picked_task = self.previous_task
-        defend_vel_threshold = 0.3
-        repel_vel_threshold = 4  # puck too fast, just send it back
+        defend_vel_threshold = self.parameters[0]  # 0.3
+        repel_vel_threshold = self.parameters[1]  # 4  # puck too fast, just send it back
 
         w_puck_pos = self.state.w_puck_pos
         r_puck_pos = self.state.r_puck_pos
@@ -601,253 +439,13 @@ class HierarchicalAgent(AgentBase):
                     enough_space = self.check_enough_space()
                     picked_task = "hit" if enough_space else "prepare"
             else:
-                if puck_velocity < 0.2:
+                if puck_velocity < self.parameters[2]:  # 0.2
                     enough_space = self.check_enough_space()
                     picked_task = "hit" if enough_space else "prepare"
                 else:
                     picked_task = "home"
 
         return picked_task
-
-    # todo remove, old
-    def updated_pick_task(self):
-        """
-        Description:
-            This function will retrieve the most proper task to perform among: hit, defend, prepare and home
-
-        Returns:
-            the most appropriate task
-        """
-
-        picked_task = None
-        defend_threshold = 0.05  # the line over the half in the enemy side to start defend
-        defend_vel_threshold = 0.1  # puck norm velocity at which start the defend
-        prepare_threshold = 0.05  # strip around borders to perform prepare
-
-        # Stay idle at the home if the puck is in the enemy side
-        if self.state.w_puck_pos[0] > defend_threshold:
-            return "home"
-
-        if self.state.w_puck_pos[0] < defend_threshold and \
-                np.linalg.norm(self.state.r_puck_vel[0:2]) > defend_vel_threshold and self.state.r_puck_vel[0] < 0:
-            picked_task = "defend"
-            if np.linalg.norm(self.state.r_puck_vel[0:2]) < 1:
-                picked_task = "prepare"
-
-            return picked_task
-
-        # Puck in agent's side, slow enough
-        # self.state.w_puck_pos[0] < 0
-        if np.linalg.norm(self.state.r_puck_vel[0:2]) < defend_vel_threshold:
-
-            # Check if there is enough space to perform a hit
-            puck_pos = self.state.w_puck_pos[:2]
-            ee_pos = self.state.w_ee_pos[:2]
-            # Beta computation
-            beta = self.get_angle(
-                self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
-                self.world_to_puck(ee_pos, puck_pos)
-            )
-
-            if puck_pos[1] <= self.table_width / 2:
-                gamma = self.get_angle(
-                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
-                    self.world_to_puck(self.goal_pos, puck_pos)
-                )
-                tot_angle = beta + gamma
-            else:
-                gamma = self.get_angle(
-                    self.world_to_puck(self.goal_pos, puck_pos),
-                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos)
-                )
-                tot_angle = beta - gamma
-
-            # todo should the check for enough space become a function?
-            enough_space = True
-            tolerance = 1.5 * (self.mallet_radius + self.puck_radius)
-
-            tolerance_coordinates = np.array([tolerance * np.cos(np.deg2rad(tot_angle)),
-                                              tolerance * np.sin(np.deg2rad(tot_angle))])
-
-            tolerance_coordinates = self.puck_to_world(tolerance_coordinates, puck_pos)
-
-            if (tolerance_coordinates[0] <= -self.table_length / 2) or \
-                    (tolerance_coordinates[1] >= self.table_width / 2 or tolerance_coordinates[
-                        1] <= -self.table_width / 2):
-                enough_space = False
-
-            # if np.abs(self.table_width/2 - self.state.w_puck_pos[1]) < prepare_threshold or not enough_space:
-            #    return "prepare"
-
-            # else:
-            #    return "hit"
-
-            # if self.state.r_puck_vel[0] > 0:
-            #    return "hit"
-
-            if enough_space:
-                return "hit"
-            else:
-                return "prepare"
-
-        return "home"
-
-    # todo remove, old
-    def pick_task(self):
-        """
-        Description:
-            This function will retrieve the correct task to perform among hit, defend and prepare
-
-        Returns:
-            the most appropriate task
-        """
-
-        if self.state.w_puck_pos[0] >= 0 * self.agent_id:
-            # stay idle if the puck is in the enemy field
-            return "home"
-
-        if self.state.w_puck_pos[0] <= 0 and self.state.r_puck_vel[0] < 0:
-            if np.linalg.norm(self.state.r_puck_vel[0:2]) > 0.2:
-                return "defend"
-
-        if np.linalg.norm(self.state.r_puck_vel[0:2]) > 1:  # the threshold is trainable
-            # if self.state.r_puck_vel[0] < 0:
-            #    return "defend"
-            # else:
-            if self.state.r_puck_vel[0] > 0:
-                self.reset()
-                self.phase = "wait"
-                self.final = FINAL
-                return "hit"
-        else:
-            puck_pos = self.state.w_puck_pos[:2]
-            ee_pos = self.state.w_ee_pos[:2]
-            # Beta computation
-            beta = self.get_angle(
-                self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
-                self.world_to_puck(ee_pos, puck_pos)
-            )
-
-            if puck_pos[1] <= self.table_width / 2:
-                gamma = self.get_angle(
-                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos),
-                    self.world_to_puck(self.goal_pos, puck_pos)
-                )
-                tot_angle = beta + gamma
-            else:
-                gamma = self.get_angle(
-                    self.world_to_puck(self.goal_pos, puck_pos),
-                    self.world_to_puck(puck_pos + np.array([1, 0]), puck_pos)
-                )
-                tot_angle = beta - gamma
-
-            # todo should the check for enough space become a function?
-            enough_space = True
-            tolerance = 1.5 * (self.mallet_radius + self.puck_radius)
-
-            tolerance_coordinates = np.array([tolerance * np.cos(np.deg2rad(tot_angle)),
-                                              tolerance * np.sin(np.deg2rad(tot_angle))])
-
-            tolerance_coordinates = self.puck_to_world(tolerance_coordinates, puck_pos)
-
-            if (tolerance_coordinates[0] <= -self.table_length / 2) or \
-                    (tolerance_coordinates[1] >= self.table_width / 2 or tolerance_coordinates[
-                        1] <= -self.table_width / 2):
-                enough_space = False
-
-            if enough_space:
-                # self.phase = "wait"
-                # self.final = FINAL
-                return "hit"
-            else:
-                self.phase = "wait"
-                return "prepare"
-
-    def change_action_smoothly(self, previous_task, current_task, observation, steps=5):
-        """
-        Change the task smoothly to avoid too fast changes.
-
-        final_action = (weight * current_action) + (1 - weight) * previous_action
-
-        the weight will change step by step
-
-        Parameters
-        ----------
-        previous_task : the task the agent was doing
-        current_task : the task the agent will do
-        observation : the observation from the environment
-        steps : the number of steps used to perform the change
-
-        Returns
-        -------
-        A smoothed action, weighted mean of the the ones coming from previous and current task
-        """
-
-        # Reset agents the first time the task is changed
-        if self.task_change_counter == 1:
-            self.defend_agent.reset()
-            self.repel_agent.reset()
-            self.rule_based_agent.reset()
-            self.baseline_agent.reset()
-            print(f'From {self.previous_task} --> {self.task}')
-
-            # Save the task changing in a file
-            task_number = Tasks[self.task.upper()].value
-            log = np.array([task_number, self.iteration_counter])
-            self.task_change_log.append(log)
-            # np.save('task_change_log.npy', self.task_change_log)
-
-            ''' if os.path.exists(filename):
-                with open(filename, 'r+') as f:
-                    previous_logs = np.load(filename)
-                    previous_logs = np.append(previous_logs, log)
-                    np.save(filename, previous_logs)
-                    f.close()
-            else:
-                with open(filename, 'wb') as f:
-                    np.save(filename, log)
-
-                    f.close()'''
-
-        new_task_percentage = 100 / (steps * 100)
-        new_task_percentage *= self.task_change_counter
-
-        '''# Use a sigmoid step
-        sigmoid_step = 9 / steps
-        sigmoid_step *= self.task_change_counter
-        sigmoid_step -= 4.5
-
-        new_task_percentage = 1 / (1 + np.e**(-sigmoid_step))'''
-
-        if previous_task == "defend":
-            previous_action = self.defend_agent.draw_action(observation)
-        elif previous_task == "repel":
-            previous_action = self.repel_agent.draw_action(observation)
-        # elif previous_task == "home":
-        #    previous_action = self.baseline_agent.draw_action(observation)
-        else:
-            self.rule_based_agent.set_task(self.previous_task)
-            previous_action = self.rule_based_agent.draw_action(observation)
-
-        if current_task == "defend":
-            current_action = self.defend_agent.draw_action(observation)
-        elif current_task == "repel":
-            current_action = self.repel_agent.draw_action(observation)
-        # elif current_task == "home":
-        #    current_action = self.baseline_agent.draw_action(observation)
-        else:
-            self.rule_based_agent.set_task(self.task)
-            current_action = self.rule_based_agent.draw_action(observation)
-
-        weighted_action = new_task_percentage * current_action + (1 - new_task_percentage) * previous_action
-
-        if self.task_change_counter == steps:
-            self.task_change_counter = 1
-            self.changing_task = False
-        else:
-            self.task_change_counter += 1
-
-        return weighted_action
 
     def check_enough_space(self):
         """

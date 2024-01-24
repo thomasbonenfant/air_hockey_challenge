@@ -1,6 +1,6 @@
 from envs.airhockeydoublewrapper import AirHockeyDouble
 from air_hockey_challenge.framework import AirHockeyChallengeWrapper
-from air_hockey_agent.agents.agents import DefendAgent, HitAgent, PrepareAgent, RepelAgent
+from air_hockey_agent.agents.agents import DefendAgent, HitAgent, RepelAgent
 from air_hockey_agent.agents.agent_sb3 import AgentSB3
 from air_hockey_agent.agents.rule_based_agent import PolicyAgent
 from envs.fixed_options_air_hockey import HierarchicalEnv
@@ -11,7 +11,6 @@ from envs.air_hockey_option_task import AirHockeyOptionTask
 from envs.air_hockey_option import AirHockeyOption
 from gymnasium.wrappers import FlattenObservation, EnvCompatibility
 from utils.env_utils import NormalizedBoxEnv
-from envs.info_accumulator_wrapper import InfoStatsWrapper
 from envs.utils import *
 
 policy_dict = {

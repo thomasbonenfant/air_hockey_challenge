@@ -135,7 +135,9 @@ class AgentSB3(AgentBase):
         low_action = self.acc_ratio * self.env_info['robot']['joint_acc_limit'][0]
         high_action = self.acc_ratio * self.env_info['robot']['joint_acc_limit'][1]
 
+
         if self.joint_acc_clip:
+            self.joint_acc_clip = np.array(self.joint_acc_clip)
             low_action = np.clip(low_action, -self.joint_acc_clip, 0)
             high_action = np.clip(high_action, 0, self.joint_acc_clip)
 

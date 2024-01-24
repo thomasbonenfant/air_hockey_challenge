@@ -17,7 +17,7 @@ def get_configuration(path):
         env_args = dict(cfg.environment)
         alg = cfg.algorithm.alg
     else:
-        raise FileNotFoundError("No configuration file was found")
+        raise FileNotFoundError(f"No configuration file was found in {path}")
 
     return env_args, alg
 
@@ -61,6 +61,7 @@ def parse_args():
     env_group.add_argument('--scale_action', action='store_true')
     env_group.add_argument('--hit_coeff', type=float, default=1000.0)
     env_group.add_argument('--max_path_len', type=int, default=400)
+    env_group.add_argument('--joint_acc_clip', type=float, default=100)
     # parser_hit.add_argument("--scale_obs", action="store_true")
     # parser_hit.add_argument("--alpha_r", type=float, default=1.0)
     # parser_hit.set_defaults(env="hit")
@@ -191,9 +192,11 @@ def variant_util(variant):
         try:
             env_args['include_puck'] = variant.include_puck
             env_args['remove_last_joint'] = variant.remove_last_joint
+            env_args['joint_acc_clip'] = variant.joint_acc_clip
         except:
             env_args['include_puck'] = True
             env_args['remove_last_joint'] = True
+            env_args['joint_acc_clip'] = 100
         env_args['hit_coeff'] = variant.hit_coeff
         env_args['scale_obs'] = variant.scale_obs
         env_args['scale_action'] = variant.scale_action

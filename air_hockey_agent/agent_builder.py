@@ -29,6 +29,3 @@ def build_agent(env_info, **kwargs):
 
     # Default return, in case of tournament
     return HierarchicalAgent(env_info, **kwargs)
-    #return AgentSB3(env_info, "Agents/Hit_Agent", random=False)
-    #return RepelAgent(env_info, env_label="7dof-defend")
-    #return AgentSB3OldEnv(path='/home/thomas/Downloads/markov/data/oac_7dof-hit/sac/old_env_alpha100/442439', env_info=env_info, random=False)

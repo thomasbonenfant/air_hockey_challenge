@@ -96,7 +96,7 @@ def launch(path, num_episodes, random=False, always_action=None, best=False, log
 
 
 if __name__ == '__main__':
-    path = '/home/thomas/Downloads/turing/'
+    path = '/home/thomas/Downloads/markov/data'
     #subpath = 'oac_7dof-hit/sac/old_env_alpha100/442439'
     #subpath = 'goal/sac/goal_30__ee/290727'
     #subpath = 'hit/sac/sde_alpha100/204552'
@@ -106,14 +106,14 @@ if __name__ == '__main__':
     #subpath = 'hrl/ppo/without_opponent/82530'
     #subpath = 'hrl/ppo/new_hit/643566'
     #subpath = 'goal/sac/new_reward_gamma_0.999/955943'
-    #subpath = 'hit/sac/fineTunedClip_6dof_withoutOpponent/561982'
+    subpath = 'hit/sac/fineTunedClip_6dof_withoutOpponent/561982'
     #subpath = 'goal/sac/goal_new_termination/116338'
     #subpath = 'hit/sac/fineTunedClip_6dof/366766'
     #subpath = 'option/sac/hit/829284'
     #subpath = 'option/sac/defend/123199'
     #subpath = 'option/sac/hit_noher/541830'
     #subpath = 'option/sac/prepare_her/514281'
-    subpath = 'option/sac/hit/583806'
+    #subpath = 'option/sac/hit/583806'
     #subpath = 'option/sac/hit_her/725760'
     #subpath = 'option/sac/repel_her/187455'
 
@@ -126,9 +126,9 @@ if __name__ == '__main__':
         #'env': 'option',
         #'task': 'hit',
         #'joint_acc_clip': [1, 1, 1, 1, 1, 1, 100],
-        #'scale_action': True
+        #'scale_action': False,
         #'stop_after_hit': True,
-        #'include_opponent': True
+        'include_opponent': False
     }
 
     action_dict = {

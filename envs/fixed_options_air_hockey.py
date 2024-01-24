@@ -139,7 +139,7 @@ class HierarchicalEnv(gym.Env):
         self.render_flag = True
 
     def reset(self, seed=0, options=None):
-        np.random.seed(seed)
+        # np.random.seed(seed)
         self.prev_action = 0
 
         self.state = self.env.reset()
