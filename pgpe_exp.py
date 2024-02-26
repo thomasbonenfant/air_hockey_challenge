@@ -4,7 +4,6 @@ from MagicRL.algorithms import *
 from MagicRL.data_processors import *
 from MagicRL.envs import *
 from MagicRL.policies import *
-from art import *
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
@@ -108,7 +107,7 @@ else:
 
 # Build
 if args.server:
-    dir_name = f"/data/air_hockey/thomas/data/{args.alg}/"
+    dir_name = f"/home/airhockey/thomas/data/{args.alg}/"
 else:
     dir_name = f"/tmp/pgpe/{args.alg}/"
 dir_name += f"{args.alg}_{args.ite}_{args.env}_{args.horizon}_{args.lr_strategy}_"
@@ -155,6 +154,8 @@ if args.alg == "pgpe":
     hp = np.zeros((2, tot_params))
     if args.pol == "linear":
         hp[0] = [0] * tot_params
+    elif args.pol == "switcher":
+        hp[0] = [0.3, 4.0, 0.2]
     else:
         hp[0] = np.random.normal(0, 1, tot_params)
     hp[1] = [np.log(np.sqrt(var_term))] * tot_params
@@ -185,7 +186,7 @@ else:
     raise ValueError("Invalid algorithm name.")
 
 if __name__ == "__main__":
-    print(text2art(f"== {args.alg} on {args.env} =="))
+    print(f"== {args.alg} on {args.env} ==")
     print(args)
     alg.learn()
     alg.save_results()

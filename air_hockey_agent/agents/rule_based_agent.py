@@ -125,7 +125,7 @@ class PolicyAgent(AgentBase):
         self.has_hit = False
         self.can_hit = False  # Can hit considering enemy position
         self.keep_hitting = False  # Whether to hit again or not in the prepare
-        self.state = State
+        self.state = State()
         self.last_ds = 0
         self.phase = "wait"
 
@@ -164,7 +164,7 @@ class PolicyAgent(AgentBase):
             acceleration=0,
             smash=0
         )
-        self.state = State
+        self.state = State()
         self.last_ds = 0
         self.last_ee = None
         self.phase = "wait"

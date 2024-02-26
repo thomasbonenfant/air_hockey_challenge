@@ -16,13 +16,13 @@ from envs.utils import *
 policy_dict = {
     'hit_rb': lambda env_info: PolicyAgent(env_info, agent_id=1, task="hit"),
     'hit_oac': lambda env_info: HitAgent(env_info),
-    'hit_sb3': lambda env_info: AgentSB3(env_info, path="Agents/Hit_Agent"),
+    'hit_sb3': lambda env_info: AgentSB3(env_info, path="air_hockey_agent/agents/Agents/Hit_Agent"),
     'defend_rb': lambda env_info: PolicyAgent(env_info, agent_id=1, task="defend"),
     'defend_oac': lambda env_info: DefendAgent(env_info, env_label='tournament'),
     'repel_oac': lambda env_info: RepelAgent(env_info, env_label='7dof-defend'),
     'prepare_rb': lambda env_info: PolicyAgent(env_info, agent_id=1, task='prepare'),
     'home_rb': lambda env_info: PolicyAgent(env_info, agent_id=1, task='home'),
-    'home_sb3': lambda env_info: AgentSB3(env_info, acc_ratio=0.1, path="Agents/Home_Agent")
+    'home_sb3': lambda env_info: AgentSB3(env_info, acc_ratio=0.1, path="air_hockey_agent/agents/Agents/Home_Agent")
 }
 
 REWARD_HER = 'reward_HER'

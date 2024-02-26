@@ -139,7 +139,6 @@ class HierarchicalEnv(gym.Env):
         self.render_flag = True
 
     def reset(self, seed=0, options=None):
-        # np.random.seed(seed)
         self.prev_action = 0
 
         self.state = self.env.reset()
@@ -286,7 +285,8 @@ class HierarchicalEnv(gym.Env):
         reward_dict = {'large_reward': self.log_large_reward,
                        'constr_penalty': self.log_constr_penalty,
                        'fault_penalty': self.log_fault_penalty,
-                       'fault_risk_penalty': self.log_fault_risk_penalty}
+                       'fault_risk_penalty': self.log_fault_risk_penalty
+                       }
         for key in reward_dict:
             info[key] = reward_dict[key]
 

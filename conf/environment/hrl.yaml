@@ -2,8 +2,8 @@ env: hrl
 steps_per_action: 10
 include_timer: true
 include_prev_action: true
-include_ee: false
-include_opponent: false
+include_ee: true
+include_opponent: true
 scale_obs: true
 alpha_r: 0.0
 large_reward: 100

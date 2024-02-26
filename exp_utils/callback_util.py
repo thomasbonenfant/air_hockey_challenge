@@ -5,7 +5,7 @@ from envs import create_producer
 import os
 
 
-def get_callbacks(cfg):
+def get_callbacks(cfg, env=None):
     callback_list = []
     callback_config = cfg['callbacks']
 
@@ -15,9 +15,11 @@ def get_callbacks(cfg):
 
         if callback_name in ('eval', 'custom_eval'):
             cb = EvalCallback if callback_name == 'eval' else CustomEvalCallback
-
-            env_producer = create_producer(cfg['environment'])
-            eval_env = make_vec_env(env_producer, n_envs=cfg['parallel'], vec_env_cls=SubprocVecEnv)
+            if env is None:
+                env_producer = create_producer(cfg['environment'])
+                eval_env = make_vec_env(env_producer, n_envs=cfg['parallel'], vec_env_cls=SubprocVecEnv)
+            else:
+                eval_env = env
             args['eval_env'] = eval_env
             args['best_model_save_path'] = cfg['log_dir']
             args['log_path'] = cfg['log_dir']

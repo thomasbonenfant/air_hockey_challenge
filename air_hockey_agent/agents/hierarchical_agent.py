@@ -67,7 +67,7 @@ class HierarchicalAgent(AgentBase):
         # INSTANTIATE AGENTS -------------------------------------------------------------------
         self.rule_based_agent = PolicyAgent(env_info, **kwargs)
         self.home_agent = AgentSB3(env_info, 'air_hockey_agent/agents/Agents/Home_Agent', acc_ratio=0.1, **kwargs)
-        self.hit_agent = AgentSB3(env_info, '/home/thomas/Downloads/markov/data/hit/sac/fineTunedClip_6dof_withoutOpponent/561982', **kwargs)
+        #self.hit_agent = AgentSB3(env_info, 'air_hockey_agent/agents/Agents/Hit_Agent', **kwargs)
         self.baseline_agent = BaselineAgent(env_info, **kwargs)
         self.repel_agent = RepelAgent(env_info, env_label="7dof-defend", **kwargs)
         self.defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
@@ -192,7 +192,7 @@ class HierarchicalAgent(AgentBase):
         # Resetting agents
         self.rule_based_agent.reset()
         self.home_agent.reset()
-        self.hit_agent.reset()
+        #self.hit_agent.reset()
         self.defend_agent.reset()
         self.repel_agent.reset()
         self.baseline_agent.reset()
@@ -254,7 +254,7 @@ class HierarchicalAgent(AgentBase):
         self.task = self.state_machine.explicit_select_state(previous_state=self.previous_task, desired_next_state=self.task)
 
         if self.previous_task != self.task:
-            #print(f'{self.previous_task} --> {self.task}')
+            print(f'{self.previous_task} --> {self.task}')
 
             # SAVE FILES
             # Save the task changing and timestamp
@@ -276,7 +276,7 @@ class HierarchicalAgent(AgentBase):
             # Reset agents
             self.rule_based_agent.reset()
             self.home_agent.reset()
-            self.hit_agent.reset()
+            #self.hit_agent.reset()
             self.defend_agent.reset()
             self.repel_agent.reset()
             self.baseline_agent.reset()
@@ -290,10 +290,10 @@ class HierarchicalAgent(AgentBase):
             action = self.repel_agent.draw_action(observation)
             if self.repel_agent.has_hit or self.state.r_puck_vel[0] > 0 or np.linalg.norm(self.state.r_puck_vel[:2]) < 0.2:
                 self.done = True
-        elif self.task == "hit":
-            action = self.hit_agent.draw_action(observation)
-            if self.hit_agent.has_hit:
-                self.done = True
+        # elif self.task == "hit":
+        #     action = self.hit_agent.draw_action(observation)
+        #     if self.hit_agent.has_hit:
+        #         self.done = True
 
         # AGENT THAT GOES HOME
         elif self.task == "home":

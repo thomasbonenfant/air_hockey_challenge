@@ -58,7 +58,7 @@ def main(cfg):
                        monitor_dir=log_dir,
                        )
 
-    callback_list = get_callbacks(cfg)
+    callback_list = get_callbacks(cfg, env=env)
 
     alg_cls = alg_dict[cfg.algorithm.alg]
 
