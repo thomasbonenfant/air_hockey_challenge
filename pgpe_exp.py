@@ -125,8 +125,8 @@ if args.env == "airhockey":
     env_info = wrapped_env.env_info
     env_maker = AirHockey
     env_args = {
-        "horizon": 500,
-        "gamma": 0.997,
+        "horizon": args.horizon,
+        "gamma": args.gamma,
         "render": False
     }
 
