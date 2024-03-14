@@ -152,7 +152,12 @@ def make_hrl_environment(policies, steps_per_action=100, include_timer=False, in
 def make_hit_env(include_joints, include_opponent, include_ee, include_ee_vel, joint_acc_clip, include_puck,
                  remove_last_joint,
                  scale_obs, scale_action, alpha_r, hit_coeff, aim_coeff, max_path_len, stop_after_hit):
-    env = AirHockeyDouble(interpolation_order=3)
+    # if include_opponent:
+    #     env = AirHockeyDouble(interpolation_order=3, opponent_delay=500)
+    # else:
+    #     env = AirHockeyChallengeWrapper('7dof-hit')
+
+    env = AirHockeyDouble(interpolation_order=3, opponent_delay=500)
     env = AirHockeyHit(env, include_joints=include_joints, include_opponent=include_opponent,
                        include_ee=include_ee, include_ee_vel=include_ee_vel,
                        include_puck=include_puck, remove_last_joint=remove_last_joint, scale_obs=scale_obs,

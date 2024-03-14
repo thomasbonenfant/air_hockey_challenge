@@ -40,23 +40,24 @@ class AirHockeyTournament(AirHockeyDouble):
         self.hit_range = np.array([[-0.7, -0.2], [-hit_width, hit_width]])  # Table Frame
 
     def setup(self, obs):
-        #self.start_side = 1
+        # self.start_side = 1
         # Initial position of the puck
         puck_pos = np.random.rand(2) * (self.hit_range[:, 1] - self.hit_range[:, 0]) + self.hit_range[:, 0]
 
         self._write_data("puck_x_pos", puck_pos[0] * self.start_side)
         self._write_data("puck_y_pos", puck_pos[1])
 
-        lin_vel = np.random.uniform(self.init_velocity_range[0], self.init_velocity_range[1])
-        angle = np.random.uniform(-np.pi / 2 - 0.1, np.pi / 2 + 0.1)
-        puck_vel = np.zeros(3)
-        puck_vel[0] = -np.cos(angle) * lin_vel
-        puck_vel[1] = np.sin(angle) * lin_vel
-        puck_vel[2] = np.random.uniform(-2, 2, 1)
-
-        self._write_data("puck_x_vel", puck_vel[0])
-        self._write_data("puck_y_vel", puck_vel[1])
-        self._write_data("puck_yaw_vel", puck_vel[2])
+        # lin_vel = np.random.uniform(self.init_velocity_range[0], self.init_velocity_range[1])
+        # #angle = np.random.uniform(-np.pi / 2 - 0.1, np.pi / 2 + 0.1)
+        # angle = np.random.uniform(0, 2 * np.pi)
+        # puck_vel = np.zeros(3)
+        # puck_vel[0] = -np.cos(angle) * lin_vel
+        # puck_vel[1] = np.sin(angle) * lin_vel
+        # puck_vel[2] = np.random.uniform(-2, 2, 1)
+        #
+        # self._write_data("puck_x_vel", puck_vel[0])
+        # self._write_data("puck_y_vel", puck_vel[1])
+        # self._write_data("puck_yaw_vel", puck_vel[2])
 
         self.prev_side = self.start_side
         self.timer = 0
@@ -106,12 +107,12 @@ class AirHockeyTournament(AirHockeyDouble):
         if np.abs(puck_pos[0]) < 0.15 and np.linalg.norm(puck_vel[0]) < 0.025:
             return True
         return super(AirHockeyTournament, self).is_absorbing(obs)
-        '''
-        puck_pos, puck_vel = self.get_puck(obs)
-        # Stop if the puck bounces back on the opponents wall
-        if puck_pos[0] > 0 and puck_vel[0] < 0:
-            return True
-        return super(AirHockeyTournament, self).is_absorbing(obs)'''
+
+        # # puck_pos, puck_vel = self.get_puck(obs)
+        # # Stop if the puck bounces back on the opponents wall
+        # if puck_pos[0] > 0 and puck_vel[0] < 0:
+        #     return True
+        # return super(AirHockeyTournament, self).is_absorbing(obs)
 
 
 if __name__ == '__main__':

@@ -8,11 +8,11 @@ import os
 def get_configuration(path):
     file_list = os.listdir(path)
     if 'variant.json' in file_list:
-        print(f'JSON configuration found at {path}')
+        # print(f'JSON configuration found at {path}')
         env_args, alg_args, _, log_args, _ = variant_util(load_variant(path))
         alg = log_args['alg']
     elif 'config.yaml' in file_list:
-        print(f'YAML configuration found')
+        # print(f'YAML configuration found')
         cfg = OmegaConf.load(os.path.join(path, 'config.yaml'))
         env_args = dict(cfg.environment)
         alg = cfg.algorithm.alg

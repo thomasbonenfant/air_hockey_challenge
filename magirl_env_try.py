@@ -2,21 +2,16 @@ import copy
 
 from MagicRL.policies.switcher_policy import SwitcherPolicy
 from MagicRL.envs.airhockey import AirHockey, AirHockeyDouble
-from MagicRL.algorithms.samplers import TrajectorySampler
-from MagicRL.data_processors import IdentityDataProcessor
+
 from tqdm import tqdm
 import numpy as np
-from copy import deepcopy
-import sys
-from pympler.asizeof import asizeof, asized
+
 
 EPISODES=1
-STEPS=100
-HORIZON=200
-
+GAMMA=0.999
 wrapped_env = AirHockeyDouble(opponent_delay=0)
 env_info = wrapped_env.env_info
-env = AirHockey(render=False, horizon=500, gamma=0.997)
+env = AirHockey(render=True, horizon=5000, gamma=GAMMA)
 
 
 class PolicyMaker:
@@ -36,28 +31,26 @@ class PolicyMaker:
 
 
 pol = SwitcherPolicy(env_info=env.env.env_info)
-hp = np.array([0.3, 4, 0.2])
+
+pol.set_parameters(np.array([0.3, 0.2]))
 
 pol.reset()
 
-print(asizeof(pol))
+for i in tqdm(range(EPISODES)):
+    pol.reset()
+    env.reset()
 
-#env.step(np.random.random((2,7)))
+    t = 0
+    done = False
+
+    while t < env.horizon and not done:
+        state = env.state
+        obs, rew, done, _ = env.step(pol.draw_action(state))
+        if rew != 0:
+            print(f'STEP: {t}\tRETURN: {rew * GAMMA ** t}')
+        t += 1
 
 
 
-# for i in tqdm(range(EPISODES)):
-#     pol.reset()
-#     env.reset()
-#
-#     t = 0
-#     done = False
-#
-#     while t < HORIZON and not done:
-#         state = env.state
-#         env.step(pol.draw_action(state))
-#
-# sampler = TrajectorySampler(env, pol, IdentityDataProcessor())
-# print(sampler.collect_trajectory(hp))
 
 

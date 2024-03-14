@@ -692,22 +692,22 @@ class Agent(AgentBase):
 
         # Noise removal
 
-        '''noisy_puck_pos = self.get_puck_pos(observation)
-
-        if self.restart:
-            self.puck_tracker.reset(noisy_puck_pos)
-
-        self.puck_tracker.step(noisy_puck_pos)
-
-        puck_pos = self.puck_tracker.state[[0, 1, 4]].copy()
-        puck_vel = self.puck_tracker.state[[2, 3, 5]].copy()
-
-        observation[self.env_info['puck_pos_ids']] = puck_pos
-
-        if not self.restart:
-            observation[self.env_info['puck_vel_ids']] = puck_vel
-            observation[self.env_info['joint_pos_ids']] = self.last_joint_pos_action.copy()
-            observation[self.env_info['joint_vel_ids']] = self.last_joint_vel_action.copy()'''
+        # noisy_puck_pos = self.get_puck_pos(observation)
+        #
+        # if self.restart:
+        #     self.puck_tracker.reset(noisy_puck_pos)
+        #
+        # self.puck_tracker.step(noisy_puck_pos)
+        #
+        # puck_pos = self.puck_tracker.state[[0, 1, 4]].copy()
+        # puck_vel = self.puck_tracker.state[[2, 3, 5]].copy()
+        #
+        # observation[self.env_info['puck_pos_ids']] = puck_pos
+        #
+        # if not self.restart:
+        #     observation[self.env_info['puck_vel_ids']] = puck_vel
+        #     observation[self.env_info['joint_pos_ids']] = self.last_joint_pos_action.copy()
+        #     observation[self.env_info['joint_vel_ids']] = self.last_joint_vel_action.copy()
 
         self.restart = False
 
@@ -775,8 +775,8 @@ class Agent(AgentBase):
         else:
             _action = action
 
-        self.last_joint_pos_action = action[0]
-        self.last_joint_vel_action = action[1]
+        # self.last_joint_pos_action = action[0]
+        # self.last_joint_vel_action = action[1]
         self.t += 1
 
         return _action
@@ -854,7 +854,8 @@ class RepelAgent(Agent):
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Defend_Agent'
         self.env_label = env_label
 
-        path = 'Agents/Repel_Agent'
+        # path = 'Agents/Repel_Agent'
+        # path = 'Agents/Repel_27-10'
 
         path = os.path.join(dir_path, path)
 

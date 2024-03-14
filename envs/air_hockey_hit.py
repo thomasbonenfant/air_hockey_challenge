@@ -218,6 +218,14 @@ class AirHockeyHit(gym.Env):
         return self.process_state(obs, None), None
 
     def process_info(self, info):
+
+        # check if constraints are in info['constraints_value'] or not
+        if 'constraints_value' in info:
+            constr_dict = info['constraints_value']
+            for k in constr_dict.keys():
+                info[k] = constr_dict[k]
+            del constr_dict
+
         if self.remove_last_joint:
             idx_to_delete = [6, 13]
         else:
@@ -274,6 +282,7 @@ class AirHockeyHit(gym.Env):
 
             if self.has_hit and not self.hit_rew_given:
                 self.hit_rew_given = True
+                info['puck_vel'] = np.linalg.norm(self.puck_vel)
                 if self.puck_vel[0] > 0:
                     #reward = self.hit_coeff * (self.puck_vel[0] / self.max_vel)
                     reward = self.hit_coeff * (np.linalg.norm(self.puck_vel[:2]) / self.max_vel)

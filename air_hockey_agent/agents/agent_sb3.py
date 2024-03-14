@@ -240,7 +240,7 @@ class AgentSB3(AgentBase):
     def draw_action(self, observation):
 
         # noise filter
-        #observation = self.noise_filter(observation)
+        # observation = self.noise_filter(observation)
 
         self._post_simulation(observation)
 

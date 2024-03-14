@@ -140,7 +140,7 @@ dp = IdentityDataProcessor()
 if args.pol == "switcher":
     policy_maker = SwitcherPolicy
     policy_args = {"env_info": env_info}
-    tot_params = 3
+    tot_params = 2
 else:
     raise ValueError(f"Invalid policy name.")
 dir_name += f"{tot_params}_var_{string_var}"
@@ -155,7 +155,8 @@ if args.alg == "pgpe":
     if args.pol == "linear":
         hp[0] = [0] * tot_params
     elif args.pol == "switcher":
-        hp[0] = [0.3, 4.0, 0.2]
+        # hp[0] = [0.3, 4.0, 0.2]
+        hp[0] = [0.3, 0.2]
     else:
         hp[0] = np.random.normal(0, 1, tot_params)
     hp[1] = [np.log(np.sqrt(var_term))] * tot_params

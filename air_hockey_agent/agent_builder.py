@@ -29,4 +29,4 @@ def build_agent(env_info, **kwargs):
 
     # Default return, in case of tournament
     return HierarchicalAgent(env_info, **kwargs)
-    #return AgentSB3(env_info, 'air_hockey_agent/agents/Agents/Hit_Agent', **kwargs)
+    # return AgentSB3(env_info, '/home/thomas/Downloads/markov/data/hit/sac/1clip_6dof_withoutOpponent/846097', **kwargs)

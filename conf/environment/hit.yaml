@@ -7,9 +7,9 @@ aim_coeff: 50
 include_ee: true
 include_ee_vel: true
 include_joints: true
-include_opponent: true
+include_opponent: false
 include_puck: true
 remove_last_joint: true
-max_path_len: 200
-joint_acc_clip: [6, 11, 5, 6, 1, 9, 100]
+max_path_len: 300
+joint_acc_clip: [1,1,1,1,1,1,1]
 stop_after_hit: true

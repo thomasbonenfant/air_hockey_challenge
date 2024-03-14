@@ -144,7 +144,9 @@ class HierarchicalAgent(AgentBase):
 
 
         # Parameters for PGPE
-        self.parameters = np.array([0.3, 4.0, 0.2])
+        # self.parameters = np.array([0.3, 4.0, 0.2])
+        self.parameters = np.array([0.3, 0.2])
+        # self.parameters = np.array([0.895, 0.795])
         self.tot_params = self.parameters.shape[0]
 
     def set_parameters(self, thetas):
@@ -235,8 +237,9 @@ class HierarchicalAgent(AgentBase):
         self.puck_tracker.step(self.state.r_puck_pos)
 
         # Reduce noise with kalman filter # todo (it is present also in the rule based agent and in agents.py)
-        self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+
 
         # Convert in WORLD coordinates 2D
         self.state.w_puck_pos, _ = robot_to_world(base_frame=self.frame,
@@ -414,7 +417,8 @@ class HierarchicalAgent(AgentBase):
 
         picked_task = self.previous_task
         defend_vel_threshold = self.parameters[0]  # 0.3
-        repel_vel_threshold = self.parameters[1]  # 4  # puck too fast, just send it back
+        # repel_vel_threshold = self.parameters[1]  # 4  # puck too fast, just send it back
+        prepare_threshold = self.parameters[1]
 
         w_puck_pos = self.state.w_puck_pos
         r_puck_pos = self.state.r_puck_pos
@@ -430,16 +434,18 @@ class HierarchicalAgent(AgentBase):
             # Puck coming toward the agent
             if r_puck_vel[0] < 0:
                 # fast puck
+                # if puck_velocity > defend_vel_threshold:
+                #     if puck_velocity > repel_vel_threshold:
+                #         picked_task = "repel"
+                #     else:
+                #         picked_task = "repel"
                 if puck_velocity > defend_vel_threshold:
-                    if puck_velocity > repel_vel_threshold:
-                        picked_task = "repel"
-                    else:
-                        picked_task = "repel"
+                    picked_task = "repel"
                 else:
                     enough_space = self.check_enough_space()
                     picked_task = "hit" if enough_space else "prepare"
             else:
-                if puck_velocity < self.parameters[2]:  # 0.2
+                if puck_velocity < prepare_threshold:  # 0.2
                     enough_space = self.check_enough_space()
                     picked_task = "hit" if enough_space else "prepare"
                 else:

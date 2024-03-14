@@ -104,7 +104,7 @@ if __name__ == '__main__':
     #subpath = 'hit/sac/clip_acceleration_aim_6dof/461264'
     #subpath = 'goal/sac/goal_30__ee__ee_vel/31108'
     #subpath = 'hrl/ppo/without_opponent/82530'
-    #subpath = 'hrl/ppo/new_hit/643566'
+    subpath = 'hrl/ppo/new_hit/643566'
     #subpath = 'goal/sac/new_reward_gamma_0.999/955943'
     #subpath = 'hit/sac/fineTunedClip_6dof_withoutOpponent/561982'
     #subpath = 'goal/sac/goal_new_termination/116338'
@@ -117,7 +117,10 @@ if __name__ == '__main__':
     #subpath = 'option/sac/hit_her/725760'
     #subpath = 'option/sac/repel_her/187455'
 
-    subpath = 'hrl/ppo/fixed_hrl/37345'
+    # subpath = 'hrl/ppo/fixed_hrl/37345'
+
+    # subpath = 'hit/sac/1clip_6dof_withoutOpponent/846097'
+    subpath = 'hit/sac/1clip_6dof_wO_maxlen=300_puckAngleExtended/656392'
 
 
     path = os.path.join(path, subpath)
@@ -150,7 +153,7 @@ if __name__ == '__main__':
            logger=None,
            seed=None,
            custom_env_args=custom_env_args,
-           action_dict=action_dict,
+           action_dict=None,
            render=True,
            log_obs=False,
            log_reward=True)
