@@ -60,17 +60,19 @@ class Tasks(Enum):
 
 # Class implementing the rule based policy
 class HierarchicalAgent(AgentBase):
-    def __init__(self, env_info, agent_id=1, task: str = "home", **kwargs):
+    def __init__(self, env_info, agent_id=1, task: str = "home", filter=False, **kwargs):
         # Superclass initialization
         super().__init__(env_info, agent_id, **kwargs)
 
+        self.filter = filter
+
         # INSTANTIATE AGENTS -------------------------------------------------------------------
-        self.rule_based_agent = PolicyAgent(env_info, **kwargs)
-        self.home_agent = AgentSB3(env_info, 'air_hockey_agent/agents/Agents/Home_Agent', acc_ratio=0.1, **kwargs)
+        self.rule_based_agent = PolicyAgent(env_info, filter=self.filter, **kwargs)
+        self.home_agent = AgentSB3(env_info, 'air_hockey_agent/agents/Agents/Home_Agent', acc_ratio=0.1, filter=self.filter, **kwargs)
         #self.hit_agent = AgentSB3(env_info, 'air_hockey_agent/agents/Agents/Hit_Agent', **kwargs)
         self.baseline_agent = BaselineAgent(env_info, **kwargs)
-        self.repel_agent = RepelAgent(env_info, env_label="7dof-defend", **kwargs)
-        self.defend_agent = DefendAgent(env_info, env_label="7dof-defend", **kwargs)
+        self.repel_agent = RepelAgent(env_info, env_label="7dof-defend", filter=self.filter, **kwargs)
+        self.defend_agent = DefendAgent(env_info, env_label="7dof-defend", filter=self.filter, **kwargs)
 
         self.optimizer = TrajectoryOptimizer(self.env_info)  # optimize joint position of each trajectory point
 
@@ -79,6 +81,7 @@ class HierarchicalAgent(AgentBase):
 
         # Kalman filters
         self.puck_tracker = PuckTracker(self.env_info, agent_id)
+
 
         self.reset_filter = True
 
@@ -237,8 +240,9 @@ class HierarchicalAgent(AgentBase):
         self.puck_tracker.step(self.state.r_puck_pos)
 
         # Reduce noise with kalman filter # todo (it is present also in the rule based agent and in agents.py)
-        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        if self.filter:
+            self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+            self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
 
 
         # Convert in WORLD coordinates 2D

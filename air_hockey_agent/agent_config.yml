@@ -19,3 +19,4 @@ steps_per_game: 45000 # How many steps one game will last. The n_episodes determ
 
 # Agent Parameters
 # You can specify your own parameters here, they will be passed to the init of your Agent
+filter: True

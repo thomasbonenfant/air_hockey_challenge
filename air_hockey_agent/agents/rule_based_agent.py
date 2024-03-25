@@ -59,7 +59,7 @@ def build_agent(env_info, **kwargs):
 
 # Class implementing teh rule based policy
 class PolicyAgent(AgentBase):
-    def __init__(self, env_info, agent_id=1, task: str = "hit", **kwargs):
+    def __init__(self, env_info, agent_id=1, task: str = "hit", filter=False, **kwargs):
         # Superclass initialization
         super().__init__(env_info, agent_id, **kwargs)
 
@@ -69,6 +69,7 @@ class PolicyAgent(AgentBase):
         # Kalman filters
         self.puck_tracker = PuckTracker(self.env_info, agent_id)
 
+        self.filter = filter
         self.reset_filter = True
 
         # Task allocation
@@ -234,8 +235,9 @@ class PolicyAgent(AgentBase):
         # self.ee_pos_tracker.step(self.state.r_ee_pos)
 
         # Reduce noise with kalman filter
-        # self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
-        # self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
+        if self.filter:
+            self.state.r_puck_pos = self.puck_tracker.state[[0, 1, 4]]  # state contains pos and velocity
+            self.state.r_puck_vel = self.puck_tracker.state[[2, 3, 5]]
         # self.state.r_adv_ee_pos = self.adv_ee_tracker.state[[0, 1, 4]]
         # self.state.r_ee_pos = self.ee_pos_tracker.state[0:3]
 

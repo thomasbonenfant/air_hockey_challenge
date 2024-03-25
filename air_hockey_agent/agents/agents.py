@@ -29,10 +29,13 @@ from trainer.trainer import SACTrainer
 import torch
 
 class Agent(AgentBase):
-    def __init__(self, env_info, varient, **kwargs):
+    def __init__(self, env_info, varient, filter=False, **kwargs):
         super().__init__(env_info, **kwargs)
 
         torch.set_num_threads(4)
+
+        self.filter = filter
+
         self.interpolation_order = varient['interpolation_order']
         # self.env_label = env_info['env_name']
         self.env_info = env_info
@@ -691,23 +694,23 @@ class Agent(AgentBase):
         #    observation = observation[:-3]
 
         # Noise removal
+        if self.filter:
+            noisy_puck_pos = self.get_puck_pos(observation)
 
-        # noisy_puck_pos = self.get_puck_pos(observation)
-        #
-        # if self.restart:
-        #     self.puck_tracker.reset(noisy_puck_pos)
-        #
-        # self.puck_tracker.step(noisy_puck_pos)
-        #
-        # puck_pos = self.puck_tracker.state[[0, 1, 4]].copy()
-        # puck_vel = self.puck_tracker.state[[2, 3, 5]].copy()
-        #
-        # observation[self.env_info['puck_pos_ids']] = puck_pos
-        #
-        # if not self.restart:
-        #     observation[self.env_info['puck_vel_ids']] = puck_vel
-        #     observation[self.env_info['joint_pos_ids']] = self.last_joint_pos_action.copy()
-        #     observation[self.env_info['joint_vel_ids']] = self.last_joint_vel_action.copy()
+            if self.restart:
+                self.puck_tracker.reset(noisy_puck_pos)
+
+            self.puck_tracker.step(noisy_puck_pos)
+
+            puck_pos = self.puck_tracker.state[[0, 1, 4]].copy()
+            puck_vel = self.puck_tracker.state[[2, 3, 5]].copy()
+
+            observation[self.env_info['puck_pos_ids']] = puck_pos
+
+            if not self.restart:
+                observation[self.env_info['puck_vel_ids']] = puck_vel
+                observation[self.env_info['joint_pos_ids']] = self.last_joint_pos_action.copy()
+                observation[self.env_info['joint_vel_ids']] = self.last_joint_vel_action.copy()
 
         self.restart = False
 
@@ -774,9 +777,9 @@ class Agent(AgentBase):
             _action = action.flatten()
         else:
             _action = action
-
-        # self.last_joint_pos_action = action[0]
-        # self.last_joint_vel_action = action[1]
+        if self.filter:
+            self.last_joint_pos_action = action[0]
+            self.last_joint_vel_action = action[1]
         self.t += 1
 
         return _action

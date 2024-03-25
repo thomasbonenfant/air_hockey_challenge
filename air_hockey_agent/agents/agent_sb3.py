@@ -20,7 +20,7 @@ pol_dict = {
 
 
 class AgentSB3(AgentBase):
-    def __init__(self, env_info, path, acc_ratio=1.0, random=False, **kwargs):
+    def __init__(self, env_info, path, acc_ratio=1.0, random=False, filter=False, **kwargs):
         super().__init__(env_info, **kwargs)
         #dir_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -31,6 +31,7 @@ class AgentSB3(AgentBase):
 
         self.acc_ratio = acc_ratio
         self.random = random
+        self.filter = filter
 
         env_args, alg = get_configuration(path)
 
@@ -247,7 +248,8 @@ class AgentSB3(AgentBase):
     def draw_action(self, observation):
 
         # noise filter
-        # observation = self.noise_filter(observation)
+        if self.filter:
+            observation = self.noise_filter(observation)
 
         self._post_simulation(observation)
 
