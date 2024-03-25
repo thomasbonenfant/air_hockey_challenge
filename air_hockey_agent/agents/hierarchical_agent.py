@@ -257,7 +257,7 @@ class HierarchicalAgent(AgentBase):
         self.task = self.state_machine.explicit_select_state(previous_state=self.previous_task, desired_next_state=self.task)
 
         if self.previous_task != self.task:
-            print(f'{self.previous_task} --> {self.task}')
+            # print(f'{self.previous_task} --> {self.task}')
 
             # SAVE FILES
             # Save the task changing and timestamp

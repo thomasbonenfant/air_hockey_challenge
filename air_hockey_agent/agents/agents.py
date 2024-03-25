@@ -849,13 +849,13 @@ class RepelAgent(Agent):
         env_info['opponent_ee_ids'] = []
 
         #path = 'air_hockey_agent/agents/Agents/Defend_Agent'
-        path = 'Agents/Defend_Agent'
+        #path = 'Agents/Defend_Agent'
 
         # path = 'envs/air_hockey_challenge/air_hockey_agent/agents/Agents/Defend_Agent'
         self.env_label = env_label
 
         # path = 'Agents/Repel_Agent'
-        # path = 'Agents/Repel_27-10'
+        path = 'Agents/Repel_27-10'
 
         path = os.path.join(dir_path, path)
 

@@ -17,11 +17,15 @@ def pg_sampling_worker(
         policy_args=None,
         dp=None,
         params: np.array = None,
-        starting_state=None
+        starting_state=None,
+        seed=None
 ) -> list:
     trajectory_sampler = TrajectorySampler(env_maker=env_maker, env_args=env_args,
                                            policy_maker=policy_maker, policy_args=policy_args,
                                            data_processor=dp)
+    if seed is not None:
+        np.random.seed(seed)
+
     res = trajectory_sampler.collect_trajectory(params=params, starting_state=starting_state)
     return res
 
@@ -34,7 +38,8 @@ def pgpe_sampling_worker(
         dp=None,
         params: np.array = None,
         episodes_per_theta: int = None,
-        n_jobs: int = None
+        n_jobs: int = None,
+        seed = None,
 ) -> np.array:
     parameter_sampler = ParameterSampler(
         env_maker=env_maker,
@@ -45,6 +50,8 @@ def pgpe_sampling_worker(
         episodes_per_theta=episodes_per_theta,
         n_jobs=n_jobs
     )
+    if seed is not None:
+        np.random.seed(seed)
     res = parameter_sampler.collect_trajectories(params=params)
     return res
 
@@ -94,6 +101,7 @@ class ParameterSampler:
                 params[RhoElem.MEAN, i],
                 np.float128(np.exp(params[RhoElem.STD, i]))
             )
+        print(f'Rho: {params}\nSampled Thetas: {thetas}')
 
         # collect performances over the sampled parameter configuration
         if self.n_jobs == 1:
@@ -117,7 +125,7 @@ class ParameterSampler:
 
             # parallel computation
             raw_res = Parallel(n_jobs=self.n_jobs, backend="loky")(
-                delayed_functions(**worker_dict) for _ in range(self.episodes_per_theta)
+                delayed_functions(**{**worker_dict, **{'seed': seed}}) for seed in np.random.randint(0, 999999, self.episodes_per_theta)
             )
 
         # keep just the performance over each trajectory

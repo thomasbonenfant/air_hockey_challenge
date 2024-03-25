@@ -18,9 +18,7 @@ class AirHockey(BaseEnv):
         self.faults = np.array([0, 0])
 
         self.reward_coef = 1000
-        self.fault_coef = 1000
-
-
+        self.fault_coef = 333
 
     def reset(self) -> None:
         self.score = np.array([0, 0])
@@ -30,7 +28,7 @@ class AirHockey(BaseEnv):
 
     def reward(self, info):
         reward_score = (np.array(info["score"]) - self.score) @ np.array([1, -1]) * self.reward_coef
-        reward_fault = -(np.array(info["faults"]) - self.faults) @ np.array([1, 0]) * self.fault_coef
+        reward_fault = -(np.array(info["faults"]) - self.faults) @ np.array([1, -1]) * self.fault_coef
 
         if reward_score + reward_fault != 0:
             print(f'REWARD: {reward_score + reward_fault}')

@@ -35,12 +35,13 @@ class PGPE:
             verbose: bool = False,
             natural: bool = False,
             checkpoint_freq: int = 1,
+            eval_freq: int = 10,
             lr_strategy: str = "constant",
             learn_std: bool = False,
             std_decay: float = 0,
             std_min:float = 1e-4,
             n_jobs_param: int = 1,
-            n_jobs_traj: int = 1
+            n_jobs_traj: int = 1,
     ) -> None:
         """
         Args:
@@ -133,7 +134,18 @@ class PGPE:
         self.best_performance_theta = -np.inf
         self.best_performance_rho = -np.inf
         self.checkpoint_freq = checkpoint_freq
-        self.deterministic_curve = np.zeros(self.ite)
+        self.eval_freq = eval_freq
+        self.deterministic_curve = []
+
+        self.grad_mean_history = []
+        self.grad_std_history = []
+        self.grad_norm_history = []
+        self.log_nu_means = []
+        self.log_nu_stds = []
+
+        self.thetas_history = []
+
+        self.baseline_history = []
 
         self.rho_history = np.zeros((ite, self.dim), dtype=np.float128)
         self.rho_history[0, :] = copy.deepcopy(self.rho[RhoElem.MEAN])
@@ -157,7 +169,7 @@ class PGPE:
                 )
                 delayed_functions = delayed(pgpe_sampling_worker)
                 res = Parallel(n_jobs=self.n_jobs_param)(
-                    delayed_functions(**worker_dict) for _ in range(self.batch_size)
+                    delayed_functions(**{**worker_dict, **{'seed': seed}}) for seed in np.random.randint(0,999999, self.batch_size)
                 )
             else:
                 res = []
@@ -190,6 +202,7 @@ class PGPE:
             # save the current rho configuration
             self.rho_history[self.time, :] = copy.deepcopy(self.rho[RhoElem.MEAN])
 
+
             # Update time counter
             self.time += 1
             if self.verbose:
@@ -198,23 +211,28 @@ class PGPE:
             if self.time % self.checkpoint_freq == 0:
                 self.save_results()
 
+            # Offline evaluation
+            if self.time % self.eval_freq == 0:
+                self.sample_deterministic_curve()
+
             # std_decay
             if not self.learn_std:
                 std = np.float128(np.exp(self.rho[RhoElem.STD]))
                 std = np.clip(std - self.std_decay, self.std_min, np.inf)
                 self.rho[RhoElem.STD, :] = np.log(std)
 
-        # Sample the deterministic curve
-        print("Sample Deterministic Curve")
-        self.sample_deterministic_curve()
+
+
 
         return
 
-    def update_rho(self) -> None:
+    def update_rho(self, use_baseline=True) -> None:
         """This function modifies the self.rho vector, by updating via the 
         estimated gradient."""
         # Take the performance of the whole batch
         batch_perf = self.performance_idx_theta[self.time, :]
+        b = 0
+        epsilon = 1e-24
 
         # take the means and the sigmas
         means = self.rho[RhoElem.MEAN, :]
@@ -222,29 +240,52 @@ class PGPE:
 
         # compute the scores
         if not self.natural:
-            log_nu_means = (self.thetas - means) / (stds ** 2)
-            log_nu_stds = (((self.thetas - means) ** 2) - (stds ** 2)) / (stds ** 2)
+            log_nu_means = (self.thetas - means) / (stds ** 2 + epsilon)
+            log_nu_stds = (((self.thetas - means) ** 2) - (stds ** 2)) / (stds ** 2 + epsilon)
+
         else:
             log_nu_means = self.thetas - means
-            log_nu_stds = (((self.thetas - means) ** 2) - (stds ** 2)) / (2 * (stds ** 2))
+            log_nu_stds = (((self.thetas - means) ** 2) - (stds ** 2)) / (2 * (stds ** 2) + epsilon)
+
+        if self.verbose:
+            print(f'log_nu_means: {log_nu_means}\nlog_nu_stds: {log_nu_stds}')
+
+        grads = np.dstack((log_nu_means, log_nu_stds))
+        grad_norms = np.array([np.linalg.norm(x) for x in grads])
+
+        if use_baseline:
+            # optimal baseline from PGPEOpt
+            num = np.mean(batch_perf * grad_norms ** 2)
+            den = np.mean(grad_norms ** 2)
+            b = num / den
+
+            self.baseline_history.append(b)
 
         # compute the gradients
-        grad_means = batch_perf[:, np.newaxis] * log_nu_means
-        grad_stds = batch_perf[:, np.newaxis] * log_nu_stds
+        grad_means = np.mean((batch_perf[:, np.newaxis] - b) * log_nu_means, axis=0)
+        grad_stds = np.mean((batch_perf[:, np.newaxis] - b) * log_nu_stds, axis=0)
+
+        self.grad_mean_history.append(grad_means)
+        self.grad_std_history.append(grad_stds)
+
+        self.log_nu_means.append(log_nu_means)
+        self.log_nu_stds.append(log_nu_stds)
+
+        self.thetas_history.append(self.thetas)
 
         # update rho
         if self.lr_strategy == "constant":
-            self.rho[RhoElem.MEAN, :] = self.rho[RhoElem.MEAN, :] + self.lr * np.mean(grad_means, axis=0)
+            self.rho[RhoElem.MEAN, :] = self.rho[RhoElem.MEAN, :] + self.lr * grad_means
             # update sigma if it is the case
             if self.learn_std:
-                self.rho[RhoElem.STD, :] = self.rho[RhoElem.STD, :] + self.lr * np.mean(grad_stds, axis=0)
+                self.rho[RhoElem.STD, :] = self.rho[RhoElem.STD, :] + self.lr * grad_stds
         elif self.lr_strategy == "adam":
-            adaptive_lr_m = self.rho_adam[RhoElem.MEAN].compute_gradient(np.mean(grad_means, axis=0))
+            adaptive_lr_m = self.rho_adam[RhoElem.MEAN].compute_gradient(grad_means)
             adaptive_lr_m = np.array(adaptive_lr_m)
             self.rho[RhoElem.MEAN, :] = self.rho[RhoElem.MEAN, :] + adaptive_lr_m
             # update sigma if it is the case
             if self.learn_std:
-                adaptive_lr_s = self.rho_adam[RhoElem.STD].compute_gradient(np.mean(grad_stds, axis=0))
+                adaptive_lr_s = self.rho_adam[RhoElem.STD].compute_gradient(grad_stds)
                 adaptive_lr_s = np.array(adaptive_lr_s)
                 self.rho[RhoElem.STD, :] = self.rho[RhoElem.STD, :] + adaptive_lr_s
         else:
@@ -380,35 +421,31 @@ class PGPE:
         return
 
     def sample_deterministic_curve(self):
-        policy = self.policy_maker(**self.policy_args)
 
+        worker_dict = dict(
+            env_maker=self.env_maker,
+            env_args=self.env_args,
+            policy_maker=self.policy_maker,
+            policy_args=self.policy_args,
+            dp=IdentityDataProcessor(),
+            params=copy.deepcopy(self.rho[RhoElem.MEAN]),
+            starting_state=None
+        )
+        # build the parallel functions
+        delayed_functions = delayed(pg_sampling_worker)
 
-        for i in tqdm(range(self.ite)):
-            policy.set_parameters(thetas=self.rho_history[i, :])
-            worker_dict = dict(
-                env_maker=self.env_maker,
-                env_args=self.env_args,
-                policy_maker=self.policy_maker,
-                policy_args=self.policy_args,
-                dp=IdentityDataProcessor(),
-                params=copy.deepcopy(self.rho_history[i, :]),
-                starting_state=None
-            )
-            # build the parallel functions
-            delayed_functions = delayed(pg_sampling_worker)
+        # parallel computation
+        res = Parallel(n_jobs=self.n_jobs_param, backend="loky")(
+            delayed_functions(**worker_dict) for _ in range(self.episodes_per_theta)
+        )
 
-            # parallel computation
-            res = Parallel(n_jobs=self.n_jobs_param, backend="loky")(
-                delayed_functions(**worker_dict) for _ in range(self.batch_size)
-            )
+        # extract data
+        ite_perf = np.zeros(self.episodes_per_theta, dtype=np.float128)
+        for j in range(self.episodes_per_theta):
+            ite_perf[j] = res[j][TrajectoryResults.PERF]
 
-            # extract data
-            ite_perf = np.zeros(self.batch_size, dtype=np.float128)
-            for j in range(self.batch_size):
-                ite_perf[j] = res[j][TrajectoryResults.PERF]
-
-            # compute mean
-            self.deterministic_curve[i] = np.mean(ite_perf)
+        # compute mean
+        self.deterministic_curve.append(np.mean(ite_perf))
 
     def save_results(self) -> None:
         """Function saving the results of the training procedure"""
@@ -418,9 +455,14 @@ class PGPE:
             "performance_thetas_per_rho": np.array(self.performance_idx_theta, dtype=float).tolist(),
             "best_theta": np.array(self.best_theta, dtype=float).tolist(),
             "best_rho": np.array(self.best_rho, dtype=float).tolist(),
-            "thetas_history": np.array(self.thetas, dtype=float).tolist(),
+            "thetas_history": np.array(self.thetas_history, dtype=float).tolist(),
             "rho_history": np.array(self.rho_history, dtype=float).tolist(),
-            "deterministic_res": np.array(self.deterministic_curve, dtype=float).tolist()
+            "deterministic_res": np.array(self.deterministic_curve, dtype=float).tolist(),
+            "grad_means": np.array(self.grad_mean_history, dtype=float).tolist(),
+            "grad_stds": np.array(self.grad_std_history, dtype=float).tolist(),
+            "log_nu_means": np.array(self.log_nu_means, dtype=float).tolist(),
+            "log_nu_stds": np.array(self.log_nu_stds, dtype=float).tolist(),
+            "baseline_history": np.array(self.baseline_history, dtype=float).tolist()
         }
 
         # Save the json

@@ -5,6 +5,8 @@ from MagicRL.data_processors import *
 from MagicRL.envs import *
 from MagicRL.policies import *
 
+MAX_WORKERS=20
+
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
     "--server",
@@ -82,6 +84,12 @@ parser.add_argument(
     type=int,
     default=100
 )
+parser.add_argument(
+    "--episodes_per_theta",
+    type=int,
+    default=10
+)
+
 parser.add_argument(
     "--clip",
     help="Whether to clip the action in the environment.",
@@ -165,22 +173,23 @@ if args.alg == "pgpe":
         initial_rho=hp,
         ite=args.ite,
         batch_size=args.batch,
-        episodes_per_theta=1,
+        episodes_per_theta=args.episodes_per_theta,
         env_maker=env_maker,
         env_args=env_args,
         policy_maker=policy_maker,
         policy_args=policy_args,
         data_processor=dp,
         directory=dir_name,
-        verbose=False,
-        natural=False,
-        checkpoint_freq=100,
+        verbose=True,
+        natural=True,
+        checkpoint_freq=1,
+        eval_freq=5,
         lr_strategy=args.lr_strategy,
         learn_std=False,
         std_decay=0,
         std_min=1e-6,
         n_jobs_param=args.n_workers,
-        n_jobs_traj=1
+        n_jobs_traj=min(MAX_WORKERS - args.n_workers, args.episodes_per_theta * args.n_workers)
     )
     alg = PGPE(**alg_parameters)
 else:

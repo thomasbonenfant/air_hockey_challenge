@@ -5,12 +5,17 @@ import numpy as np
 from air_hockey_agent.utils.ATACOM_transformation import AtacomTransformation, build_ATACOM_Controller
 from air_hockey_challenge.utils.kinematics import forward_kinematics, jacobian
 from stable_baselines3 import PPO, SAC
+from stable_baselines3.sac.policies import SACPolicy
 from air_hockey_agent.agents.kalman_filter import PuckTracker
 import os
 
 alg_dict = {
     'sac': SAC,
     'ppo': PPO
+}
+
+pol_dict = {
+    'sac': SACPolicy
 }
 
 
@@ -20,7 +25,8 @@ class AgentSB3(AgentBase):
         #dir_path = os.path.dirname(os.path.abspath(__file__))
 
         #path = os.path.join(dir_path, path)
-        agent_path = os.path.join(path, 'best_model')
+        #agent_path = os.path.join(path, 'best_model')
+        agent_path = os.path.join(path, 'policy')
         self.env_info = env_info
 
         self.acc_ratio = acc_ratio
@@ -30,7 +36,8 @@ class AgentSB3(AgentBase):
 
         del env_args['env']
 
-        self.agent = alg_dict[alg].load(agent_path)
+        #self.agent = alg_dict[alg].load(agent_path)
+        self.agent = pol_dict[alg].load(agent_path)
 
         for key in env_args:
             setattr(self, key, env_args[key])
